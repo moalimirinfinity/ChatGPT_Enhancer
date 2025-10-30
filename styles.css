@@ -17,3 +17,166 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables table {
   direction: ltr;
   unicode-bidi: isolate;
 }
+
+html.chatgpt-theme-original {
+  --chatgpt-theme-bg: inherit;
+  --chatgpt-theme-panel: inherit;
+  --chatgpt-theme-border: rgba(255, 255, 255, 0.08);
+  --chatgpt-theme-text: inherit;
+  --chatgpt-theme-text-muted: inherit;
+  --chatgpt-theme-accent: #3b82f6;
+}
+
+html.chatgpt-theme-midnight {
+  --chatgpt-theme-bg: radial-gradient(circle at top, #0a1124 0%, #050914 100%);
+  --chatgpt-theme-panel: rgba(15, 22, 45, 0.88);
+  --chatgpt-theme-border: rgba(84, 120, 255, 0.35);
+  --chatgpt-theme-text: #dde7ff;
+  --chatgpt-theme-text-muted: #8aa0d6;
+  --chatgpt-theme-accent: #7aa2ff;
+}
+
+html.chatgpt-theme-aurora {
+  --chatgpt-theme-bg: linear-gradient(135deg, #041f29 0%, #1b392f 55%, #321c44 100%);
+  --chatgpt-theme-panel: rgba(7, 33, 43, 0.82);
+  --chatgpt-theme-border: rgba(93, 235, 203, 0.35);
+  --chatgpt-theme-text: #dbf9f1;
+  --chatgpt-theme-text-muted: #8dd2c6;
+  --chatgpt-theme-accent: #5debcb;
+}
+
+html.chatgpt-theme-paper {
+  --chatgpt-theme-bg: linear-gradient(135deg, #f4ede2 0%, #f7f3eb 50%, #ebe2d7 100%);
+  --chatgpt-theme-panel: rgba(255, 255, 255, 0.88);
+  --chatgpt-theme-border: rgba(143, 120, 88, 0.45);
+  --chatgpt-theme-text: #3a2f24;
+  --chatgpt-theme-text-muted: rgba(58, 47, 36, 0.68);
+  --chatgpt-theme-accent: #d48a3d;
+}
+
+html.chatgpt-theme-midnight body,
+html.chatgpt-theme-aurora body,
+html.chatgpt-theme-midnight nav,
+html.chatgpt-theme-aurora nav,
+html.chatgpt-theme-midnight main,
+html.chatgpt-theme-aurora main {
+  background: var(--chatgpt-theme-bg) !important;
+  color: var(--chatgpt-theme-text) !important;
+}
+
+html.chatgpt-theme-paper body,
+html.chatgpt-theme-paper nav,
+html.chatgpt-theme-paper main {
+  background: var(--chatgpt-theme-bg) !important;
+  color: var(--chatgpt-theme-text) !important;
+}
+
+html.chatgpt-theme-midnight main > *,
+html.chatgpt-theme-aurora main > * {
+  background-color: transparent !important;
+}
+
+html.chatgpt-theme-midnight .text-base,
+html.chatgpt-theme-aurora .text-base,
+html.chatgpt-theme-midnight .text-token-text-primary,
+html.chatgpt-theme-aurora .text-token-text-primary {
+  color: var(--chatgpt-theme-text) !important;
+}
+
+html.chatgpt-theme-paper .text-base,
+html.chatgpt-theme-paper .text-token-text-primary {
+  color: var(--chatgpt-theme-text) !important;
+}
+
+html.chatgpt-theme-midnight .text-token-text-secondary,
+html.chatgpt-theme-aurora .text-token-text-secondary {
+  color: var(--chatgpt-theme-text-muted) !important;
+}
+
+html.chatgpt-theme-paper .text-token-text-secondary {
+  color: var(--chatgpt-theme-text-muted) !important;
+}
+
+html.chatgpt-theme-midnight .border-token-border-medium,
+html.chatgpt-theme-aurora .border-token-border-medium,
+html.chatgpt-theme-midnight .border-token-border-subtle,
+html.chatgpt-theme-aurora .border-token-border-subtle {
+  border-color: var(--chatgpt-theme-border) !important;
+}
+
+html.chatgpt-theme-paper .border-token-border-medium,
+html.chatgpt-theme-paper .border-token-border-subtle {
+  border-color: var(--chatgpt-theme-border) !important;
+}
+
+html.chatgpt-theme-midnight .text-token-text-accent,
+html.chatgpt-theme-aurora .text-token-text-accent,
+html.chatgpt-theme-midnight a,
+html.chatgpt-theme-aurora a {
+  color: var(--chatgpt-theme-accent) !important;
+}
+
+html.chatgpt-theme-paper .text-token-text-accent,
+html.chatgpt-theme-paper a {
+  color: var(--chatgpt-theme-accent) !important;
+}
+
+html.chatgpt-theme-midnight button,
+html.chatgpt-theme-aurora button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--chatgpt-theme-text) !important;
+  border-color: var(--chatgpt-theme-border) !important;
+}
+
+html.chatgpt-theme-paper button {
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--chatgpt-theme-text) !important;
+  border-color: rgba(143, 120, 88, 0.4) !important;
+}
+
+html.chatgpt-theme-midnight [class*='bg-token-'],
+html.chatgpt-theme-aurora [class*='bg-token-'] {
+  background-color: var(--chatgpt-theme-panel) !important;
+}
+
+html.chatgpt-theme-paper [class*='bg-token-'] {
+  background-color: var(--chatgpt-theme-panel) !important;
+}
+
+html.chatgpt-theme-midnight [class*='border-token-'],
+html.chatgpt-theme-aurora [class*='border-token-'] {
+  border-color: var(--chatgpt-theme-border) !important;
+}
+
+html.chatgpt-theme-paper [class*='border-token-'] {
+  border-color: var(--chatgpt-theme-border) !important;
+}
+.chatgpt-direction-fix-toast {
+  position: absolute;
+  z-index: 100000;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(36, 41, 74, 0.9);
+  color: #f4f7ff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -100%) scale(0.96);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow:
+    0 12px 24px rgba(8, 12, 32, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.chatgpt-direction-fix-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -100%) scale(1);
+}
+
+.chatgpt-katex-copied {
+  position: relative;
+  transition: filter 0.2s ease;
+  filter: drop-shadow(0 0 12px rgba(90, 173, 255, 0.45));
+}
