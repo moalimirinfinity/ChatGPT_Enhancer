@@ -9,8 +9,10 @@
   <body>
     <main class="panel">
       <header class="panel__header">
-        <div class="panel__badge panel__badge--author">@moalimirinfinity</div>
-        <div class="panel__badge panel__badge--tag">RTL ↔ LTR</div>
+        <div class="panel__badges">
+          <div class="panel__badge panel__badge--author">@moalimirinfinity</div>
+          <div class="panel__badge panel__badge--tag">RTL ↔ LTR</div>
+        </div>
         <h1 class="panel__title">Direction Fix</h1>
         <p class="panel__subtitle">
           Keep KaTeX math and code readable in right-to-left conversations—crafted by
@@ -67,6 +69,63 @@
             <span class="toggle__hint">Prevent table columns from flipping.</span>
           </div>
         </label>
+
+        <label class="toggle toggle--sub">
+          <input type="checkbox" id="toggle-copy" class="toggle__input" />
+          <span class="toggle__track">
+            <span class="toggle__thumb"></span>
+          </span>
+          <div class="toggle__content">
+            <span class="toggle__title">Click to copy equations</span>
+            <span class="toggle__hint">Tap any KaTeX formula to grab its LaTeX.</span>
+          </div>
+        </label>
+      </section>
+
+      <section class="panel__section panel__section--theme">
+        <h2 class="panel__section-title">Theme</h2>
+        <div class="theme-picker" role="radiogroup" aria-label="ChatGPT theme">
+          <button
+            class="theme-card"
+            type="button"
+            data-theme="original"
+            aria-label="Original theme"
+            aria-pressed="false"
+          >
+            <span class="theme-card__swatch theme-card__swatch--original"></span>
+            <span class="theme-card__label">Original</span>
+          </button>
+          <button
+            class="theme-card"
+            type="button"
+            data-theme="midnight"
+            aria-label="Midnight theme"
+            aria-pressed="false"
+          >
+            <span class="theme-card__swatch theme-card__swatch--midnight"></span>
+            <span class="theme-card__label">Midnight</span>
+          </button>
+          <button
+            class="theme-card"
+            type="button"
+            data-theme="aurora"
+            aria-label="Aurora theme"
+            aria-pressed="false"
+          >
+            <span class="theme-card__swatch theme-card__swatch--aurora"></span>
+            <span class="theme-card__label">Aurora</span>
+          </button>
+          <button
+            class="theme-card"
+            type="button"
+            data-theme="paper"
+            aria-label="Paper theme"
+            aria-pressed="false"
+          >
+            <span class="theme-card__swatch theme-card__swatch--paper"></span>
+            <span class="theme-card__label">Paper</span>
+          </button>
+        </div>
       </section>
 
       <section class="panel__section panel__section--donate">
