@@ -9,14 +9,9 @@
   <body>
     <main class="panel">
       <header class="panel__header">
-        <div class="panel__badges">
-          <div class="panel__badge panel__badge--author">@moalimirinfinity</div>
-          <div class="panel__badge panel__badge--tag">RTL ↔ LTR</div>
-        </div>
         <h1 class="panel__title">Direction Fix</h1>
         <p class="panel__subtitle">
-          Keep KaTeX math and code readable in right-to-left conversations—crafted by
-          <span class="panel__highlight">moalimirinfinity</span>.
+          Keep KaTeX math and code readable in right-to-left conversations.
         </p>
       </header>
 
@@ -35,56 +30,77 @@
         </label>
       </section>
 
-      <section class="panel__section panel__section--compact">
-        <h2 class="panel__section-title">Choose what to stabilize</h2>
-        <label class="toggle toggle--sub">
-          <input type="checkbox" id="toggle-katex" class="toggle__input" />
-          <span class="toggle__track">
-            <span class="toggle__thumb"></span>
-          </span>
-          <div class="toggle__content">
-            <span class="toggle__title">KaTeX formulas</span>
-            <span class="toggle__hint">Lock math layout left-to-right.</span>
-          </div>
-        </label>
+      <section class="panel__section panel__section--accordion">
+        <button
+          class="accordion__header"
+          type="button"
+          aria-controls="stabilize-section"
+          aria-expanded="true"
+          data-target="stabilize-section"
+        >
+          <span class="panel__section-title">Choose what to stabilize</span>
+          <span class="accordion__icon" aria-hidden="true">></span>
+        </button>
+        <div id="stabilize-section" class="accordion__content is-open">
+          <label class="toggle toggle--sub">
+            <input type="checkbox" id="toggle-katex" class="toggle__input" />
+            <span class="toggle__track">
+              <span class="toggle__thumb"></span>
+            </span>
+            <div class="toggle__content">
+              <span class="toggle__title">KaTeX formulas</span>
+              <span class="toggle__hint">Lock math layout left-to-right.</span>
+            </div>
+          </label>
 
-        <label class="toggle toggle--sub">
-          <input type="checkbox" id="toggle-code" class="toggle__input" />
-          <span class="toggle__track">
-            <span class="toggle__thumb"></span>
-          </span>
-          <div class="toggle__content">
-            <span class="toggle__title">Code blocks</span>
-            <span class="toggle__hint">Keep snippets readable and aligned.</span>
-          </div>
-        </label>
+          <label class="toggle toggle--sub">
+            <input type="checkbox" id="toggle-code" class="toggle__input" />
+            <span class="toggle__track">
+              <span class="toggle__thumb"></span>
+            </span>
+            <div class="toggle__content">
+              <span class="toggle__title">Code blocks</span>
+              <span class="toggle__hint">Keep snippets readable and aligned.</span>
+            </div>
+          </label>
 
-        <label class="toggle toggle--sub">
-          <input type="checkbox" id="toggle-tables" class="toggle__input" />
-          <span class="toggle__track">
-            <span class="toggle__thumb"></span>
-          </span>
-          <div class="toggle__content">
-            <span class="toggle__title">Tables</span>
-            <span class="toggle__hint">Prevent table columns from flipping.</span>
-          </div>
-        </label>
+          <label class="toggle toggle--sub">
+            <input type="checkbox" id="toggle-tables" class="toggle__input" />
+            <span class="toggle__track">
+              <span class="toggle__thumb"></span>
+            </span>
+            <div class="toggle__content">
+              <span class="toggle__title">Tables</span>
+              <span class="toggle__hint">Prevent table columns from flipping.</span>
+            </div>
+          </label>
 
-        <label class="toggle toggle--sub">
-          <input type="checkbox" id="toggle-copy" class="toggle__input" />
-          <span class="toggle__track">
-            <span class="toggle__thumb"></span>
-          </span>
-          <div class="toggle__content">
-            <span class="toggle__title">Click to copy equations</span>
-            <span class="toggle__hint">Tap any KaTeX formula to grab its LaTeX.</span>
-          </div>
-        </label>
+          <label class="toggle toggle--sub">
+            <input type="checkbox" id="toggle-copy" class="toggle__input" />
+            <span class="toggle__track">
+              <span class="toggle__thumb"></span>
+            </span>
+            <div class="toggle__content">
+              <span class="toggle__title">Click to copy equations</span>
+              <span class="toggle__hint">Tap any KaTeX formula to grab its LaTeX.</span>
+            </div>
+          </label>
+        </div>
       </section>
 
-      <section class="panel__section panel__section--theme">
-        <h2 class="panel__section-title">Theme</h2>
-        <div class="theme-picker" role="radiogroup" aria-label="ChatGPT theme">
+      <section class="panel__section panel__section--accordion">
+        <button
+          class="accordion__header"
+          type="button"
+          aria-controls="theme-section"
+          aria-expanded="true"
+          data-target="theme-section"
+        >
+          <span class="panel__section-title">Theme</span>
+          <span class="accordion__icon" aria-hidden="true">></span>
+        </button>
+        <div id="theme-section" class="accordion__content is-open">
+          <div class="theme-picker" role="radiogroup" aria-label="ChatGPT theme">
           <button
             class="theme-card"
             type="button"
@@ -126,28 +142,16 @@
             <span class="theme-card__label">Paper</span>
           </button>
         </div>
-      </section>
-
-      <section class="panel__section panel__section--donate">
-        <div class="donate-card">
-          <div class="donate-card__copy">
-            <h2 class="donate-card__title">Support the project</h2>
-            <p class="donate-card__subtitle">
-              If this extension helps, you can chip in with a Rial donation through ZarinPal (زرین‌پال).
-            </p>
-          </div>
-          <button id="donate-btn" class="donate-card__button" type="button">
-            Donate (Rial)
-          </button>
         </div>
       </section>
 
       <footer class="panel__footer">
-        <span id="status-chip" class="status-chip status-chip--active">Active</span>
+        <button id="donate-btn" class="support-chip" type="button">Support</button>
         <button id="refresh-btn" class="refresh-btn" type="button">
           Refresh ChatGPT
         </button>
       </footer>
+      <p class="panel__author">Created by @moalimirinfinity</p>
     </main>
     <script src="popup.js"></script>
   </body>

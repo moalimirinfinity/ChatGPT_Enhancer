@@ -1,62 +1,60 @@
 :root {
   color-scheme: light;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --popup-bg-base: #06071a;
+  --panel-bg: linear-gradient(145deg, rgba(18, 23, 52, 0.96), rgba(12, 16, 38, 0.98));
+  --panel-border: rgba(118, 140, 255, 0.22);
+  --surface-1: #111633;
+  --surface-2: #151c3f;
+  --surface-hover: #1d2550;
+  --surface-outline: rgba(132, 152, 255, 0.18);
+  --surface-outline-strong: rgba(132, 152, 255, 0.28);
+  --text-muted: rgba(245, 246, 251, 0.72);
+  --text-subtle: rgba(245, 246, 251, 0.55);
+}
+
+html {
+  height: 100%;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  padding: 18px;
-  background: radial-gradient(circle at top left, #5938ff 0%, #2a2250 45%, #111222 100%);
+  min-height: 100vh;
+  padding: 32px 20px;
   color: #f5f6fb;
+  background:
+      radial-gradient(circle at 18% 18%, rgba(87, 103, 255, 0.35), transparent 55%),
+      radial-gradient(circle at 82% 22%, rgba(76, 192, 255, 0.28), transparent 50%),
+      radial-gradient(circle at 50% 88%, rgba(255, 182, 120, 0.16), transparent 60%),
+      linear-gradient(135deg, #040413, #0b0c24 45%, #13143a 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: rgba(15, 19, 34, 0.78);
+  background: var(--panel-bg);
   border-radius: 18px;
   padding: 20px;
   box-shadow:
-    0 18px 38px rgba(19, 11, 53, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 24px 48px rgba(9, 10, 27, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(18px);
+  border: 1px solid var(--panel-border);
+  width: min(360px, 100%);
+  margin-top: 32px;
+  position: relative;
+  z-index: 1;
 }
 
 .panel__header {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.panel__badges {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.panel__badge--author {
-  background: rgba(255, 255, 255, 0.18);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.panel__badge--tag {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(245, 246, 251, 0.85);
-}
-
-.panel__badge {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .panel__title {
@@ -69,12 +67,7 @@ body {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
-  color: rgba(245, 246, 251, 0.75);
-}
-
-.panel__highlight {
-  color: #9fd7ff;
-  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .panel__section {
@@ -83,15 +76,15 @@ body {
   gap: 12px;
   border-radius: 14px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-1);
+  border: 1px solid var(--surface-outline);
 }
 
-.panel__section--compact {
-  gap: 10px;
-}
-
-.panel__section--theme {
+.panel__section--accordion {
   gap: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
 }
 
 .panel__section-title {
@@ -100,13 +93,14 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(245, 246, 251, 0.6);
+  color: rgba(199, 210, 255, 0.75);
 }
 
 .theme-picker {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .theme-card {
@@ -164,7 +158,13 @@ body {
 }
 
 .theme-card__swatch--original {
-  background: linear-gradient(135deg, #f1f4ff 0%, #dce4ff 100%);
+  background: linear-gradient(135deg, #eef2ff 0%, #d0d8ff 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-card__swatch--original {
+    background: linear-gradient(135deg, #1f2641 0%, #303a63 100%);
+  }
 }
 
 .theme-card__swatch--midnight {
@@ -187,72 +187,6 @@ body {
   color: rgba(245, 246, 251, 0.75);
 }
 
-.panel__section--donate {
-  gap: 16px;
-}
-
-.donate-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(47, 57, 111, 0.55), rgba(26, 34, 68, 0.75));
-  box-shadow:
-    0 14px 32px rgba(14, 16, 35, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.donate-card__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.donate-card__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #f5f6fb;
-}
-
-.donate-card__subtitle {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: rgba(245, 246, 251, 0.7);
-}
-
-.donate-card__button {
-  align-self: flex-start;
-  border: none;
-  border-radius: 12px;
-  padding: 9px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  color: #111222;
-  background: linear-gradient(135deg, #ffd86f 0%, #ffb347 100%);
-  box-shadow:
-    0 6px 14px rgba(18, 13, 5, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.donate-card__button:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 10px 18px rgba(18, 13, 5, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
-}
-
-.donate-card__button:active {
-  transform: translateY(0);
-  box-shadow:
-    0 4px 8px rgba(18, 13, 5, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
-}
-
 .toggle {
   position: relative;
   display: grid;
@@ -261,12 +195,12 @@ body {
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(7, 9, 16, 0.55);
+  background: var(--surface-2);
   transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
 }
 
 .toggle--sub {
-  background: rgba(7, 9, 16, 0.35);
+  background: var(--surface-1);
 }
 
 .toggle--disabled {
@@ -275,7 +209,7 @@ body {
 }
 
 .toggle:hover {
-  background: rgba(31, 36, 62, 0.7);
+  background: var(--surface-hover);
   transform: translateY(-1px);
 }
 
@@ -353,28 +287,45 @@ body {
   gap: 12px;
 }
 
-.status-chip {
-  padding: 6px 12px;
+.panel__author {
+  margin: 0;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  text-align: center;
+  width: 100%;
+}
+
+.support-chip {
+  border: none;
   border-radius: 999px;
+  padding: 6px 14px;
   font-size: 12px;
-  letter-spacing: 0.04em;
-  background: rgba(255, 255, 255, 0.16);
-  color: #f5f6fb;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  cursor: pointer;
+  color: #111222;
+  background: linear-gradient(135deg, #ffd86f 0%, #ffb347 100%);
+  box-shadow:
+    0 6px 14px rgba(18, 13, 5, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.status-chip--active {
-  background: rgba(89, 184, 255, 0.2);
-  color: #b7deff;
+.support-chip:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 18px rgba(18, 13, 5, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
-.status-chip--inactive {
-  background: rgba(255, 102, 99, 0.18);
-  color: #ffc7c3;
-}
-
-.status-chip--custom {
-  background: rgba(255, 214, 126, 0.22);
-  color: #ffe4bb;
+.support-chip:active {
+  transform: translateY(0);
+  box-shadow:
+    0 4px 8px rgba(18, 13, 5, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .refresh-btn {
@@ -412,4 +363,65 @@ body {
   opacity: 0.6;
   box-shadow: none;
   transform: none;
+}
+
+.accordion__header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: none;
+  background: var(--surface-1);
+  border-radius: 14px;
+  cursor: pointer;
+  color: inherit;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid var(--surface-outline);
+}
+
+.accordion__header:hover {
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(12, 14, 27, 0.2);
+  border-color: var(--surface-outline-strong);
+}
+
+.accordion__icon {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+  transform: rotate(90deg);
+}
+
+.accordion__header[aria-expanded='false'] .accordion__icon {
+  transform: rotate(0deg);
+}
+
+.accordion__content {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px 14px;
+  margin: 4px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-outline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.accordion__content.is-open {
+  display: flex;
+}
+
+.accordion__content .toggle {
+  background: var(--surface-1);
+}
+
+.accordion__content .toggle--sub {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.accordion__content .toggle:hover {
+  background: var(--surface-hover);
 }

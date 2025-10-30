@@ -12,6 +12,15 @@ const root = document.documentElement;
 let isApplyingClasses = false;
 let classResetTimer = null;
 let pendingClassSync = false;
+let preferredScheme = null;
+const schemeMediaQuery =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+
+if (schemeMediaQuery) {
+  preferredScheme = schemeMediaQuery.matches ? 'dark' : 'light';
+}
 
 const SELECTORS = {
   katex: '.katex, .katex-display',
@@ -29,12 +38,37 @@ const THEME_CLASSES = [
   'chatgpt-theme-original',
   'chatgpt-theme-midnight',
   'chatgpt-theme-aurora',
-  'chatgpt-theme-paper'
+  'chatgpt-theme-paper',
+  'chatgpt-theme-original-dark',
+  'chatgpt-theme-original-light'
 ];
 
 function resolveThemeClass(theme) {
+  if (theme === 'original') {
+    const scheme = getPreferredColorScheme();
+    return scheme === 'dark' ? 'chatgpt-theme-original-dark' : 'chatgpt-theme-original-light';
+  }
+
   const candidate = `chatgpt-theme-${theme}`;
-  return THEME_CLASSES.includes(candidate) ? candidate : 'chatgpt-theme-original';
+  return THEME_CLASSES.includes(candidate) ? candidate : 'chatgpt-theme-original-light';
+}
+
+function getPreferredColorScheme() {
+  if (preferredScheme) {
+    return preferredScheme;
+  }
+
+  if (schemeMediaQuery) {
+    preferredScheme = schemeMediaQuery.matches ? 'dark' : 'light';
+    return preferredScheme;
+  }
+
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    preferredScheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } else {
+    preferredScheme = 'light';
+  }
+  return preferredScheme;
 }
 
 function toggleClass(name, shouldEnable) {
@@ -102,8 +136,15 @@ function applyTheme(theme) {
   THEME_CLASSES.forEach((className) => {
     root.classList.remove(className);
   });
+  root.classList.remove('chatgpt-theme-original');
 
-  root.classList.add(resolveThemeClass(theme));
+  const themeClass = resolveThemeClass(theme);
+  root.classList.add(themeClass);
+  if (theme === 'original') {
+    root.classList.add('chatgpt-theme-original');
+  } else {
+    root.classList.remove('chatgpt-theme-original');
+  }
 }
 
 function classesInSync(settings) {
@@ -127,6 +168,14 @@ function classesInSync(settings) {
 
   const desiredThemeClass = resolveThemeClass(settings.theme);
   if (!root.classList.contains(desiredThemeClass)) {
+    return false;
+  }
+
+  if (settings.theme === 'original') {
+    if (!root.classList.contains('chatgpt-theme-original')) {
+      return false;
+    }
+  } else if (root.classList.contains('chatgpt-theme-original')) {
     return false;
   }
 
@@ -198,6 +247,21 @@ applySettings(currentSettings);
 chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
   mergeSettings(stored);
 });
+
+if (schemeMediaQuery) {
+  const handleSchemeChange = (event) => {
+    preferredScheme = event.matches ? 'dark' : 'light';
+    if (currentSettings.theme === 'original') {
+      applySettings(currentSettings);
+    }
+  };
+
+  if (typeof schemeMediaQuery.addEventListener === 'function') {
+    schemeMediaQuery.addEventListener('change', handleSchemeChange);
+  } else if (typeof schemeMediaQuery.addListener === 'function') {
+    schemeMediaQuery.addListener(handleSchemeChange);
+  }
+}
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'sync') {

@@ -14,7 +14,7 @@ const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
 const DONATION_URL = 'https://zarinp.al/moalimirinfinity';
-const DONATE_LABEL_DEFAULT = 'Donate (Rial)';
+const DONATE_LABEL_DEFAULT = 'Support';
 const DONATE_LABEL_BUSY = 'Opening…';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,10 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fixCode = document.getElementById('toggle-code');
   controls.fixTables = document.getElementById('toggle-tables');
   controls.copyKatex = document.getElementById('toggle-copy');
-  controls.statusChip = document.getElementById('status-chip');
   controls.refreshBtn = document.getElementById('refresh-btn');
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
+  controls.accordionHeaders = Array.from(document.querySelectorAll('.accordion__header'));
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -57,6 +57,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setActiveTheme(theme);
       updateSetting('theme', theme);
+    });
+  });
+
+  controls.accordionHeaders.forEach((header) => {
+    header.addEventListener('click', () => {
+      const targetId = header.dataset.target;
+      if (!targetId) {
+        return;
+      }
+      const content = document.getElementById(targetId);
+      if (!content) {
+        return;
+      }
+      const expanded = header.getAttribute('aria-expanded') === 'true';
+      header.setAttribute('aria-expanded', String(!expanded));
+      content.classList.toggle('is-open', !expanded);
     });
   });
 
@@ -101,32 +117,11 @@ function applySettingsToUI(settings) {
     }
   });
 
-  updateStatusChip(settings);
   controls.refreshBtn.disabled = false;
   controls.refreshBtn.textContent = REFRESH_LABEL_DEFAULT;
   controls.donateBtn.disabled = false;
   controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
   setActiveTheme(settings.theme);
-}
-
-function updateStatusChip(settings) {
-  const chip = controls.statusChip;
-  chip.classList.remove('status-chip--active', 'status-chip--inactive', 'status-chip--custom');
-
-  if (!settings.enableFix) {
-    chip.textContent = 'Paused';
-    chip.classList.add('status-chip--inactive');
-    return;
-  }
-
-  const allEnabled = settings.fixKatex && settings.fixCode && settings.fixTables;
-  if (allEnabled) {
-    chip.textContent = 'Active';
-    chip.classList.add('status-chip--active');
-  } else {
-    chip.textContent = 'Custom';
-    chip.classList.add('status-chip--custom');
-  }
 }
 
 function handleRefresh() {
