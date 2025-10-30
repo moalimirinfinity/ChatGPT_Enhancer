@@ -148,6 +148,19 @@ body {
   border-color: rgba(108, 163, 255, 0.8);
 }
 
+.theme-card.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(7, 9, 16, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.theme-card.is-disabled::after {
+  border-color: transparent;
+}
+
 .theme-card__swatch {
   width: 44px;
   height: 44px;
@@ -172,7 +185,7 @@ body {
 }
 
 .theme-card__swatch--aurora {
-  background: linear-gradient(135deg, #0b5345 0%, #47c7a4 100%);
+  background: linear-gradient(135deg, #094336 0%, #0f7b50 55%, #16a96a 100%);
 }
 
 .theme-card__swatch--paper {
@@ -261,6 +274,12 @@ body {
 
 .toggle__input:disabled + .toggle__track .toggle__thumb {
   opacity: 0.55;
+}
+
+.toggle__input:focus-visible + .toggle__track {
+  box-shadow:
+    0 0 0 3px rgba(118, 140, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .toggle__content {
@@ -424,4 +443,12 @@ body {
 
 .accordion__content .toggle:hover {
   background: var(--surface-hover);
+}
+
+.theme-card:focus-visible,
+.accordion__header:focus-visible,
+.support-chip:focus-visible,
+.refresh-btn:focus-visible {
+  outline: 2px solid rgba(118, 140, 255, 0.6);
+  outline-offset: 2px;
 }

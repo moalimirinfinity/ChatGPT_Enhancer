@@ -12,15 +12,7 @@ const root = document.documentElement;
 let isApplyingClasses = false;
 let classResetTimer = null;
 let pendingClassSync = false;
-let preferredScheme = null;
-const schemeMediaQuery =
-  typeof window !== 'undefined' && window.matchMedia
-    ? window.matchMedia('(prefers-color-scheme: dark)')
-    : null;
-
-if (schemeMediaQuery) {
-  preferredScheme = schemeMediaQuery.matches ? 'dark' : 'light';
-}
+let isCopyListenerActive = false;
 
 const SELECTORS = {
   katex: '.katex, .katex-display',
@@ -34,41 +26,26 @@ const RESET_VALUES = {
   textAlign: 'left'
 };
 
-const THEME_CLASSES = [
-  'chatgpt-theme-original',
+const CUSTOM_THEME_CLASSES = [
   'chatgpt-theme-midnight',
   'chatgpt-theme-aurora',
-  'chatgpt-theme-paper',
+  'chatgpt-theme-paper'
+];
+
+const LEGACY_THEME_CLASSES = [
+  'chatgpt-theme-original',
   'chatgpt-theme-original-dark',
   'chatgpt-theme-original-light'
 ];
+let appliedThemeClass = null;
 
 function resolveThemeClass(theme) {
-  if (theme === 'original') {
-    const scheme = getPreferredColorScheme();
-    return scheme === 'dark' ? 'chatgpt-theme-original-dark' : 'chatgpt-theme-original-light';
+  if (!theme || theme === 'original') {
+    return null;
   }
 
   const candidate = `chatgpt-theme-${theme}`;
-  return THEME_CLASSES.includes(candidate) ? candidate : 'chatgpt-theme-original-light';
-}
-
-function getPreferredColorScheme() {
-  if (preferredScheme) {
-    return preferredScheme;
-  }
-
-  if (schemeMediaQuery) {
-    preferredScheme = schemeMediaQuery.matches ? 'dark' : 'light';
-    return preferredScheme;
-  }
-
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    preferredScheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  } else {
-    preferredScheme = 'light';
-  }
-  return preferredScheme;
+  return CUSTOM_THEME_CLASSES.includes(candidate) ? candidate : null;
 }
 
 function toggleClass(name, shouldEnable) {
@@ -128,23 +105,37 @@ function applySettings(settings) {
     settings.enableFix && settings.fixTables
   );
 
-  applyTheme(settings.theme);
+  if (settings.enableFix) {
+    applyTheme(settings.theme);
+  } else {
+    removeTheme();
+  }
   scheduleClassResetFlag();
 }
 
 function applyTheme(theme) {
-  THEME_CLASSES.forEach((className) => {
+  if (!root) {
+    return;
+  }
+  CUSTOM_THEME_CLASSES.forEach((className) => {
     root.classList.remove(className);
   });
-  root.classList.remove('chatgpt-theme-original');
-
+  appliedThemeClass = null;
+  LEGACY_THEME_CLASSES.forEach((className) => {
+    root.classList.remove(className);
+  });
   const themeClass = resolveThemeClass(theme);
-  root.classList.add(themeClass);
-  if (theme === 'original') {
-    root.classList.add('chatgpt-theme-original');
-  } else {
-    root.classList.remove('chatgpt-theme-original');
+  if (themeClass) {
+    root.classList.add(themeClass);
+    appliedThemeClass = themeClass;
   }
+}
+
+function removeTheme() {
+  if (!root) {
+    return;
+  }
+  applyTheme(null);
 }
 
 function classesInSync(settings) {
@@ -166,21 +157,25 @@ function classesInSync(settings) {
     }
   }
 
-  const desiredThemeClass = resolveThemeClass(settings.theme);
-  if (!root.classList.contains(desiredThemeClass)) {
-    return false;
-  }
-
-  if (settings.theme === 'original') {
-    if (!root.classList.contains('chatgpt-theme-original')) {
+  const desiredThemeClass = settings.enableFix ? resolveThemeClass(settings.theme) : null;
+  if (!desiredThemeClass) {
+    for (const themeClass of CUSTOM_THEME_CLASSES) {
+      if (root.classList.contains(themeClass)) {
+        return false;
+      }
+    }
+  } else {
+    if (!root.classList.contains(desiredThemeClass)) {
       return false;
     }
-  } else if (root.classList.contains('chatgpt-theme-original')) {
-    return false;
+    for (const themeClass of CUSTOM_THEME_CLASSES) {
+      if (themeClass !== desiredThemeClass && root.classList.contains(themeClass)) {
+        return false;
+      }
+    }
   }
-
-  for (const themeClass of THEME_CLASSES) {
-    if (themeClass !== desiredThemeClass && root.classList.contains(themeClass)) {
+  for (const legacyClass of LEGACY_THEME_CLASSES) {
+    if (root.classList.contains(legacyClass)) {
       return false;
     }
   }
@@ -240,28 +235,15 @@ function mergeSettings(partial) {
   applySettings(currentSettings);
   const cleanupScope = document.querySelector('main') || document;
   clearLegacyInlineStyles(cleanupScope);
+  syncEquationCopyListener();
 }
 
 applySettings(currentSettings);
+syncEquationCopyListener();
 
 chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
   mergeSettings(stored);
 });
-
-if (schemeMediaQuery) {
-  const handleSchemeChange = (event) => {
-    preferredScheme = event.matches ? 'dark' : 'light';
-    if (currentSettings.theme === 'original') {
-      applySettings(currentSettings);
-    }
-  };
-
-  if (typeof schemeMediaQuery.addEventListener === 'function') {
-    schemeMediaQuery.addEventListener('change', handleSchemeChange);
-  } else if (typeof schemeMediaQuery.addListener === 'function') {
-    schemeMediaQuery.addListener(handleSchemeChange);
-  }
-}
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'sync') {
@@ -405,7 +387,20 @@ async function handleEquationClick(event) {
   }
 }
 
-document.addEventListener('click', handleEquationClick, true);
+function syncEquationCopyListener() {
+  if (!document) {
+    return;
+  }
+
+  const shouldListen = currentSettings.enableFix && currentSettings.copyKatex;
+  if (shouldListen && !isCopyListenerActive) {
+    document.addEventListener('click', handleEquationClick, true);
+    isCopyListenerActive = true;
+  } else if (!shouldListen && isCopyListenerActive) {
+    document.removeEventListener('click', handleEquationClick, true);
+    isCopyListenerActive = false;
+  }
+}
 
 const rootObserver = new MutationObserver((mutations) => {
   if (isApplyingClasses) {

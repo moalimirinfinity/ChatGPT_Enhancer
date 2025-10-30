@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.themeCards.forEach((card) => {
     card.addEventListener('click', () => {
       const { theme } = card.dataset;
+      if (!currentSettings.enableFix) {
+        return;
+      }
       if (!theme || theme === currentSettings.theme) {
         return;
       }
@@ -122,6 +125,7 @@ function applySettingsToUI(settings) {
   controls.donateBtn.disabled = false;
   controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
   setActiveTheme(settings.theme);
+  setThemeCardsDisabled(dependentsDisabled);
 }
 
 function handleRefresh() {
@@ -172,6 +176,21 @@ function setActiveTheme(theme) {
     const isActive = card.dataset.theme === theme;
     card.classList.toggle('is-active', isActive);
     card.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function setThemeCardsDisabled(disabled) {
+  if (!controls.themeCards) {
+    return;
+  }
+
+  controls.themeCards.forEach((card) => {
+    card.classList.toggle('is-disabled', disabled);
+    if (disabled) {
+      card.setAttribute('aria-disabled', 'true');
+    } else {
+      card.removeAttribute('aria-disabled');
+    }
   });
 }
 

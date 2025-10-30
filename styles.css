@@ -84,21 +84,21 @@ html.chatgpt-theme-midnight {
 }
 
 html.chatgpt-theme-aurora {
-  --chatgpt-theme-bg: linear-gradient(135deg, #041f29 0%, #1b392f 55%, #321c44 100%);
-  --chatgpt-theme-panel: rgba(7, 33, 43, 0.82);
-  --chatgpt-theme-border: rgba(93, 235, 203, 0.35);
-  --chatgpt-theme-text: #dbf9f1;
-  --chatgpt-theme-text-muted: #8dd2c6;
-  --chatgpt-theme-accent: #5debcb;
+  --chatgpt-theme-bg: linear-gradient(135deg, #02241b 0%, #074f3a 55%, #0e7a4f 100%);
+  --chatgpt-theme-panel: rgba(5, 49, 36, 0.85);
+  --chatgpt-theme-border: rgba(94, 249, 196, 0.35);
+  --chatgpt-theme-text: #d7fff1;
+  --chatgpt-theme-text-muted: rgba(193, 248, 221, 0.72);
+  --chatgpt-theme-accent: #78f5c7;
 }
 
 html.chatgpt-theme-paper {
-  --chatgpt-theme-bg: linear-gradient(135deg, #f4ede2 0%, #f7f3eb 50%, #ebe2d7 100%);
-  --chatgpt-theme-panel: rgba(255, 255, 255, 0.88);
-  --chatgpt-theme-border: rgba(143, 120, 88, 0.45);
-  --chatgpt-theme-text: #3a2f24;
-  --chatgpt-theme-text-muted: rgba(58, 47, 36, 0.68);
-  --chatgpt-theme-accent: #d48a3d;
+  --chatgpt-theme-bg: linear-gradient(150deg, #f9f5ef 0%, #f2e7d8 48%, #efe0cf 100%);
+  --chatgpt-theme-panel: rgba(255, 255, 255, 0.94);
+  --chatgpt-theme-border: rgba(181, 152, 118, 0.34);
+  --chatgpt-theme-text: #2f2419;
+  --chatgpt-theme-text-muted: rgba(47, 36, 25, 0.58);
+  --chatgpt-theme-accent: #c87a2d;
 }
 
 html.chatgpt-theme-midnight body,
