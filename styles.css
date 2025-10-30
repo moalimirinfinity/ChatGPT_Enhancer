@@ -84,8 +84,8 @@ html.chatgpt-theme-midnight {
 }
 
 html.chatgpt-theme-aurora {
-  --chatgpt-theme-bg: linear-gradient(135deg, #02241b 0%, #074f3a 55%, #0e7a4f 100%);
-  --chatgpt-theme-panel: rgba(5, 49, 36, 0.85);
+  --chatgpt-theme-bg: linear-gradient(135deg, #011912 0%, #043c2d 55%, #0a5f3b 100%);
+  --chatgpt-theme-panel: rgba(4, 38, 27, 0.85);
   --chatgpt-theme-border: rgba(94, 249, 196, 0.35);
   --chatgpt-theme-text: #d7fff1;
   --chatgpt-theme-text-muted: rgba(193, 248, 221, 0.72);
@@ -101,21 +101,51 @@ html.chatgpt-theme-paper {
   --chatgpt-theme-accent: #c87a2d;
 }
 
-html.chatgpt-theme-midnight body,
-html.chatgpt-theme-aurora body,
-html.chatgpt-theme-midnight nav,
-html.chatgpt-theme-aurora nav,
-html.chatgpt-theme-midnight main,
-html.chatgpt-theme-aurora main {
+html.chatgpt-theme-midnight,
+html.chatgpt-theme-aurora,
+html.chatgpt-theme-paper {
   background: var(--chatgpt-theme-bg) !important;
   color: var(--chatgpt-theme-text) !important;
 }
 
+html.chatgpt-theme-midnight body,
+html.chatgpt-theme-aurora body,
 html.chatgpt-theme-paper body,
+html.chatgpt-theme-midnight #__next,
+html.chatgpt-theme-aurora #__next,
+html.chatgpt-theme-paper #__next,
+html.chatgpt-theme-midnight #__next > div,
+html.chatgpt-theme-aurora #__next > div,
+html.chatgpt-theme-paper #__next > div,
+html.chatgpt-theme-midnight #__next > div > div,
+html.chatgpt-theme-aurora #__next > div > div,
+html.chatgpt-theme-paper #__next > div > div,
+html.chatgpt-theme-midnight nav,
+html.chatgpt-theme-aurora nav,
 html.chatgpt-theme-paper nav,
-html.chatgpt-theme-paper main {
+html.chatgpt-theme-midnight main,
+html.chatgpt-theme-aurora main,
+html.chatgpt-theme-paper main,
+html.chatgpt-theme-midnight aside,
+html.chatgpt-theme-aurora aside,
+html.chatgpt-theme-paper aside,
+html.chatgpt-theme-midnight footer,
+html.chatgpt-theme-aurora footer,
+html.chatgpt-theme-paper footer {
   background: var(--chatgpt-theme-bg) !important;
   color: var(--chatgpt-theme-text) !important;
+}
+
+html.chatgpt-theme-midnight aside,
+html.chatgpt-theme-aurora aside,
+html.chatgpt-theme-paper aside,
+html.chatgpt-theme-midnight nav,
+html.chatgpt-theme-aurora nav,
+html.chatgpt-theme-paper nav,
+html.chatgpt-theme-midnight footer,
+html.chatgpt-theme-aurora footer,
+html.chatgpt-theme-paper footer {
+  background: var(--chatgpt-theme-panel) !important;
 }
 
 html.chatgpt-theme-midnight main > *,
