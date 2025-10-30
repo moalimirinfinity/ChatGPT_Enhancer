@@ -11,6 +11,7 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 const root = document.documentElement;
 let isApplyingClasses = false;
 let classResetTimer = null;
+let pendingClassSync = false;
 
 const SELECTORS = {
   katex: '.katex, .katex-display',
@@ -51,6 +52,26 @@ function scheduleClassResetFlag() {
     isApplyingClasses = false;
     classResetTimer = null;
   }, 0);
+}
+
+function scheduleClassSync() {
+  if (pendingClassSync) {
+    return;
+  }
+
+  pendingClassSync = true;
+  const invoke = () => {
+    pendingClassSync = false;
+    if (!classesInSync(currentSettings)) {
+      applySettings(currentSettings);
+    }
+  };
+
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(invoke);
+  } else {
+    setTimeout(invoke, 16);
+  }
 }
 
 function applySettings(settings) {
@@ -119,6 +140,10 @@ function classesInSync(settings) {
 }
 
 function clearLegacyInlineStyles(scope) {
+  if (!scope) {
+    return;
+  }
+
   scope.querySelectorAll(SELECTORS.katex).forEach((element) => {
     if (!element.style) {
       return;
@@ -164,7 +189,8 @@ function clearLegacyInlineStyles(scope) {
 function mergeSettings(partial) {
   currentSettings = { ...currentSettings, ...partial };
   applySettings(currentSettings);
-  clearLegacyInlineStyles(document);
+  const cleanupScope = document.querySelector('main') || document;
+  clearLegacyInlineStyles(cleanupScope);
 }
 
 applySettings(currentSettings);
@@ -187,11 +213,16 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 function extractLatex(element) {
-  const annotation = element.querySelector(
+  const preferred = element.querySelector(
     '.katex-mathml annotation[encoding="application/x-tex"]'
   );
-  if (annotation && annotation.textContent) {
-    return annotation.textContent.trim();
+  if (preferred && preferred.textContent) {
+    return preferred.textContent.trim();
+  }
+
+  const anyAnnotation = element.querySelector('.katex-mathml annotation');
+  if (anyAnnotation && anyAnnotation.textContent) {
+    return anyAnnotation.textContent.trim();
   }
 
   return element.textContent ? element.textContent.trim() : '';
@@ -270,6 +301,25 @@ async function handleEquationClick(event) {
     return;
   }
 
+  if (event.defaultPrevented) {
+    return;
+  }
+
+  if (
+    (typeof event.button === 'number' && event.button !== 0) ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  if (selection && selection.toString().trim().length > 0) {
+    return;
+  }
+
   const target = event.target instanceof Element ? event.target : null;
   if (!target) {
     return;
@@ -285,7 +335,6 @@ async function handleEquationClick(event) {
     await copyTextToClipboard(latex);
     markEquationCopied(katexElement);
     showToast('Equation copied', katexElement.getBoundingClientRect());
-    event.preventDefault();
   } catch (error) {
     console.error('Failed to copy equation', error);
     showToast('Unable to copy equation');
@@ -304,7 +353,7 @@ const rootObserver = new MutationObserver((mutations) => {
   );
 
   if (hasClassMutation && !classesInSync(currentSettings)) {
-    applySettings(currentSettings);
+    scheduleClassSync();
   }
 });
 

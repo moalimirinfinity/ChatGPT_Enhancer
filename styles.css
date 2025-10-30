@@ -1,19 +1,57 @@
 /* These rules only apply when the extension toggles the corresponding root classes. */
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex .katex,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex .katex-display {
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex main [data-message-author-role] .katex,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
+  main
+  [data-message-author-role]
+  .katex-display,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
+  main
+  [data-testid='conversation-turn']
+  .katex,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
+  main
+  [data-testid='conversation-turn']
+  .katex-display {
   direction: ltr;
   unicode-bidi: isolate;
 }
 
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code pre,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code pre code,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code code {
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code main [data-message-author-role] pre,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
+  main
+  [data-message-author-role]
+  pre
+  code,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
+  main
+  [data-message-author-role]
+  code,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
+  main
+  [data-testid='conversation-turn']
+  pre,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
+  main
+  [data-testid='conversation-turn']
+  pre
+  code,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
+  main
+  [data-testid='conversation-turn']
+  code {
   direction: ltr;
   unicode-bidi: isolate;
   text-align: left;
 }
 
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables table {
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
+  main
+  [data-message-author-role]
+  table,
+html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
+  main
+  [data-testid='conversation-turn']
+  table {
   direction: ltr;
   unicode-bidi: isolate;
 }
