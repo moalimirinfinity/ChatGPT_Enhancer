@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT KaTeX Direction Fix",
-  "version": "1.0.0",
-  "description": "Force KaTeX formulas and code blocks to display left-to-right on ChatGPT while preserving right-to-left layout for other text.",
+  "version": "1.1.0",
+  "description": "Keep math and code readable in RTL chats with configurable direction fixes for ChatGPT responses.",
+  "permissions": ["storage", "tabs"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "KaTeX Direction Fix"
+  },
   "content_scripts": [
     {
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
