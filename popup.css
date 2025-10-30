@@ -30,8 +30,21 @@ body {
   gap: 8px;
 }
 
+.panel__badge--author {
+  background: rgba(255, 255, 255, 0.18);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.panel__badge--tag {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 246, 251, 0.85);
+}
+
 .panel__badge {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
@@ -51,6 +64,11 @@ body {
   font-size: 13px;
   line-height: 1.45;
   color: rgba(245, 246, 251, 0.75);
+}
+
+.panel__highlight {
+  color: #9fd7ff;
+  font-weight: 600;
 }
 
 .panel__section {
@@ -73,6 +91,72 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(245, 246, 251, 0.6);
+}
+
+.panel__section--donate {
+  gap: 16px;
+}
+
+.donate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(47, 57, 111, 0.55), rgba(26, 34, 68, 0.75));
+  box-shadow:
+    0 14px 32px rgba(14, 16, 35, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.donate-card__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.donate-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f5f6fb;
+}
+
+.donate-card__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(245, 246, 251, 0.7);
+}
+
+.donate-card__button {
+  align-self: flex-start;
+  border: none;
+  border-radius: 12px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #111222;
+  background: linear-gradient(135deg, #ffd86f 0%, #ffb347 100%);
+  box-shadow:
+    0 6px 14px rgba(18, 13, 5, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.donate-card__button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 18px rgba(18, 13, 5, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.donate-card__button:active {
+  transform: translateY(0);
+  box-shadow:
+    0 4px 8px rgba(18, 13, 5, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .toggle {
