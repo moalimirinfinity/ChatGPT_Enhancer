@@ -11,6 +11,9 @@ let isBusy = false;
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
+const DONATION_URL = 'https://zarinp.al/moalimirinfinity';
+const DONATE_LABEL_DEFAULT = 'Donate (Rial)';
+const DONATE_LABEL_BUSY = 'Opening…';
 
 document.addEventListener('DOMContentLoaded', () => {
   controls.enableFix = document.getElementById('toggle-enable');
@@ -19,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fixTables = document.getElementById('toggle-tables');
   controls.statusChip = document.getElementById('status-chip');
   controls.refreshBtn = document.getElementById('refresh-btn');
+  controls.donateBtn = document.getElementById('donate-btn');
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -39,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   controls.refreshBtn.addEventListener('click', handleRefresh);
+  controls.donateBtn.addEventListener('click', handleDonate);
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') {
@@ -83,6 +88,8 @@ function applySettingsToUI(settings) {
   updateStatusChip(settings);
   controls.refreshBtn.disabled = false;
   controls.refreshBtn.textContent = REFRESH_LABEL_DEFAULT;
+  controls.donateBtn.disabled = false;
+  controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
 }
 
 function updateStatusChip(settings) {
@@ -141,5 +148,20 @@ function handleRefresh() {
       }
       window.setTimeout(() => window.close(), 300);
     });
+  });
+}
+
+function handleDonate() {
+  controls.donateBtn.disabled = true;
+  controls.donateBtn.textContent = DONATE_LABEL_BUSY;
+
+  chrome.tabs.create({ url: DONATION_URL }, () => {
+    if (chrome.runtime.lastError) {
+      controls.donateBtn.disabled = false;
+      controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
+      return;
+    }
+
+    window.setTimeout(() => window.close(), 300);
   });
 }
