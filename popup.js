@@ -2,7 +2,9 @@ const DEFAULT_SETTINGS = {
   enableFix: true,
   fixKatex: true,
   fixCode: true,
-  fixTables: true
+  fixTables: true,
+  copyKatex: true,
+  theme: 'original'
 };
 
 const controls = {};
@@ -20,9 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fixKatex = document.getElementById('toggle-katex');
   controls.fixCode = document.getElementById('toggle-code');
   controls.fixTables = document.getElementById('toggle-tables');
+  controls.copyKatex = document.getElementById('toggle-copy');
   controls.statusChip = document.getElementById('status-chip');
   controls.refreshBtn = document.getElementById('refresh-btn');
   controls.donateBtn = document.getElementById('donate-btn');
+  controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -32,7 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
     enableFix: controls.enableFix,
     fixKatex: controls.fixKatex,
     fixCode: controls.fixCode,
-    fixTables: controls.fixTables
+    fixTables: controls.fixTables,
+    copyKatex: controls.copyKatex
   }).forEach(([key, input]) => {
     input.addEventListener('change', () => {
       if (isBusy) {
@@ -44,6 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   controls.refreshBtn.addEventListener('click', handleRefresh);
   controls.donateBtn.addEventListener('click', handleDonate);
+  controls.themeCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      const { theme } = card.dataset;
+      if (!theme || theme === currentSettings.theme) {
+        return;
+      }
+      setActiveTheme(theme);
+      updateSetting('theme', theme);
+    });
+  });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') {
@@ -74,10 +89,11 @@ function applySettingsToUI(settings) {
   controls.fixKatex.checked = settings.fixKatex;
   controls.fixCode.checked = settings.fixCode;
   controls.fixTables.checked = settings.fixTables;
+  controls.copyKatex.checked = settings.copyKatex;
   isBusy = false;
 
   const dependentsDisabled = !settings.enableFix;
-  [controls.fixKatex, controls.fixCode, controls.fixTables].forEach((input) => {
+  [controls.fixKatex, controls.fixCode, controls.fixTables, controls.copyKatex].forEach((input) => {
     input.disabled = dependentsDisabled;
     const toggle = input.closest('.toggle');
     if (toggle) {
@@ -90,6 +106,7 @@ function applySettingsToUI(settings) {
   controls.refreshBtn.textContent = REFRESH_LABEL_DEFAULT;
   controls.donateBtn.disabled = false;
   controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
+  setActiveTheme(settings.theme);
 }
 
 function updateStatusChip(settings) {
@@ -148,6 +165,18 @@ function handleRefresh() {
       }
       window.setTimeout(() => window.close(), 300);
     });
+  });
+}
+
+function setActiveTheme(theme) {
+  if (!controls.themeCards) {
+    return;
+  }
+
+  controls.themeCards.forEach((card) => {
+    const isActive = card.dataset.theme === theme;
+    card.classList.toggle('is-active', isActive);
+    card.setAttribute('aria-pressed', String(isActive));
   });
 }
 
