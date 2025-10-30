@@ -30,6 +30,12 @@ body {
   gap: 8px;
 }
 
+.panel__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .panel__badge--author {
   background: rgba(255, 255, 255, 0.18);
   font-weight: 600;
@@ -84,6 +90,10 @@ body {
   gap: 10px;
 }
 
+.panel__section--theme {
+  gap: 16px;
+}
+
 .panel__section-title {
   margin: 0;
   font-size: 12px;
@@ -91,6 +101,90 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(245, 246, 251, 0.6);
+}
+
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+  gap: 10px;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 12px;
+  background: rgba(7, 9, 16, 0.4);
+  color: #f5f6fb;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-shadow:
+    0 10px 18px rgba(12, 14, 27, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.theme-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.theme-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 38px rgba(12, 14, 27, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.theme-card.is-active {
+  background: rgba(59, 125, 255, 0.24);
+  box-shadow:
+    0 18px 44px rgba(36, 56, 118, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.theme-card.is-active::after {
+  border-color: rgba(108, 163, 255, 0.8);
+}
+
+.theme-card__swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  box-shadow:
+    0 12px 18px rgba(12, 14, 27, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.theme-card__swatch--original {
+  background: linear-gradient(135deg, #f1f4ff 0%, #dce4ff 100%);
+}
+
+.theme-card__swatch--midnight {
+  background: radial-gradient(circle at top, #1b2a6f 0%, #09102a 100%);
+}
+
+.theme-card__swatch--aurora {
+  background: linear-gradient(135deg, #0b5345 0%, #47c7a4 100%);
+}
+
+.theme-card__swatch--paper {
+  background: linear-gradient(135deg, #f4d8a8 0%, #fef5e0 50%, #f0cda0 100%);
+}
+
+.theme-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 246, 251, 0.75);
 }
 
 .panel__section--donate {
@@ -193,8 +287,8 @@ body {
 
 .toggle__track {
   position: relative;
-  width: 46px;
-  height: 26px;
+  width: 44px;
+  height: 24px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.25);
   transition: background 0.2s ease;
@@ -205,8 +299,8 @@ body {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ffffff 0%, #dce0ff 100%);
   box-shadow:
