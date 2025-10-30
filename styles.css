@@ -1,0 +1,17 @@
+/* Force KaTeX equations and code blocks to display left-to-right */
+.katex-display,
+.katex {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+pre code,
+code {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Optional: keep tables readable in mixed content */
+table {
+  direction: ltr;
+}
