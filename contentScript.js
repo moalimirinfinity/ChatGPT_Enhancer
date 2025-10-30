@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
 let currentSettings = { ...DEFAULT_SETTINGS };
 const root = document.documentElement;
 let isApplyingClasses = false;
+let classResetTimer = null;
 
 const SELECTORS = {
   katex: '.katex, .katex-display',
@@ -30,11 +31,26 @@ const THEME_CLASSES = [
   'chatgpt-theme-paper'
 ];
 
+function resolveThemeClass(theme) {
+  const candidate = `chatgpt-theme-${theme}`;
+  return THEME_CLASSES.includes(candidate) ? candidate : 'chatgpt-theme-original';
+}
+
 function toggleClass(name, shouldEnable) {
   if (!root) {
     return;
   }
   root.classList.toggle(name, shouldEnable);
+}
+
+function scheduleClassResetFlag() {
+  if (classResetTimer) {
+    clearTimeout(classResetTimer);
+  }
+  classResetTimer = setTimeout(() => {
+    isApplyingClasses = false;
+    classResetTimer = null;
+  }, 0);
 }
 
 function applySettings(settings) {
@@ -58,7 +74,7 @@ function applySettings(settings) {
   );
 
   applyTheme(settings.theme);
-  isApplyingClasses = false;
+  scheduleClassResetFlag();
 }
 
 function applyTheme(theme) {
@@ -66,12 +82,40 @@ function applyTheme(theme) {
     root.classList.remove(className);
   });
 
-  const themeClass = `chatgpt-theme-${theme}`;
-  if (THEME_CLASSES.includes(themeClass)) {
-    root.classList.add(themeClass);
-  } else {
-    root.classList.add('chatgpt-theme-original');
+  root.classList.add(resolveThemeClass(theme));
+}
+
+function classesInSync(settings) {
+  if (!root) {
+    return true;
   }
+
+  const toggles = [
+    ['chatgpt-direction-fix-enabled', settings.enableFix],
+    ['chatgpt-direction-fix-katex', settings.enableFix && settings.fixKatex],
+    ['chatgpt-direction-fix-code', settings.enableFix && settings.fixCode],
+    ['chatgpt-direction-fix-tables', settings.enableFix && settings.fixTables]
+  ];
+
+  for (const [className, shouldHave] of toggles) {
+    const hasClass = root.classList.contains(className);
+    if (hasClass !== shouldHave) {
+      return false;
+    }
+  }
+
+  const desiredThemeClass = resolveThemeClass(settings.theme);
+  if (!root.classList.contains(desiredThemeClass)) {
+    return false;
+  }
+
+  for (const themeClass of THEME_CLASSES) {
+    if (themeClass !== desiredThemeClass && root.classList.contains(themeClass)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function clearLegacyInlineStyles(scope) {
@@ -255,14 +299,11 @@ const rootObserver = new MutationObserver((mutations) => {
     return;
   }
 
-  let needsReapply = false;
-  mutations.forEach((mutation) => {
-    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-      needsReapply = true;
-    }
-  });
+  const hasClassMutation = mutations.some(
+    (mutation) => mutation.type === 'attributes' && mutation.attributeName === 'class'
+  );
 
-  if (needsReapply) {
+  if (hasClassMutation && !classesInSync(currentSettings)) {
     applySettings(currentSettings);
   }
 });
