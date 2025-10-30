@@ -3,7 +3,7 @@
   "name": "ChatGPT KaTeX Direction Fix",
   "version": "1.1.0",
   "description": "Keep math and code readable in RTL chats with configurable direction fixes for ChatGPT responses.",
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "clipboardWrite"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "KaTeX Direction Fix"
