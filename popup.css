@@ -1,3 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans:wght@400;600&family=Noto+Sans+Arabic:wght@400;600&family=Noto+Naskh+Arabic:wght@400;600&family=Roboto:wght@400;600&family=Source+Sans+3:wght@400;600&family=Work+Sans:wght@400;600&family=Vazirmatn:wght@400;700&display=swap");
+
+@font-face {
+  font-family: "Sahel";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Sahel";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Shabnam";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Shabnam";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Bold.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -161,6 +195,119 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.font-control {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.font-control--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.font-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--surface-outline);
+}
+
+.font-tab {
+  border: none;
+  background: transparent;
+  color: #eef1ff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.font-tab:hover {
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.font-tab.is-active {
+  background: linear-gradient(135deg, rgba(118, 140, 255, 0.9), rgba(94, 208, 255, 0.9));
+  color: #111222;
+  box-shadow: 0 10px 18px rgba(12, 14, 27, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.font-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.font-options {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-top: 8px;
+}
+
+.font-options[hidden] {
+  display: none;
+}
+
+.font-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--surface-outline);
+  color: #f5f6fb;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: left;
+}
+
+.font-option:hover {
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.font-option.is-active {
+  border-color: rgba(118, 140, 255, 0.6);
+  box-shadow: 0 12px 22px rgba(9, 10, 27, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.font-option:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+.font-option__label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.font-option__details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.font-option__preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.font-option__meta {
+  font-size: 11px;
+  color: var(--text-subtle);
 }
 
 .export-segment {
@@ -665,7 +812,9 @@ body {
 .theme-card:focus-visible,
 .accordion__header:focus-visible,
 .support-chip:focus-visible,
-.refresh-btn:focus-visible {
+.refresh-btn:focus-visible,
+.font-tab:focus-visible,
+.font-option:focus-visible {
   outline: 2px solid rgba(118, 140, 255, 0.6);
   outline-offset: 2px;
 }

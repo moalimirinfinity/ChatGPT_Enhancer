@@ -34,14 +34,238 @@
         <button
           class="accordion__header"
           type="button"
+          aria-controls="fonts-section"
+          aria-expanded="false"
+          data-target="fonts-section"
+        >
+          <span class="panel__section-title">Fonts</span>
+          <span class="accordion__icon" aria-hidden="true">></span>
+        </button>
+        <div id="fonts-section" class="accordion__content">
+          <label class="toggle toggle--sub">
+            <input type="checkbox" id="toggle-fonts" class="toggle__input" />
+            <span class="toggle__track">
+              <span class="toggle__thumb"></span>
+            </span>
+            <div class="toggle__content">
+              <span class="toggle__title">Font control</span>
+              <span class="toggle__hint">Apply curated fonts to conversation text.</span>
+            </div>
+          </label>
+          <div class="font-control" aria-live="polite">
+            <div class="font-tabs" role="tablist" aria-label="Select language">
+              <button
+                class="font-tab is-active"
+                type="button"
+                id="font-tab-english"
+                data-lang="english"
+                role="tab"
+                aria-selected="true"
+              >
+                English
+              </button>
+              <button
+                class="font-tab"
+                type="button"
+                id="font-tab-persian"
+                data-lang="persian"
+                role="tab"
+                aria-selected="false"
+              >
+                Persian
+              </button>
+            </div>
+            <div
+              class="font-options is-active"
+              data-lang="english"
+              role="tabpanel"
+              aria-labelledby="font-tab-english"
+            >
+              <button
+                class="font-option is-active"
+                type="button"
+                data-lang="english"
+                data-value="inter"
+                aria-pressed="true"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;"
+                >
+                  <span class="font-option__label">Inter</span>
+                  <span class="font-option__preview">Sample text</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="english"
+                data-value="source-sans-3"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;"
+                >
+                  <span class="font-option__label">Source Sans 3</span>
+                  <span class="font-option__preview">Sample text</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="english"
+                data-value="roboto"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;"
+                >
+                  <span class="font-option__label">Roboto</span>
+                  <span class="font-option__preview">Sample text</span>
+                </div>
+                <span class="font-option__meta">Apache 2.0</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="english"
+                data-value="noto-sans"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Noto Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;"
+                >
+                  <span class="font-option__label">Noto Sans</span>
+                  <span class="font-option__preview">Sample text</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="english"
+                data-value="work-sans"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Work Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;"
+                >
+                  <span class="font-option__label">Work Sans</span>
+                  <span class="font-option__preview">Sample text</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+            </div>
+            <div
+              class="font-options"
+              data-lang="persian"
+              role="tabpanel"
+              aria-labelledby="font-tab-persian"
+              hidden
+            >
+              <button
+                class="font-option is-active"
+                type="button"
+                data-lang="persian"
+                data-value="vazirmatn"
+                aria-pressed="true"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Vazirmatn', 'Noto Sans Arabic', 'Tahoma', sans-serif;"
+                >
+                  <span class="font-option__label">وزیرمتن</span>
+                  <span class="font-option__preview">نمونهٔ متن زیبا</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="persian"
+                data-value="noto-naskh-arabic"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Noto Naskh Arabic', 'Vazirmatn', 'Tahoma', sans-serif;"
+                >
+                  <span class="font-option__label">نوتو نسخ عربی</span>
+                  <span class="font-option__preview">نمونهٔ متن زیبا</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="persian"
+                data-value="noto-sans-arabic"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Noto Sans Arabic', 'Vazirmatn', 'Tahoma', sans-serif;"
+                >
+                  <span class="font-option__label">نوتو سنس عربی</span>
+                  <span class="font-option__preview">نمونهٔ متن زیبا</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="persian"
+                data-value="sahel"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Sahel', 'Vazirmatn', 'Tahoma', sans-serif;"
+                >
+                  <span class="font-option__label">ساحل</span>
+                  <span class="font-option__preview">نمونهٔ متن زیبا</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+              <button
+                class="font-option"
+                type="button"
+                data-lang="persian"
+                data-value="shabnam"
+                aria-pressed="false"
+              >
+                <div
+                  class="font-option__details"
+                  style="font-family: 'Shabnam', 'Vazirmatn', 'Tahoma', sans-serif;"
+                >
+                  <span class="font-option__label">شبنم</span>
+                  <span class="font-option__preview">نمونهٔ متن زیبا</span>
+                </div>
+                <span class="font-option__meta">OFL</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel__section panel__section--accordion">
+        <button
+          class="accordion__header"
+          type="button"
           aria-controls="stabilize-section"
-          aria-expanded="true"
+          aria-expanded="false"
           data-target="stabilize-section"
         >
           <span class="panel__section-title">Choose what to stabilize</span>
           <span class="accordion__icon" aria-hidden="true">></span>
         </button>
-        <div id="stabilize-section" class="accordion__content is-open">
+        <div id="stabilize-section" class="accordion__content">
           <label class="toggle toggle--sub">
             <input type="checkbox" id="toggle-katex" class="toggle__input" />
             <span class="toggle__track">
@@ -93,13 +317,13 @@
           class="accordion__header"
           type="button"
           aria-controls="theme-section"
-          aria-expanded="true"
+          aria-expanded="false"
           data-target="theme-section"
         >
           <span class="panel__section-title">Theme</span>
           <span class="accordion__icon" aria-hidden="true">></span>
         </button>
-        <div id="theme-section" class="accordion__content is-open">
+        <div id="theme-section" class="accordion__content">
           <div class="theme-picker" role="radiogroup" aria-label="ChatGPT theme">
           <button
             class="theme-card"
@@ -161,13 +385,13 @@
           class="accordion__header"
           type="button"
           aria-controls="export-section"
-          aria-expanded="true"
+          aria-expanded="false"
           data-target="export-section"
         >
           <span class="panel__section-title">Export</span>
           <span class="accordion__icon" aria-hidden="true">></span>
         </button>
-        <div id="export-section" class="accordion__content is-open">
+        <div id="export-section" class="accordion__content">
           <div class="export-controls">
             <span class="export-controls__title panel__section-title">Export format</span>
             <div class="export-segment" role="radiogroup" aria-label="Select export format">

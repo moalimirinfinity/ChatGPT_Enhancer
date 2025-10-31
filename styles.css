@@ -1,4 +1,24 @@
 /* These rules only apply when the extension toggles the corresponding root classes. */
+html.chatgpt-font-control-enabled {
+  --chatgpt-font-english: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --chatgpt-font-persian: "Vazirmatn", "Noto Sans Arabic", "Tahoma", "Arial", sans-serif;
+}
+
+html.chatgpt-font-control-enabled main [data-message-author-role] {
+  font-family: var(--chatgpt-font-message-english, var(--chatgpt-font-english)) !important;
+}
+
+html.chatgpt-font-control-enabled main [data-message-author-role].chatgpt-font-persian {
+  font-family: var(--chatgpt-font-message-persian, var(--chatgpt-font-persian)) !important;
+}
+
+html.chatgpt-font-control-enabled main [data-message-author-role] pre,
+html.chatgpt-font-control-enabled main [data-message-author-role] code,
+html.chatgpt-font-control-enabled main [data-message-author-role] pre *,
+html.chatgpt-font-control-enabled main [data-message-author-role] code * {
+  font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace !important;
+}
+
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex main [data-message-author-role] .katex,
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
   main

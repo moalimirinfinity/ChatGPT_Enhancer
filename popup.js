@@ -5,12 +5,22 @@ const DEFAULT_SETTINGS = {
   fixTables: true,
   copyKatex: true,
   exportFormat: 'pdf',
-  theme: 'original'
+  theme: 'original',
+  fontsEnabled: false,
+  fontEnglish: 'inter',
+  fontPersian: 'vazirmatn'
 };
+
+const FONT_DEFAULTS = {
+  english: 'inter',
+  persian: 'vazirmatn'
+};
+const FONT_LANGUAGES = ['english', 'persian'];
 
 const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isBusy = false;
+let currentFontTab = FONT_LANGUAGES[0];
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -32,6 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
   controls.accordionHeaders = Array.from(document.querySelectorAll('.accordion__header'));
+  controls.fontToggle = document.getElementById('toggle-fonts');
+  controls.fontControl = document.querySelector('.font-control');
+  controls.fontTabs = Array.from(document.querySelectorAll('.font-tab'));
+  controls.fontOptionLists = Array.from(document.querySelectorAll('.font-options'));
+  controls.fontOptions = Array.from(document.querySelectorAll('.font-option'));
   controls.exportFormatRadios = Array.from(document.querySelectorAll('input[name="export-format"]'));
   controls.exportBtn = document.getElementById('export-btn');
 
@@ -56,6 +71,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
   controls.refreshBtn.addEventListener('click', handleRefresh);
   controls.donateBtn.addEventListener('click', handleDonate);
+  if (controls.fontToggle) {
+    controls.fontToggle.addEventListener('change', () => {
+      if (isBusy) {
+        return;
+      }
+      const enabled = controls.fontToggle.checked && currentSettings.enableFix;
+      if (!enabled && currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', false);
+        return;
+      }
+      if (enabled !== currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', enabled);
+      }
+      if (!enabled) {
+        controls.fontToggle.checked = false;
+        setFontControlsDisabled(true);
+      }
+    });
+  }
+  controls.fontTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const { lang } = tab.dataset;
+      if (!lang || lang === currentFontTab) {
+        return;
+      }
+      setActiveFontTab(lang);
+    });
+  });
+  controls.fontOptions.forEach((option) => {
+    option.addEventListener('click', () => {
+      if (isBusy) {
+        return;
+      }
+      if (controls.fontToggle && !controls.fontToggle.checked) {
+        return;
+      }
+      const { lang, value } = option.dataset;
+      if (!lang || !value) {
+        return;
+      }
+      const targetKey = lang === 'persian' ? 'fontPersian' : 'fontEnglish';
+      if (currentSettings[targetKey] === value) {
+        return;
+      }
+      updateSetting(targetKey, value);
+    });
+  });
   controls.exportFormatRadios.forEach((input) => {
     input.addEventListener('change', () => {
       if (isBusy) {
@@ -97,6 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  setActiveFontTab(currentFontTab);
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') {
       return;
@@ -127,6 +191,14 @@ function applySettingsToUI(settings) {
   controls.fixCode.checked = settings.fixCode;
   controls.fixTables.checked = settings.fixTables;
   controls.copyKatex.checked = settings.copyKatex;
+  if (controls.fontToggle) {
+    const fontsEnabled = settings.enableFix && settings.fontsEnabled;
+    controls.fontToggle.checked = fontsEnabled;
+  }
+  updateFontOptionSelection('english', settings.fontEnglish);
+  updateFontOptionSelection('persian', settings.fontPersian);
+  setActiveFontTab(currentFontTab);
+  setFontControlsDisabled(!(settings.enableFix && settings.fontsEnabled));
   const targetFormat = settings.exportFormat || DEFAULT_SETTINGS.exportFormat;
   controls.exportFormatRadios.forEach((input) => {
     input.checked = input.value === targetFormat;
@@ -141,6 +213,9 @@ function applySettingsToUI(settings) {
       toggle.classList.toggle('toggle--disabled', dependentsDisabled);
     }
   });
+  if (controls.fontToggle && dependentsDisabled) {
+    controls.fontToggle.checked = false;
+  }
 
   controls.refreshBtn.disabled = false;
   controls.refreshBtn.textContent = REFRESH_LABEL_DEFAULT;
@@ -212,6 +287,85 @@ function setThemeCardsDisabled(disabled) {
       card.setAttribute('aria-disabled', 'true');
     } else {
       card.removeAttribute('aria-disabled');
+    }
+  });
+}
+
+function setActiveFontTab(language) {
+  if (!controls.fontTabs || !controls.fontOptionLists) {
+    return;
+  }
+  if (!FONT_LANGUAGES.includes(language)) {
+    language = FONT_LANGUAGES[0];
+  }
+  currentFontTab = language;
+  controls.fontTabs.forEach((tab) => {
+    if (!tab) {
+      return;
+    }
+    const { lang } = tab.dataset;
+    const isActive = lang === language;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+    if (isActive) {
+      tab.removeAttribute('tabindex');
+    } else {
+      tab.setAttribute('tabindex', '-1');
+    }
+  });
+  controls.fontOptionLists.forEach((group) => {
+    if (!group) {
+      return;
+    }
+    const isActive = group.dataset.lang === language;
+    group.classList.toggle('is-active', isActive);
+    if (isActive) {
+      group.removeAttribute('hidden');
+    } else {
+      group.setAttribute('hidden', 'true');
+    }
+  });
+}
+
+function updateFontOptionSelection(language, value) {
+  if (!controls.fontOptions) {
+    return;
+  }
+  const targetValue = value || FONT_DEFAULTS[language] || null;
+  controls.fontOptions.forEach((option) => {
+    if (!option || option.dataset.lang !== language) {
+      return;
+    }
+    const isActive = option.dataset.value === targetValue;
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function setFontControlsDisabled(disabled) {
+  if (controls.fontControl) {
+    controls.fontControl.classList.toggle('font-control--disabled', disabled);
+  }
+  controls.fontTabs.forEach((tab) => {
+    if (!tab) {
+      return;
+    }
+    tab.disabled = disabled;
+    if (disabled) {
+      tab.setAttribute('aria-disabled', 'true');
+    } else {
+      tab.removeAttribute('aria-disabled');
+    }
+  });
+  controls.fontOptions.forEach((option) => {
+    if (!option) {
+      return;
+    }
+    option.disabled = disabled;
+    if (disabled) {
+      option.setAttribute('aria-disabled', 'true');
+    } else {
+      option.removeAttribute('aria-disabled');
     }
   });
 }

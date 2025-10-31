@@ -5,7 +5,10 @@ const DEFAULT_SETTINGS = {
   fixTables: true,
   copyKatex: true,
   exportFormat: 'pdf',
-  theme: 'original'
+  theme: 'original',
+  fontsEnabled: false,
+  fontEnglish: 'inter',
+  fontPersian: 'vazirmatn'
 };
 
 let currentSettings = { ...DEFAULT_SETTINGS };
@@ -39,6 +42,63 @@ const LEGACY_THEME_CLASSES = [
   'chatgpt-theme-original-light'
 ];
 let appliedThemeClass = null;
+
+const FONT_STACKS = {
+  english: {
+    inter: '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
+    'source-sans-3': '"Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif',
+    roboto: '"Roboto", "Segoe UI", system-ui, -apple-system, sans-serif',
+    'noto-sans': '"Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif',
+    'work-sans': '"Work Sans", "Segoe UI", system-ui, -apple-system, sans-serif'
+  },
+  persian: {
+    vazirmatn: '"Vazirmatn", "Noto Sans Arabic", "Tahoma", "Arial", sans-serif',
+    'noto-naskh-arabic': '"Noto Naskh Arabic", "Vazirmatn", "Tahoma", "Arial", sans-serif',
+    'noto-sans-arabic': '"Noto Sans Arabic", "Vazirmatn", "Tahoma", "Arial", sans-serif',
+    sahel: '"Sahel", "Vazirmatn", "Tahoma", "Arial", sans-serif',
+    shabnam: '"Shabnam", "Vazirmatn", "Tahoma", "Arial", sans-serif'
+  }
+};
+
+const FONT_IMPORT_CSS = `
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans:wght@400;600&family=Noto+Sans+Arabic:wght@400;600&family=Noto+Naskh+Arabic:wght@400;600&family=Roboto:wght@400;600&family=Source+Sans+3:wght@400;600&family=Work+Sans:wght@400;600&family=Vazirmatn:wght@400;700&display=swap");
+@font-face {
+  font-family: "Sahel";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Sahel";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Shabnam";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Shabnam";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Bold.woff2") format("woff2");
+}
+`;
+
+const PERSIAN_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+let fontImportStyle = null;
+let fontObserver = null;
+let pendingFontSync = false;
+let fontObserverReconnectTimer = null;
+const FONT_SYNC_INTERVAL_MS = 2000;
+let fontSyncIntervalId = null;
 
 function resolveThemeClass(theme) {
   if (!theme || theme === 'original') {
@@ -111,6 +171,7 @@ function applySettings(settings) {
   } else {
     removeTheme();
   }
+  applyFontControl(settings);
   scheduleClassResetFlag();
 }
 
@@ -139,6 +200,170 @@ function removeTheme() {
   applyTheme(null);
 }
 
+function applyFontControl(settings) {
+  if (!root) {
+    return;
+  }
+  const enabled = Boolean(settings.fontsEnabled);
+  toggleClass('chatgpt-font-control-enabled', enabled);
+  if (!enabled) {
+    root.style.removeProperty('--chatgpt-font-english');
+    root.style.removeProperty('--chatgpt-font-persian');
+    disconnectFontObserver();
+    resetMessageFontClasses();
+    stopFontSyncInterval();
+    return;
+  }
+
+  ensureFontImports();
+
+  const englishKey = settings.fontEnglish || DEFAULT_SETTINGS.fontEnglish;
+  const persianKey = settings.fontPersian || DEFAULT_SETTINGS.fontPersian;
+  const englishFont = FONT_STACKS.english[englishKey] || FONT_STACKS.english[DEFAULT_SETTINGS.fontEnglish];
+  const persianFont = FONT_STACKS.persian[persianKey] || FONT_STACKS.persian[DEFAULT_SETTINGS.fontPersian];
+
+  root.style.setProperty('--chatgpt-font-english', englishFont);
+  root.style.setProperty('--chatgpt-font-persian', persianFont);
+
+  updateFontsForExistingMessages();
+  scheduleFontSync();
+  connectFontObserver();
+  startFontSyncInterval();
+}
+
+function ensureFontImports() {
+  if (fontImportStyle || !document.head) {
+    return;
+  }
+  fontImportStyle = document.createElement('style');
+  fontImportStyle.textContent = FONT_IMPORT_CSS;
+  document.head.appendChild(fontImportStyle);
+}
+
+function connectFontObserver() {
+  const conversationRoot = document.querySelector('main');
+  if (fontObserverReconnectTimer) {
+    clearTimeout(fontObserverReconnectTimer);
+    fontObserverReconnectTimer = null;
+  }
+  if (!conversationRoot) {
+    disconnectFontObserver();
+    if (currentSettings.fontsEnabled) {
+      fontObserverReconnectTimer = setTimeout(connectFontObserver, 500);
+    }
+    return;
+  }
+  if (!fontObserver) {
+    fontObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList' || mutation.type === 'characterData') {
+          scheduleFontSync();
+          break;
+        }
+      }
+    });
+  }
+  fontObserver.disconnect();
+  fontObserver.observe(conversationRoot, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+}
+
+function disconnectFontObserver() {
+  if (fontObserver) {
+    fontObserver.disconnect();
+  }
+  if (fontObserverReconnectTimer) {
+    clearTimeout(fontObserverReconnectTimer);
+    fontObserverReconnectTimer = null;
+  }
+}
+
+function startFontSyncInterval() {
+  if (fontSyncIntervalId || !currentSettings.fontsEnabled) {
+    return;
+  }
+  fontSyncIntervalId = setInterval(() => {
+    if (!currentSettings.fontsEnabled) {
+      stopFontSyncInterval();
+      return;
+    }
+    updateFontsForExistingMessages();
+  }, FONT_SYNC_INTERVAL_MS);
+}
+
+function stopFontSyncInterval() {
+  if (fontSyncIntervalId) {
+    clearInterval(fontSyncIntervalId);
+    fontSyncIntervalId = null;
+  }
+}
+
+function scheduleFontSync() {
+  if (pendingFontSync) {
+    return;
+  }
+  pendingFontSync = true;
+  const invoke = () => {
+    pendingFontSync = false;
+    if (!currentSettings.fontsEnabled) {
+      return;
+    }
+    updateFontsForExistingMessages();
+  };
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(invoke);
+  } else {
+    setTimeout(invoke, 16);
+  }
+}
+
+
+function updateFontsForExistingMessages() {
+  if (!currentSettings.fontsEnabled) {
+    return;
+  }
+  const englishFont = root ? root.style.getPropertyValue('--chatgpt-font-english') : null;
+  const persianFont = root ? root.style.getPropertyValue('--chatgpt-font-persian') : null;
+  const messages = document.querySelectorAll('main [data-message-author-role]');
+  messages.forEach((message) => {
+    if (!(message instanceof HTMLElement)) {
+      return;
+    }
+    updateMessageFontClass(message);
+    if (englishFont) {
+      message.style.setProperty('--chatgpt-font-message-english', englishFont);
+    }
+    if (persianFont) {
+      message.style.setProperty('--chatgpt-font-message-persian', persianFont);
+    }
+  });
+}
+
+function resetMessageFontClasses() {
+  const messages = document.querySelectorAll('main [data-message-author-role]');
+  messages.forEach((message) => {
+    if (!(message instanceof HTMLElement)) {
+      return;
+    }
+    message.classList.remove('chatgpt-font-persian');
+  });
+}
+
+function updateMessageFontClass(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  if (!element.textContent) {
+    element.classList.remove('chatgpt-font-persian');
+    return;
+  }
+  const hasPersian = PERSIAN_CHAR_REGEX.test(element.textContent);
+  element.classList.toggle('chatgpt-font-persian', hasPersian);
+}
+
 function classesInSync(settings) {
   if (!root) {
     return true;
@@ -148,7 +373,8 @@ function classesInSync(settings) {
     ['chatgpt-direction-fix-enabled', settings.enableFix],
     ['chatgpt-direction-fix-katex', settings.enableFix && settings.fixKatex],
     ['chatgpt-direction-fix-code', settings.enableFix && settings.fixCode],
-    ['chatgpt-direction-fix-tables', settings.enableFix && settings.fixTables]
+    ['chatgpt-direction-fix-tables', settings.enableFix && settings.fixTables],
+    ['chatgpt-font-control-enabled', settings.fontsEnabled]
   ];
 
   for (const [className, shouldHave] of toggles) {
