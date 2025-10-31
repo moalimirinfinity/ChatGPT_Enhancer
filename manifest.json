@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT KaTeX Direction Fix",
+  "name": "GBT Enhancer",
   "version": "1.1.0",
-  "description": "Keep math and code readable in RTL chats with configurable direction fixes for ChatGPT responses.",
+  "description": "Enhance ChatGPT math, code, and themes with smarter RTL-friendly controls.",
   "permissions": ["storage", "tabs", "clipboardWrite"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "KaTeX Direction Fix"
+    "default_title": "GBT Enhancer"
   },
   "content_scripts": [
     {
