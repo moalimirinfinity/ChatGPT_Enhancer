@@ -156,53 +156,65 @@
         </div>
       </section>
 
-      <section class="panel__section panel__section--export">
-        <div class="export-controls">
-          <span class="export-controls__title panel__section-title">Export format</span>
-          <div class="export-segment" role="radiogroup" aria-label="Select export format">
-            <label
-              class="export-segment__option"
-              data-tooltip="Export is not precise yet—we're working on it."
-            >
-              <input
-                class="export-segment__input"
-                type="radio"
-                name="export-format"
-                id="export-format-pdf"
-                value="pdf"
-                checked
-                aria-describedby="export-tooltip-message"
-              />
-              <span class="export-segment__label">PDF</span>
-            </label>
-            <label
-              class="export-segment__option"
-              data-tooltip="Export is not precise yet—we're working on it."
-            >
-              <input
-                class="export-segment__input"
-                type="radio"
-                name="export-format"
-                id="export-format-docx"
-                value="docx"
-                aria-describedby="export-tooltip-message"
-              />
-              <span class="export-segment__label">Word</span>
-            </label>
-          </div>
-        </div>
+      <section class="panel__section panel__section--accordion">
         <button
-          id="export-btn"
-          class="export-btn"
+          class="accordion__header"
           type="button"
-          data-tooltip="Export is not precise yet—we're working on it."
-          aria-describedby="export-tooltip-message"
+          aria-controls="export-section"
+          aria-expanded="true"
+          data-target="export-section"
         >
-          Export conversation
+          <span class="panel__section-title">Export</span>
+          <span class="accordion__icon" aria-hidden="true">></span>
         </button>
-        <span id="export-tooltip-message" class="visually-hidden">
-          Export is not precise yet—we're working on it.
-        </span>
+        <div id="export-section" class="accordion__content is-open">
+          <div class="export-controls">
+            <span class="export-controls__title panel__section-title">Export format</span>
+            <div class="export-segment" role="radiogroup" aria-label="Select export format">
+              <label
+                class="export-segment__option"
+                data-tooltip="Export is not precise yet—we're working on it."
+              >
+                <input
+                  class="export-segment__input"
+                  type="radio"
+                  name="export-format"
+                  id="export-format-pdf"
+                  value="pdf"
+                  aria-describedby="export-tooltip-message"
+                  checked
+                />
+                <span class="export-segment__label">PDF</span>
+              </label>
+              <label
+                class="export-segment__option"
+                data-tooltip="Export is not precise yet—we're working on it."
+              >
+                <input
+                  class="export-segment__input"
+                  type="radio"
+                  name="export-format"
+                  id="export-format-docx"
+                  value="docx"
+                  aria-describedby="export-tooltip-message"
+                />
+                <span class="export-segment__label">Word</span>
+              </label>
+            </div>
+          </div>
+          <button
+            id="export-btn"
+            class="export-btn"
+            type="button"
+            data-tooltip="Export is not precise yet—we're working on it."
+            aria-describedby="export-tooltip-message"
+          >
+            Export conversation
+          </button>
+          <span id="export-tooltip-message" class="visually-hidden">
+            Export is not precise yet—we're working on it.
+          </span>
+        </div>
       </section>
 
       <footer class="panel__footer">

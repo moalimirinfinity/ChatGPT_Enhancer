@@ -157,10 +157,6 @@ body {
   border: none;
 }
 
-.panel__section--export {
-  gap: 16px;
-}
-
 .export-controls {
   display: flex;
   flex-direction: column;
