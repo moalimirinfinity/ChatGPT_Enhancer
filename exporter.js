@@ -8,6 +8,7 @@ const DARK_TEXT_LUMINANCE_THRESHOLD = 0.75;
 const DIRECTIONAL_TAGS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TD', 'TH']);
 const RTL_CHAR_REGEX = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
+const PDF_PAGE_HEIGHT_PX = 960;
 const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} {
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -42,6 +43,8 @@ const EXPORT_STYLE_BLOCK = `
   display: block;
   padding: 20px 0;
   border-bottom: 1px solid rgba(9, 10, 27, 0.08);
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .${EXPORT_TURN_CLASS}:last-child {
   border-bottom: none;
@@ -54,6 +57,11 @@ const EXPORT_STYLE_BLOCK = `
   border-radius: 14px;
   overflow: auto;
   font-size: 13px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .${EXPORT_ROOT_CLASS} pre *,
 .${EXPORT_ROOT_CLASS} code,
@@ -77,11 +85,139 @@ const EXPORT_STYLE_BLOCK = `
   height: auto;
   display: block;
 }
+.${EXPORT_ROOT_CLASS} table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 16px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.${EXPORT_ROOT_CLASS} th,
+.${EXPORT_ROOT_CLASS} td {
+  border: 1px solid rgba(12, 14, 27, 0.16);
+  padding: 8px 10px;
+  text-align: left;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 .${EXPORT_ROOT_CLASS} p {
   margin: 0 0 12px;
 }
 .${EXPORT_ROOT_CLASS} p:last-child {
   margin-bottom: 0;
+}
+.${EXPORT_EQUATION_CLASS} {
+  display: inline-block;
+  vertical-align: middle;
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+  text-align: left !important;
+}
+`;
+const DOCX_EXPORT_STYLE_BLOCK = `
+@page {
+  margin: 1in;
+}
+body {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: ${DARK_TEXT_COLOR};
+  background: #ffffff;
+  margin: 0;
+}
+.${EXPORT_ROOT_CLASS} {
+  padding: 24px 32px;
+  box-sizing: border-box;
+  max-width: 780px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+.${EXPORT_ROOT_CLASS} *,
+.${EXPORT_ROOT_CLASS} *::before,
+.${EXPORT_ROOT_CLASS} *::after {
+  color: inherit !important;
+}
+.${EXPORT_TURN_CLASS} {
+  display: block;
+  padding: 18px 0;
+  border-bottom: 1px solid #d0d3e7;
+}
+.${EXPORT_TURN_CLASS}:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.${EXPORT_ROOT_CLASS} h1,
+.${EXPORT_ROOT_CLASS} h2,
+.${EXPORT_ROOT_CLASS} h3,
+.${EXPORT_ROOT_CLASS} h4,
+.${EXPORT_ROOT_CLASS} h5,
+.${EXPORT_ROOT_CLASS} h6 {
+  color: #05061a;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.${EXPORT_ROOT_CLASS} p {
+  margin: 0 0 12px;
+}
+.${EXPORT_ROOT_CLASS} a {
+  color: #1c46d6 !important;
+  text-decoration: underline;
+}
+.${EXPORT_ROOT_CLASS} pre {
+  background: #101327;
+  color: #f5f6fb !important;
+  padding: 18px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.${EXPORT_ROOT_CLASS} pre *,
+.${EXPORT_ROOT_CLASS} code,
+.${EXPORT_ROOT_CLASS} code * {
+  font-family: "Consolas", "Courier New", monospace;
+  color: inherit;
+}
+.${EXPORT_ROOT_CLASS} code:not(pre code) {
+  background: #eef1ff;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.${EXPORT_ROOT_CLASS} blockquote {
+  border-left: 4px solid #d9dcef;
+  padding-left: 16px;
+  margin: 0 0 16px;
+  color: #111222;
+}
+.${EXPORT_ROOT_CLASS} ul,
+.${EXPORT_ROOT_CLASS} ol {
+  margin: 0 0 16px 24px;
+  padding: 0;
+}
+.${EXPORT_ROOT_CLASS} table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+.${EXPORT_ROOT_CLASS} th,
+.${EXPORT_ROOT_CLASS} td {
+  border: 1px solid #cdd2e5;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.${EXPORT_ROOT_CLASS} img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px 0;
+}
+.${EXPORT_ROOT_CLASS} hr {
+  border: none;
+  border-top: 1px solid #d0d3e7;
+  margin: 24px 0;
 }
 .${EXPORT_EQUATION_CLASS} {
   display: inline-block;
@@ -134,9 +270,12 @@ async function handleExportRequest(format) {
     await inlineImages(root);
 
     if (format === 'docx') {
+      prepareDocxSpecificAdjustments(root);
       await convertKatexToImages(root);
       await exportAsDocx(root);
     } else {
+      adjustLargeBlocksForPdf(root);
+      relaxOversizedTurnBreaks(root);
       await exportAsPdf(root);
     }
   } finally {
@@ -156,11 +295,15 @@ function prepareExportStage() {
   const stage = document.createElement('div');
   stage.className = EXPORT_STAGE_CLASS;
   stage.style.position = 'fixed';
-  stage.style.top = '-20000px';
-  stage.style.left = '-20000px';
+  stage.style.top = '0';
+  stage.style.left = '0';
   stage.style.width = '720px';
+  stage.style.opacity = '0';
   stage.style.zIndex = '-1';
   stage.style.pointerEvents = 'none';
+  stage.style.userSelect = 'none';
+  stage.setAttribute('aria-hidden', 'true');
+  stage.setAttribute('role', 'presentation');
 
   const styleNode = document.createElement('style');
   styleNode.textContent = EXPORT_STYLE_BLOCK;
@@ -200,6 +343,8 @@ function collectConversation() {
     .map((node) => {
       sanitizeExportNode(node);
       node.classList.add(EXPORT_TURN_CLASS);
+      node.style.setProperty('page-break-inside', 'avoid', 'important');
+      node.style.setProperty('break-inside', 'avoid', 'important');
       return node;
     })
     .filter(hasRenderableContent);
@@ -633,6 +778,126 @@ async function inlineImages(root) {
   );
 }
 
+function prepareDocxSpecificAdjustments(root) {
+  const codeBlocks = root.querySelectorAll('pre');
+  codeBlocks.forEach((block) => {
+    block.style.setProperty('background-color', '#101327', 'important');
+    block.style.setProperty('color', '#f5f6fb', 'important');
+    block.style.setProperty('padding', '18px', 'important');
+    block.style.setProperty('border-radius', '14px', 'important');
+    block.style.setProperty('white-space', 'pre-wrap', 'important');
+    block.style.setProperty('font-family', '"Consolas", "Courier New", monospace', 'important');
+    block.style.setProperty('word-break', 'break-word', 'important');
+    block.style.setProperty('word-wrap', 'break-word', 'important');
+    block.style.setProperty('overflow-wrap', 'anywhere', 'important');
+    block.style.setProperty('overflow-x', 'auto', 'important');
+  });
+
+  const inlineCodeNodes = root.querySelectorAll('code:not(pre code)');
+  inlineCodeNodes.forEach((node) => {
+    node.style.setProperty('background-color', '#eef1ff', 'important');
+    node.style.setProperty('color', '#101327', 'important');
+    node.style.setProperty('padding', '2px 4px', 'important');
+    node.style.setProperty('border-radius', '6px', 'important');
+    node.style.setProperty('font-family', '"Consolas", "Courier New", monospace', 'important');
+  });
+
+  const blockquotes = root.querySelectorAll('blockquote');
+  blockquotes.forEach((node) => {
+    node.style.setProperty('border-left', '4px solid #d9dcef', 'important');
+    node.style.setProperty('padding-left', '16px', 'important');
+    node.style.setProperty('margin', '0 0 16px', 'important');
+  });
+
+  const lists = root.querySelectorAll('ul, ol');
+  lists.forEach((node) => {
+    node.style.setProperty('margin', '0 0 16px 24px', 'important');
+    node.style.setProperty('padding', '0', 'important');
+  });
+
+  const tables = root.querySelectorAll('table');
+  tables.forEach((table) => {
+    table.style.setProperty('width', '100%', 'important');
+    table.style.setProperty('border-collapse', 'collapse', 'important');
+    table.style.setProperty('margin-bottom', '16px', 'important');
+  });
+
+  const tableCells = root.querySelectorAll('th, td');
+  tableCells.forEach((cell) => {
+    cell.style.setProperty('border', '1px solid #cdd2e5', 'important');
+    cell.style.setProperty('padding', '8px 10px', 'important');
+    cell.style.setProperty('text-align', 'left', 'important');
+    cell.style.setProperty('vertical-align', 'top', 'important');
+    cell.style.setProperty('word-wrap', 'break-word', 'important');
+    cell.style.setProperty('overflow-wrap', 'anywhere', 'important');
+  });
+
+  const images = root.querySelectorAll('img');
+  images.forEach((img) => {
+    img.style.setProperty('max-width', '100%', 'important');
+    img.style.setProperty('height', 'auto', 'important');
+    img.style.setProperty('display', 'block', 'important');
+    img.style.setProperty('margin', '12px 0', 'important');
+  });
+}
+
+function adjustLargeBlocksForPdf(root) {
+  const threshold = PDF_PAGE_HEIGHT_PX * 0.92;
+  const selectors = ['pre', 'table', 'blockquote', 'section', 'article', 'ul', 'ol', 'dl'];
+  const targets = root.querySelectorAll(selectors.join(','));
+
+  targets.forEach((node) => {
+    const height = getElementHeight(node);
+    if (height <= threshold) {
+      return;
+    }
+
+    allowPageSplits(node);
+
+    if (node.matches('pre')) {
+      node.style.setProperty('white-space', 'pre-wrap', 'important');
+      node.style.setProperty('word-break', 'break-word', 'important');
+      node.style.setProperty('overflow-wrap', 'anywhere', 'important');
+    }
+
+    if (node.matches('table')) {
+      node.style.setProperty('table-layout', 'fixed', 'important');
+    }
+
+  });
+}
+
+function relaxOversizedTurnBreaks(root) {
+  const threshold = PDF_PAGE_HEIGHT_PX * 0.95;
+  const turns = root.querySelectorAll('.' + EXPORT_TURN_CLASS);
+  turns.forEach((turn) => {
+    const height = getElementHeight(turn);
+    if (height <= threshold) {
+      return;
+    }
+
+    allowPageSplits(turn);
+
+    const innerSelectors = ['pre', 'table', 'blockquote', 'section', 'article', 'ul', 'ol', 'dl'];
+    innerSelectors.forEach((selector) => {
+      turn.querySelectorAll(selector).forEach((node) => allowPageSplits(node));
+    });
+  });
+}
+
+function allowPageSplits(node) {
+  node.style.setProperty('page-break-inside', 'auto', 'important');
+  node.style.setProperty('break-inside', 'auto', 'important');
+}
+
+function getElementHeight(node) {
+  const rect = typeof node.getBoundingClientRect === 'function' ? node.getBoundingClientRect() : null;
+  if (rect && rect.height) {
+    return rect.height;
+  }
+  return Math.max(node.scrollHeight || 0, node.offsetHeight || 0);
+}
+
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -694,7 +959,11 @@ async function exportAsPdf(root) {
     filename,
     image: { type: 'jpeg', quality: 0.95 },
     html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+    pagebreak: {
+      mode: ['css'],
+      avoid: ['.' + EXPORT_TURN_CLASS]
+    }
   };
   await html2pdf().set(options).from(root).save();
 }
@@ -710,11 +979,11 @@ async function exportAsDocx(root) {
 function wrapForDocx(innerHtml) {
   return [
     '<!DOCTYPE html>',
-    '<html>',
+    '<html lang="en">',
     '<head>',
     '<meta charset="utf-8" />',
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
-    `<style>${EXPORT_STYLE_BLOCK}</style>`,
+    `<style>${DOCX_EXPORT_STYLE_BLOCK}</style>`,
     '</head>',
     '<body>',
     innerHtml,
