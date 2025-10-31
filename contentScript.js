@@ -4,6 +4,7 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
+  exportFormat: 'pdf',
   theme: 'original'
 };
 

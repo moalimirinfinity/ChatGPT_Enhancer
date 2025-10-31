@@ -12,8 +12,20 @@
     {
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
       "css": ["styles.css"],
-      "js": ["contentScript.js"],
+      "js": [
+        "libs/html2pdf.bundle.min.js",
+        "libs/html-docx.min.js",
+        "libs/html-to-image.min.js",
+        "contentScript.js",
+        "exporter.js"
+      ],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["libs/*.js"],
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"]
     }
   ]
 }

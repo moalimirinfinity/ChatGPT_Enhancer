@@ -91,6 +91,103 @@ body {
   border: none;
 }
 
+.panel__section--export {
+  gap: 16px;
+}
+
+.export-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.export-segment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface-1);
+  border-radius: 14px;
+  border: 1px solid var(--surface-outline);
+}
+
+.export-segment__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.export-segment__input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.export-segment__label {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c7d2ff;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.export-segment__input:checked + .export-segment__label {
+  color: #111222;
+  background: linear-gradient(135deg, rgba(118, 140, 255, 0.9), rgba(94, 208, 255, 0.9));
+  box-shadow: 0 10px 18px rgba(12, 14, 27, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.export-segment__option:focus-within .export-segment__label {
+  outline: 2px solid rgba(118, 140, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.export-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #111222;
+  background: linear-gradient(135deg, #ffe8a3 0%, #ffc163 100%);
+  box-shadow:
+    0 8px 16px rgba(30, 20, 9, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.export-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 20px rgba(30, 20, 9, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.export-btn:active {
+  transform: translateY(0);
+  box-shadow:
+    0 5px 10px rgba(30, 20, 9, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.export-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+  transform: none;
+}
+
 .panel__section-title {
   margin: 0;
   font-size: 12px;

@@ -4,6 +4,7 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
+  exportFormat: 'pdf',
   theme: 'original'
 };
 
@@ -16,6 +17,10 @@ const REFRESH_LABEL_BUSY = 'Refreshing…';
 const DONATION_URL = 'https://zarinp.al/moalimirinfinity';
 const DONATE_LABEL_DEFAULT = 'Support';
 const DONATE_LABEL_BUSY = 'Opening…';
+const EXPORT_LABEL_DEFAULT = 'Export conversation';
+const EXPORT_LABEL_BUSY = 'Exporting…';
+const EXPORT_LABEL_ERROR = 'Export failed';
+const EXPORT_LABEL_UNAVAILABLE = 'Open ChatGPT to export';
 
 document.addEventListener('DOMContentLoaded', () => {
   controls.enableFix = document.getElementById('toggle-enable');
@@ -27,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
   controls.accordionHeaders = Array.from(document.querySelectorAll('.accordion__header'));
+  controls.exportFormatRadios = Array.from(document.querySelectorAll('input[name="export-format"]'));
+  controls.exportBtn = document.getElementById('export-btn');
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -49,6 +56,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   controls.refreshBtn.addEventListener('click', handleRefresh);
   controls.donateBtn.addEventListener('click', handleDonate);
+  controls.exportFormatRadios.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (isBusy) {
+        return;
+      }
+      updateSetting('exportFormat', input.value);
+    });
+  });
+  if (controls.exportBtn) {
+    controls.exportBtn.addEventListener('click', handleExport);
+  }
   controls.themeCards.forEach((card) => {
     card.addEventListener('click', () => {
       const { theme } = card.dataset;
@@ -109,6 +127,10 @@ function applySettingsToUI(settings) {
   controls.fixCode.checked = settings.fixCode;
   controls.fixTables.checked = settings.fixTables;
   controls.copyKatex.checked = settings.copyKatex;
+  const targetFormat = settings.exportFormat || DEFAULT_SETTINGS.exportFormat;
+  controls.exportFormatRadios.forEach((input) => {
+    input.checked = input.value === targetFormat;
+  });
   isBusy = false;
 
   const dependentsDisabled = !settings.enableFix;
@@ -207,4 +229,70 @@ function handleDonate() {
 
     window.setTimeout(() => window.close(), 300);
   });
+}
+
+function handleExport() {
+  if (!controls.exportBtn) {
+    return;
+  }
+  setExportBusyState(EXPORT_LABEL_BUSY);
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (chrome.runtime.lastError || !tabs.length) {
+      setExportIdleState(EXPORT_LABEL_ERROR);
+      return;
+    }
+
+    const activeTab = tabs[0];
+    if (!isChatGPTUrl(activeTab.url || '')) {
+      setExportIdleState(EXPORT_LABEL_UNAVAILABLE);
+      resetExportLabelSoon();
+      return;
+    }
+
+    chrome.tabs.sendMessage(
+      activeTab.id,
+      {
+        type: 'GBT_EXPORT_CONVERSATION',
+        format: getSelectedExportFormat()
+      },
+      (response) => {
+        if (chrome.runtime.lastError || !response || !response.ok) {
+          console.error(chrome.runtime.lastError || response?.error || 'Export failed');
+          setExportIdleState(EXPORT_LABEL_ERROR);
+          resetExportLabelSoon();
+          return;
+        }
+        setExportIdleState(EXPORT_LABEL_DEFAULT);
+        window.setTimeout(() => window.close(), 400);
+      }
+    );
+  });
+}
+
+function setExportBusyState(label) {
+  controls.exportBtn.disabled = true;
+  controls.exportBtn.textContent = label;
+}
+
+function setExportIdleState(label) {
+  controls.exportBtn.disabled = false;
+  controls.exportBtn.textContent = label;
+}
+
+function resetExportLabelSoon() {
+  window.setTimeout(() => {
+    if (controls.exportBtn && controls.exportBtn.textContent !== EXPORT_LABEL_BUSY) {
+      controls.exportBtn.textContent = EXPORT_LABEL_DEFAULT;
+    }
+  }, 2000);
+}
+
+function getSelectedExportFormat() {
+  const checked = controls.exportFormatRadios.find((input) => input.checked);
+  return checked ? checked.value : DEFAULT_SETTINGS.exportFormat;
+}
+
+function isChatGPTUrl(url) {
+  return url.startsWith('https://chat.openai.com') || url.startsWith('https://chatgpt.com');
 }

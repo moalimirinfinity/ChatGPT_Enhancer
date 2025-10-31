@@ -11,7 +11,7 @@
       <header class="panel__header">
         <h1 class="panel__title">GBT Enhancer</h1>
         <p class="panel__subtitle">
-          Tune ChatGPT layouts, KaTeX, and themes for a cleaner RTL experience.
+          Tune ChatGPT layouts, KaTeX, and themes for a cleaner experience.
         </p>
       </header>
 
@@ -154,6 +154,36 @@
           </button>
         </div>
         </div>
+      </section>
+
+      <section class="panel__section panel__section--export">
+        <div class="export-controls">
+          <span class="export-controls__title panel__section-title">Export format</span>
+          <div class="export-segment" role="radiogroup" aria-label="Select export format">
+            <label class="export-segment__option">
+              <input
+                class="export-segment__input"
+                type="radio"
+                name="export-format"
+                id="export-format-pdf"
+                value="pdf"
+                checked
+              />
+              <span class="export-segment__label">PDF</span>
+            </label>
+            <label class="export-segment__option">
+              <input
+                class="export-segment__input"
+                type="radio"
+                name="export-format"
+                id="export-format-docx"
+                value="docx"
+              />
+              <span class="export-segment__label">Word</span>
+            </label>
+          </div>
+        </div>
+        <button id="export-btn" class="export-btn" type="button">Export conversation</button>
       </section>
 
       <footer class="panel__footer">
