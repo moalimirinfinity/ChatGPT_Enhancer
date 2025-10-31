@@ -5,6 +5,9 @@ const EXPORT_TURN_CLASS = 'gbt-export-turn';
 const EXPORT_EQUATION_CLASS = 'gbt-export-equation';
 const DARK_TEXT_COLOR = 'rgb(17, 18, 34)';
 const DARK_TEXT_LUMINANCE_THRESHOLD = 0.75;
+const DIRECTIONAL_TAGS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TD', 'TH']);
+const RTL_CHAR_REGEX = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
+const LTR_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
 const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} {
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -127,6 +130,7 @@ async function handleExportRequest(format) {
   try {
     ensureLibraries(format);
     normalizeUnsupportedColors(root);
+    ensureDirectionalConsistency(root);
     await inlineImages(root);
 
     if (format === 'docx') {
@@ -300,6 +304,76 @@ function normalizeUnsupportedColors(root) {
 
     maybeForceReadableTextColor(element, computed);
   });
+}
+
+function ensureDirectionalConsistency(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+  while (walker.nextNode()) {
+    const element = walker.currentNode;
+    if (!shouldAdjustDirection(element)) {
+      continue;
+    }
+
+    const text = extractRelevantText(element);
+    if (!text) {
+      continue;
+    }
+
+    const { rtlCount, ltrCount } = countDirectionCharacters(text);
+    if (rtlCount === 0) {
+      continue;
+    }
+
+    if (rtlCount > ltrCount) {
+      element.setAttribute('dir', 'rtl');
+      element.style.setProperty('direction', 'rtl', 'important');
+      element.style.setProperty('unicode-bidi', 'plaintext', 'important');
+      element.style.setProperty('text-align', 'right', 'important');
+    }
+  }
+}
+
+function shouldAdjustDirection(element) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+  if (!DIRECTIONAL_TAGS.has(element.tagName)) {
+    return false;
+  }
+  if (element.classList.contains(EXPORT_ROOT_CLASS) || element.classList.contains(EXPORT_TURN_CLASS)) {
+    return false;
+  }
+  if (element.hasAttribute('dir')) {
+    return false;
+  }
+  if (element.closest('pre, code, .' + EXPORT_EQUATION_CLASS + ', .katex, svg')) {
+    return false;
+  }
+  const ancestorWithDir = element.parentElement ? element.parentElement.closest('[dir]') : null;
+  if (ancestorWithDir && ancestorWithDir !== document.documentElement) {
+    return false;
+  }
+  const display = window.getComputedStyle(element).display;
+  if (display === 'inline' || display === 'inline-block') {
+    return false;
+  }
+  return true;
+}
+
+function extractRelevantText(element) {
+  if (!element.textContent) {
+    return '';
+  }
+  return element.textContent.replace(/\s+/g, ' ').trim();
+}
+
+function countDirectionCharacters(text) {
+  const rtlMatches = text.match(RTL_CHAR_REGEX);
+  const ltrMatches = text.match(LTR_CHAR_REGEX);
+  return {
+    rtlCount: rtlMatches ? rtlMatches.length : 0,
+    ltrCount: ltrMatches ? ltrMatches.length : 0
+  };
 }
 
 function replaceOklchFunctions(value) {
