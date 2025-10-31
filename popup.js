@@ -235,16 +235,25 @@ function handleExport() {
   if (!controls.exportBtn) {
     return;
   }
+  clearExportErrorTooltip();
   setExportBusyState(EXPORT_LABEL_BUSY);
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (chrome.runtime.lastError || !tabs.length) {
+    const tabQueryError = chrome.runtime.lastError;
+    if (tabQueryError || !tabs.length) {
+      const message = buildExportErrorMessage(null, tabQueryError) || 'Unable to access active tab.';
+      reportExportError(message, { runtimeError: tabQueryError });
+      setExportErrorTooltip(message);
       setExportIdleState(EXPORT_LABEL_ERROR);
+      resetExportLabelSoon();
       return;
     }
 
     const activeTab = tabs[0];
     if (!isChatGPTUrl(activeTab.url || '')) {
+      const message = 'Open ChatGPT in the current tab before exporting.';
+      reportExportError(message, { url: activeTab.url });
+      setExportErrorTooltip(message);
       setExportIdleState(EXPORT_LABEL_UNAVAILABLE);
       resetExportLabelSoon();
       return;
@@ -257,12 +266,27 @@ function handleExport() {
         format: getSelectedExportFormat()
       },
       (response) => {
-        if (chrome.runtime.lastError || !response || !response.ok) {
-          console.error(chrome.runtime.lastError || response?.error || 'Export failed');
+        const messageError = chrome.runtime.lastError;
+        if (messageError || !response || !response.ok) {
+          const { message, followup, originalMessage } = buildHandledExportError({
+            response,
+            runtimeError: messageError,
+            tab: activeTab
+          });
+          reportExportError(message, {
+            runtimeError: messageError,
+            response,
+            originalMessage
+          });
+          setExportErrorTooltip(message);
           setExportIdleState(EXPORT_LABEL_ERROR);
           resetExportLabelSoon();
+          if (followup === 'reload-tab') {
+            chrome.tabs.reload(activeTab.id);
+          }
           return;
         }
+        clearExportErrorTooltip();
         setExportIdleState(EXPORT_LABEL_DEFAULT);
         window.setTimeout(() => window.close(), 400);
       }
@@ -295,4 +319,87 @@ function getSelectedExportFormat() {
 
 function isChatGPTUrl(url) {
   return url.startsWith('https://chat.openai.com') || url.startsWith('https://chatgpt.com');
+}
+
+function buildExportErrorMessage(response, runtimeError) {
+  if (runtimeError) {
+    return runtimeError.message || safeStringify(runtimeError);
+  }
+
+  if (!response) {
+    return 'No response received from the page.';
+  }
+
+  const { error } = response;
+  if (!error) {
+    return 'Export failed for an unknown reason.';
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (typeof error.message === 'string') {
+    return error.message;
+  }
+
+  return safeStringify(error);
+}
+
+function buildHandledExportError({ response, runtimeError, tab }) {
+  const baseMessage = buildExportErrorMessage(response, runtimeError);
+  if (!runtimeError || !runtimeError.message) {
+    return { message: baseMessage, followup: null, originalMessage: baseMessage };
+  }
+
+  if (runtimeError.message.includes('Receiving end does not exist')) {
+    const guidance = 'Reloading ChatGPT so the export helper can load. Please try again once the page finishes loading.';
+    return {
+      message: guidance,
+      followup: tab ? 'reload-tab' : null,
+      originalMessage: baseMessage
+    };
+  }
+
+  return { message: baseMessage, followup: null, originalMessage: baseMessage };
+}
+
+function reportExportError(message, context) {
+  if (context) {
+    console.error('[GBT Enhancer] Export failed:', message, context);
+  } else {
+    console.error('[GBT Enhancer] Export failed:', message);
+  }
+}
+
+function setExportErrorTooltip(message) {
+  if (controls.exportBtn) {
+    controls.exportBtn.title = message;
+  }
+}
+
+function clearExportErrorTooltip() {
+  if (controls.exportBtn) {
+    controls.exportBtn.removeAttribute('title');
+  }
+}
+
+function safeStringify(value) {
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      return value.toString();
+    }
+  }
+  return String(value);
 }

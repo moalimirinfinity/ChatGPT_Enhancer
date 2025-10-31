@@ -3,16 +3,37 @@ const EXPORT_STAGE_CLASS = 'gbt-export-stage';
 const EXPORT_ROOT_CLASS = 'gbt-export-root';
 const EXPORT_TURN_CLASS = 'gbt-export-turn';
 const EXPORT_EQUATION_CLASS = 'gbt-export-equation';
+const DARK_TEXT_COLOR = 'rgb(17, 18, 34)';
+const DARK_TEXT_LUMINANCE_THRESHOLD = 0.75;
 const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} {
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  color: #0b0c24;
+  color: ${DARK_TEXT_COLOR};
   background: #ffffff;
   padding: 32px 40px;
   box-sizing: border-box;
   max-width: 820px;
   margin: 0 auto;
   line-height: 1.55;
+}
+.${EXPORT_ROOT_CLASS} *,
+.${EXPORT_ROOT_CLASS} *::before,
+.${EXPORT_ROOT_CLASS} *::after {
+  color: inherit !important;
+}
+.${EXPORT_ROOT_CLASS} h1,
+.${EXPORT_ROOT_CLASS} h2,
+.${EXPORT_ROOT_CLASS} h3,
+.${EXPORT_ROOT_CLASS} h4 {
+  color: #05061a;
+  font-weight: 600;
+}
+.${EXPORT_ROOT_CLASS} a {
+  color: #1c46d6 !important;
+  text-decoration: none;
+}
+.${EXPORT_ROOT_CLASS} a:hover {
+  text-decoration: underline;
 }
 .${EXPORT_TURN_CLASS} {
   display: block;
@@ -23,23 +44,30 @@ const EXPORT_STYLE_BLOCK = `
   border-bottom: none;
   padding-bottom: 0;
 }
-.${EXPORT_ROOT_CLASS} h1,
-.${EXPORT_ROOT_CLASS} h2,
-.${EXPORT_ROOT_CLASS} h3,
-.${EXPORT_ROOT_CLASS} h4 {
-  color: #05061a;
-  font-weight: 600;
-}
 .${EXPORT_ROOT_CLASS} pre {
   background: rgba(13, 17, 38, 0.92);
-  color: #f5f6fb;
+  color: #f5f6fb !important;
   padding: 18px;
   border-radius: 14px;
   overflow: auto;
   font-size: 13px;
 }
-.${EXPORT_ROOT_CLASS} code {
+.${EXPORT_ROOT_CLASS} pre *,
+.${EXPORT_ROOT_CLASS} code,
+.${EXPORT_ROOT_CLASS} code * {
   font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+  color: inherit;
+}
+.${EXPORT_ROOT_CLASS} code:not(pre code) {
+  background: rgba(17, 20, 40, 0.08);
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.${EXPORT_ROOT_CLASS} .katex,
+.${EXPORT_ROOT_CLASS} .katex * {
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+  text-align: left !important;
 }
 .${EXPORT_ROOT_CLASS} img {
   max-width: 100%;
@@ -55,6 +83,9 @@ const EXPORT_STYLE_BLOCK = `
 .${EXPORT_EQUATION_CLASS} {
   display: inline-block;
   vertical-align: middle;
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+  text-align: left !important;
 }
 `;
 const COLOR_PROPERTIES = [
@@ -123,10 +154,9 @@ function prepareExportStage() {
   stage.style.position = 'fixed';
   stage.style.top = '-20000px';
   stage.style.left = '-20000px';
-  stage.style.width = '860px';
+  stage.style.width = '720px';
   stage.style.zIndex = '-1';
   stage.style.pointerEvents = 'none';
-  stage.style.opacity = '0';
 
   const styleNode = document.createElement('style');
   styleNode.textContent = EXPORT_STYLE_BLOCK;
@@ -267,6 +297,8 @@ function normalizeUnsupportedColors(root) {
         }
       }
     }
+
+    maybeForceReadableTextColor(element, computed);
   });
 }
 
@@ -374,6 +406,109 @@ function clamp255(value) {
   return Math.min(255, Math.max(0, rounded));
 }
 
+function maybeForceReadableTextColor(element, computed) {
+  if (!shouldForceDarkText(element)) {
+    return;
+  }
+  const colorValue = computed.getPropertyValue('color');
+  const forced = forceReadableTextColor(colorValue);
+  if (forced) {
+    element.style.setProperty('color', forced, 'important');
+  }
+}
+
+function shouldForceDarkText(element) {
+  if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  if (element.closest('pre, code, .katex, .' + EXPORT_EQUATION_CLASS + ', svg')) {
+    return false;
+  }
+  if (element.matches('img, video, audio, canvas')) {
+    return false;
+  }
+  return true;
+}
+
+function forceReadableTextColor(colorValue) {
+  const parsed = parseColorString(colorValue);
+  if (!parsed) {
+    return null;
+  }
+
+  if (parsed.a < 0.1) {
+    return DARK_TEXT_COLOR;
+  }
+
+  const luminance = relativeLuminance(parsed);
+  if (luminance > DARK_TEXT_LUMINANCE_THRESHOLD) {
+    return DARK_TEXT_COLOR;
+  }
+
+  return null;
+}
+
+function parseColorString(value) {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+
+  const rgbaMatch = value.match(/rgba?\(([^)]+)\)/i);
+  if (rgbaMatch) {
+    const parts = rgbaMatch[1]
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length < 3) {
+      return null;
+    }
+    const rawR = parseFloat(parts[0]);
+    const rawG = parseFloat(parts[1]);
+    const rawB = parseFloat(parts[2]);
+    if ([rawR, rawG, rawB].some((component) => Number.isNaN(component))) {
+      return null;
+    }
+    const r = clamp255(rawR);
+    const g = clamp255(rawG);
+    const b = clamp255(rawB);
+    const alphaValue = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+    const a = Number.isNaN(alphaValue) ? 1 : Math.max(0, Math.min(1, alphaValue));
+    return { r, g, b, a };
+  }
+
+  if (value.startsWith('#')) {
+    return parseHexColor(value);
+  }
+
+  return null;
+}
+
+function parseHexColor(value) {
+  const hex = value.replace('#', '').trim();
+  if (hex.length === 3) {
+    const r = parseInt(hex[0] + hex[0], 16);
+    const g = parseInt(hex[1] + hex[1], 16);
+    const b = parseInt(hex[2] + hex[2], 16);
+    return { r, g, b, a: 1 };
+  }
+  if (hex.length === 6 || hex.length === 8) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const a = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+    return { r, g, b, a };
+  }
+  return null;
+}
+
+function relativeLuminance({ r, g, b }) {
+  const srgb = [r, g, b].map((component) => {
+    const value = component / 255;
+    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+}
+
 function ensureLibraries(format) {
   if (format === 'pdf' && typeof window.html2pdf !== 'function') {
     throw new Error('html2pdf library missing');
@@ -408,7 +543,17 @@ async function inlineImages(root) {
         img.setAttribute('src', dataUrl);
         img.removeAttribute('srcset');
       } catch (error) {
-        console.warn('[GBT Enhancer] Unable to inline image', error);
+        try {
+          const dataUrl = await window.htmlToImage.toPng(img, {
+            pixelRatio: 2,
+            cacheBust: true,
+            backgroundColor: '#ffffff'
+          });
+          img.setAttribute('src', dataUrl);
+          img.removeAttribute('srcset');
+        } catch (fallbackError) {
+          console.warn('[GBT Enhancer] Unable to inline image', error, fallbackError);
+        }
       }
     })
   );
@@ -444,6 +589,10 @@ async function convertKatexToImages(root) {
       image.src = dataUrl;
       image.alt = latex ? `TeX: ${latex}` : 'Equation';
       image.className = EXPORT_EQUATION_CLASS;
+      image.setAttribute('dir', 'ltr');
+      image.style.setProperty('direction', 'ltr', 'important');
+      image.style.setProperty('unicode-bidi', 'normal', 'important');
+      image.style.setProperty('text-align', 'left', 'important');
       node.replaceWith(image);
     } catch (error) {
       console.warn('[GBT Enhancer] Failed to rasterize equation', error);
@@ -490,6 +639,7 @@ function wrapForDocx(innerHtml) {
     '<html>',
     '<head>',
     '<meta charset="utf-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
     `<style>${EXPORT_STYLE_BLOCK}</style>`,
     '</head>',
     '<body>',
