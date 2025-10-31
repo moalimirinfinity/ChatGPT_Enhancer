@@ -66,6 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       updateSetting(key, input.checked);
+      if (key === 'enableFix' && !input.checked && currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', false);
+      }
     });
   });
 
@@ -213,8 +216,13 @@ function applySettingsToUI(settings) {
       toggle.classList.toggle('toggle--disabled', dependentsDisabled);
     }
   });
-  if (controls.fontToggle && dependentsDisabled) {
-    controls.fontToggle.checked = false;
+  if (controls.fontToggle) {
+    if (dependentsDisabled) {
+      controls.fontToggle.checked = false;
+      if (currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', false);
+      }
+    }
   }
 
   controls.refreshBtn.disabled = false;

@@ -4,18 +4,20 @@ html.chatgpt-font-control-enabled {
   --chatgpt-font-persian: "Vazirmatn", "Noto Sans Arabic", "Tahoma", "Arial", sans-serif;
 }
 
-html.chatgpt-font-control-enabled main [data-message-author-role] {
+html.chatgpt-font-control-enabled .chatgpt-font-message,
+html.chatgpt-font-control-enabled .chatgpt-font-message * {
   font-family: var(--chatgpt-font-message-english, var(--chatgpt-font-english)) !important;
 }
 
-html.chatgpt-font-control-enabled main [data-message-author-role].chatgpt-font-persian {
+html.chatgpt-font-control-enabled .chatgpt-font-message.chatgpt-font-persian,
+html.chatgpt-font-control-enabled .chatgpt-font-message.chatgpt-font-persian * {
   font-family: var(--chatgpt-font-message-persian, var(--chatgpt-font-persian)) !important;
 }
 
-html.chatgpt-font-control-enabled main [data-message-author-role] pre,
-html.chatgpt-font-control-enabled main [data-message-author-role] code,
-html.chatgpt-font-control-enabled main [data-message-author-role] pre *,
-html.chatgpt-font-control-enabled main [data-message-author-role] code * {
+html.chatgpt-font-control-enabled .chatgpt-font-message pre,
+html.chatgpt-font-control-enabled .chatgpt-font-message code,
+html.chatgpt-font-control-enabled .chatgpt-font-message pre *,
+html.chatgpt-font-control-enabled .chatgpt-font-message code * {
   font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace !important;
 }
 

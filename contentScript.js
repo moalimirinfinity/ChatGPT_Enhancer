@@ -93,11 +93,19 @@ const FONT_IMPORT_CSS = `
 `;
 
 const PERSIAN_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const MESSAGE_SELECTOR = '[data-message-author-role], [data-testid="conversation-turn"], article[role="presentation"], [data-testid="chat-message"]';
+const FONT_VARIABLES = [
+  '--font-body',
+  '--font-sans',
+  '--font-primary',
+  '--font-secondary',
+  '--font-default'
+];
 let fontImportStyle = null;
 let fontObserver = null;
 let pendingFontSync = false;
 let fontObserverReconnectTimer = null;
-const FONT_SYNC_INTERVAL_MS = 2000;
+const FONT_SYNC_INTERVAL_MS = 5000;
 let fontSyncIntervalId = null;
 
 function resolveThemeClass(theme) {
@@ -204,11 +212,12 @@ function applyFontControl(settings) {
   if (!root) {
     return;
   }
-  const enabled = Boolean(settings.fontsEnabled);
+  const enabled = Boolean(settings.fontsEnabled && settings.enableFix);
   toggleClass('chatgpt-font-control-enabled', enabled);
   if (!enabled) {
     root.style.removeProperty('--chatgpt-font-english');
     root.style.removeProperty('--chatgpt-font-persian');
+    clearGlobalFontVariables();
     disconnectFontObserver();
     resetMessageFontClasses();
     stopFontSyncInterval();
@@ -222,6 +231,7 @@ function applyFontControl(settings) {
   const englishFont = FONT_STACKS.english[englishKey] || FONT_STACKS.english[DEFAULT_SETTINGS.fontEnglish];
   const persianFont = FONT_STACKS.persian[persianKey] || FONT_STACKS.persian[DEFAULT_SETTINGS.fontPersian];
 
+  setGlobalFontVariables(englishFont);
   root.style.setProperty('--chatgpt-font-english', englishFont);
   root.style.setProperty('--chatgpt-font-persian', persianFont);
 
@@ -241,7 +251,7 @@ function ensureFontImports() {
 }
 
 function connectFontObserver() {
-  const conversationRoot = document.querySelector('main');
+  const conversationRoot = document.querySelector('main') || document.body || document.documentElement;
   if (fontObserverReconnectTimer) {
     clearTimeout(fontObserverReconnectTimer);
     fontObserverReconnectTimer = null;
@@ -254,14 +264,7 @@ function connectFontObserver() {
     return;
   }
   if (!fontObserver) {
-    fontObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'childList' || mutation.type === 'characterData') {
-          scheduleFontSync();
-          break;
-        }
-      }
-    });
+    fontObserver = new MutationObserver(handleFontMutations);
   }
   fontObserver.disconnect();
   fontObserver.observe(conversationRoot, {
@@ -282,11 +285,11 @@ function disconnectFontObserver() {
 }
 
 function startFontSyncInterval() {
-  if (fontSyncIntervalId || !currentSettings.fontsEnabled) {
+  if (fontSyncIntervalId || !currentSettings.fontsEnabled || !currentSettings.enableFix) {
     return;
   }
   fontSyncIntervalId = setInterval(() => {
-    if (!currentSettings.fontsEnabled) {
+    if (!currentSettings.fontsEnabled || !currentSettings.enableFix) {
       stopFontSyncInterval();
       return;
     }
@@ -299,6 +302,24 @@ function stopFontSyncInterval() {
     clearInterval(fontSyncIntervalId);
     fontSyncIntervalId = null;
   }
+}
+
+function setGlobalFontVariables(font) {
+  if (!root || !font) {
+    return;
+  }
+  FONT_VARIABLES.forEach((variable) => {
+    root.style.setProperty(variable, font);
+  });
+}
+
+function clearGlobalFontVariables() {
+  if (!root) {
+    return;
+  }
+  FONT_VARIABLES.forEach((variable) => {
+    root.style.removeProperty(variable);
+  });
 }
 
 function scheduleFontSync() {
@@ -321,47 +342,115 @@ function scheduleFontSync() {
 }
 
 
+function handleFontMutations(mutations) {
+  if (!currentSettings.fontsEnabled) {
+    return;
+  }
+  const englishFont = root ? root.style.getPropertyValue('--chatgpt-font-english') : null;
+  const persianFont = root ? root.style.getPropertyValue('--chatgpt-font-persian') : null;
+  const messagesToUpdate = new Set();
+  let shouldRescan = false;
+
+  for (const mutation of mutations) {
+    if (mutation.type === 'childList') {
+      mutation.addedNodes.forEach((node) => collectMessageElements(node, messagesToUpdate));
+      shouldRescan = shouldRescan || mutation.addedNodes.length > 0;
+    } else if (mutation.type === 'characterData') {
+      const parent = mutation.target && mutation.target.parentElement;
+      if (parent) {
+        const message = parent.closest(MESSAGE_SELECTOR);
+        if (message) {
+          messagesToUpdate.add(message);
+        }
+      }
+    }
+  }
+
+  if (messagesToUpdate.size) {
+    messagesToUpdate.forEach((message) => applyFontsToMessage(message, englishFont, persianFont));
+  }
+
+  if (shouldRescan) {
+    scheduleFontSync();
+  }
+}
+
+function collectMessageElements(node, bucket) {
+  if (!node) {
+    return;
+  }
+  if (node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+    node.childNodes.forEach((child) => collectMessageElements(child, bucket));
+    return;
+  }
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const element = node;
+    if (element.matches && element.matches(MESSAGE_SELECTOR)) {
+      bucket.add(element);
+    }
+    if (element.querySelectorAll) {
+      element.querySelectorAll(MESSAGE_SELECTOR).forEach((found) => bucket.add(found));
+    }
+  }
+}
+
+
 function updateFontsForExistingMessages() {
   if (!currentSettings.fontsEnabled) {
     return;
   }
   const englishFont = root ? root.style.getPropertyValue('--chatgpt-font-english') : null;
   const persianFont = root ? root.style.getPropertyValue('--chatgpt-font-persian') : null;
-  const messages = document.querySelectorAll('main [data-message-author-role]');
-  messages.forEach((message) => {
-    if (!(message instanceof HTMLElement)) {
-      return;
-    }
-    updateMessageFontClass(message);
-    if (englishFont) {
-      message.style.setProperty('--chatgpt-font-message-english', englishFont);
-    }
-    if (persianFont) {
-      message.style.setProperty('--chatgpt-font-message-persian', persianFont);
-    }
+  document.querySelectorAll(MESSAGE_SELECTOR).forEach((message) => {
+    applyFontsToMessage(message, englishFont, persianFont);
   });
 }
 
 function resetMessageFontClasses() {
-  const messages = document.querySelectorAll('main [data-message-author-role]');
-  messages.forEach((message) => {
-    if (!(message instanceof HTMLElement)) {
-      return;
+  document.querySelectorAll(MESSAGE_SELECTOR).forEach((message) => {
+    if (message instanceof HTMLElement) {
+      message.classList.remove('chatgpt-font-persian');
+      message.classList.remove('chatgpt-font-message');
+      message.style.removeProperty('--chatgpt-font-message-english');
+      message.style.removeProperty('--chatgpt-font-message-persian');
+      FONT_VARIABLES.forEach((variable) => {
+        message.style.removeProperty(variable);
+      });
     }
-    message.classList.remove('chatgpt-font-persian');
   });
 }
 
-function updateMessageFontClass(element) {
+function applyFontsToMessage(element, englishFont, persianFont) {
   if (!(element instanceof HTMLElement)) {
     return;
   }
-  if (!element.textContent) {
-    element.classList.remove('chatgpt-font-persian');
-    return;
-  }
-  const hasPersian = PERSIAN_CHAR_REGEX.test(element.textContent);
+  element.classList.add('chatgpt-font-message');
+  const textContent = element.textContent || '';
+  const hasPersian = PERSIAN_CHAR_REGEX.test(textContent);
   element.classList.toggle('chatgpt-font-persian', hasPersian);
+
+  if (englishFont) {
+    element.style.setProperty('--chatgpt-font-message-english', englishFont);
+  } else {
+    element.style.removeProperty('--chatgpt-font-message-english');
+  }
+
+  if (hasPersian && persianFont) {
+    element.style.setProperty('--chatgpt-font-message-persian', persianFont);
+  } else {
+    element.style.removeProperty('--chatgpt-font-message-persian');
+  }
+
+  const targetFont = hasPersian && persianFont ? persianFont : englishFont;
+  if (targetFont) {
+    FONT_VARIABLES.forEach((variable) => {
+      element.style.setProperty(variable, targetFont);
+    });
+  } else {
+    FONT_VARIABLES.forEach((variable) => {
+      element.style.removeProperty(variable);
+    });
+  }
 }
 
 function classesInSync(settings) {
