@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GBT Enhancer",
   "version": "1.1.0",
-  "description": "Enhance ChatGPT math, code, and themes with smarter RTL-friendly controls.",
+  "description": "Tune ChatGPT layouts, KaTeX, and themes for a cleaner experience.",
   "permissions": ["storage", "tabs", "clipboardWrite"],
   "action": {
     "default_popup": "popup.html",
