@@ -262,7 +262,7 @@ function handleExport() {
     chrome.tabs.sendMessage(
       activeTab.id,
       {
-        type: 'GBT_EXPORT_CONVERSATION',
+        type: 'GPT_EXPORT_CONVERSATION',
         format: getSelectedExportFormat()
       },
       (response) => {
@@ -366,9 +366,9 @@ function buildHandledExportError({ response, runtimeError, tab }) {
 
 function reportExportError(message, context) {
   if (context) {
-    console.error('[GBT Enhancer] Export failed:', message, context);
+    console.error('[GPT Enhancer] Export failed:', message, context);
   } else {
-    console.error('[GBT Enhancer] Export failed:', message);
+    console.error('[GPT Enhancer] Export failed:', message);
   }
 }
 

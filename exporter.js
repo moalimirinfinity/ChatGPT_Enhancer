@@ -1,8 +1,8 @@
-const EXPORT_MESSAGE_TYPE = 'GBT_EXPORT_CONVERSATION';
-const EXPORT_STAGE_CLASS = 'gbt-export-stage';
-const EXPORT_ROOT_CLASS = 'gbt-export-root';
-const EXPORT_TURN_CLASS = 'gbt-export-turn';
-const EXPORT_EQUATION_CLASS = 'gbt-export-equation';
+const EXPORT_MESSAGE_TYPE = 'GPT_EXPORT_CONVERSATION';
+const EXPORT_STAGE_CLASS = 'gpt-export-stage';
+const EXPORT_ROOT_CLASS = 'gpt-export-root';
+const EXPORT_TURN_CLASS = 'gpt-export-turn';
+const EXPORT_EQUATION_CLASS = 'gpt-export-equation';
 const DARK_TEXT_COLOR = 'rgb(17, 18, 34)';
 const DARK_TEXT_LUMINANCE_THRESHOLD = 0.75;
 const DIRECTIONAL_TAGS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TD', 'TH']);
@@ -254,7 +254,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   handleExportRequest(message.format || 'pdf')
     .then(() => sendResponse({ ok: true }))
     .catch((error) => {
-      console.error('[GBT Enhancer] Export failed', error);
+      console.error('[GPT Enhancer] Export failed', error);
       sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
     });
 
@@ -771,7 +771,7 @@ async function inlineImages(root) {
           img.setAttribute('src', dataUrl);
           img.removeAttribute('srcset');
         } catch (fallbackError) {
-          console.warn('[GBT Enhancer] Unable to inline image', error, fallbackError);
+          console.warn('[GPT Enhancer] Unable to inline image', error, fallbackError);
         }
       }
     })
@@ -934,7 +934,7 @@ async function convertKatexToImages(root) {
       image.style.setProperty('text-align', 'left', 'important');
       node.replaceWith(image);
     } catch (error) {
-      console.warn('[GBT Enhancer] Failed to rasterize equation', error);
+      console.warn('[GPT Enhancer] Failed to rasterize equation', error);
     }
   }
 }

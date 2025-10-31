@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "GBT Enhancer",
+  "name": "GPT Enhancer",
   "version": "1.1.0",
   "description": "Tune ChatGPT layouts, KaTeX, and themes for a cleaner experience.",
   "permissions": ["storage", "tabs", "clipboardWrite"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "GBT Enhancer",
+    "default_title": "GPT Enhancer",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"
