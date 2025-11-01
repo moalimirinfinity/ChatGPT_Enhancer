@@ -8,15 +8,78 @@ const DARK_TEXT_LUMINANCE_THRESHOLD = 0.75;
 const DIRECTIONAL_TAGS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TD', 'TH']);
 const RTL_CHAR_REGEX = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
+const VAZIRMATN_FONT_PATH = 'fonts/Vazirmatn-VF.woff2';
+const FONT_FAMILY_STACK = '"Vazirmatn", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
 const PDF_PAGE_HEIGHT_PX = 960;
+const ZWNJ = '\u200c';
+const ZWJ = '\u200d';
+const TATWEEL = '\u0640';
+const LTR_SEGMENT_REGEX = /[A-Za-z0-9@#$%^&*()_+\-=\/\\|{}\[\]:;"',.<>?!]+/g;
+const NEUTRAL_PUNCTUATION_REGEX = /[،؛؟!?%٪٫٬٫٬\u060C\u061B\u061F\.]/g;
+const PERSIAN_DIGIT_MAP = {
+  '0': '۰',
+  '1': '۱',
+  '2': '۲',
+  '3': '۳',
+  '4': '۴',
+  '5': '۵',
+  '6': '۶',
+  '7': '۷',
+  '8': '۸',
+  '9': '۹'
+};
+const ARABIC_CHAR_FORMS = new Map([
+  ['\u0621', { isolated: '\uFE80', final: null, initial: null, medial: null, joinPrev: false, joinNext: false }],
+  ['\u0622', { isolated: '\uFE81', final: '\uFE82', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0623', { isolated: '\uFE83', final: '\uFE84', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0624', { isolated: '\uFE85', final: '\uFE86', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0625', { isolated: '\uFE87', final: '\uFE88', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0626', { isolated: '\uFE89', final: '\uFE8A', initial: '\uFE8B', medial: '\uFE8C', joinPrev: true, joinNext: true }],
+  ['\u0627', { isolated: '\uFE8D', final: '\uFE8E', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0628', { isolated: '\uFE8F', final: '\uFE90', initial: '\uFE91', medial: '\uFE92', joinPrev: true, joinNext: true }],
+  ['\u0629', { isolated: '\uFE93', final: '\uFE94', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u062A', { isolated: '\uFE95', final: '\uFE96', initial: '\uFE97', medial: '\uFE98', joinPrev: true, joinNext: true }],
+  ['\u062B', { isolated: '\uFE99', final: '\uFE9A', initial: '\uFE9B', medial: '\uFE9C', joinPrev: true, joinNext: true }],
+  ['\u062C', { isolated: '\uFE9D', final: '\uFE9E', initial: '\uFE9F', medial: '\uFEA0', joinPrev: true, joinNext: true }],
+  ['\u062D', { isolated: '\uFEA1', final: '\uFEA2', initial: '\uFEA3', medial: '\uFEA4', joinPrev: true, joinNext: true }],
+  ['\u062E', { isolated: '\uFEA5', final: '\uFEA6', initial: '\uFEA7', medial: '\uFEA8', joinPrev: true, joinNext: true }],
+  ['\u062F', { isolated: '\uFEA9', final: '\uFEAA', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0630', { isolated: '\uFEAB', final: '\uFEAC', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0631', { isolated: '\uFEAD', final: '\uFEAE', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0632', { isolated: '\uFEAF', final: '\uFEB0', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0633', { isolated: '\uFEB1', final: '\uFEB2', initial: '\uFEB3', medial: '\uFEB4', joinPrev: true, joinNext: true }],
+  ['\u0634', { isolated: '\uFEB5', final: '\uFEB6', initial: '\uFEB7', medial: '\uFEB8', joinPrev: true, joinNext: true }],
+  ['\u0635', { isolated: '\uFEB9', final: '\uFEBA', initial: '\uFEBB', medial: '\uFEBC', joinPrev: true, joinNext: true }],
+  ['\u0636', { isolated: '\uFEBD', final: '\uFEBE', initial: '\uFEBF', medial: '\uFEC0', joinPrev: true, joinNext: true }],
+  ['\u0637', { isolated: '\uFEC1', final: '\uFEC2', initial: '\uFEC3', medial: '\uFEC4', joinPrev: true, joinNext: true }],
+  ['\u0638', { isolated: '\uFEC5', final: '\uFEC6', initial: '\uFEC7', medial: '\uFEC8', joinPrev: true, joinNext: true }],
+  ['\u0639', { isolated: '\uFEC9', final: '\uFECA', initial: '\uFECB', medial: '\uFECC', joinPrev: true, joinNext: true }],
+  ['\u063A', { isolated: '\uFECD', final: '\uFECE', initial: '\uFECF', medial: '\uFED0', joinPrev: true, joinNext: true }],
+  ['\u0641', { isolated: '\uFED1', final: '\uFED2', initial: '\uFED3', medial: '\uFED4', joinPrev: true, joinNext: true }],
+  ['\u0642', { isolated: '\uFED5', final: '\uFED6', initial: '\uFED7', medial: '\uFED8', joinPrev: true, joinNext: true }],
+  ['\u0643', { isolated: '\uFED9', final: '\uFEDA', initial: '\uFEDB', medial: '\uFEDC', joinPrev: true, joinNext: true }],
+  ['\u0644', { isolated: '\uFEDD', final: '\uFEDE', initial: '\uFEDF', medial: '\uFEE0', joinPrev: true, joinNext: true }],
+  ['\u0645', { isolated: '\uFEE1', final: '\uFEE2', initial: '\uFEE3', medial: '\uFEE4', joinPrev: true, joinNext: true }],
+  ['\u0646', { isolated: '\uFEE5', final: '\uFEE6', initial: '\uFEE7', medial: '\uFEE8', joinPrev: true, joinNext: true }],
+  ['\u0647', { isolated: '\uFEE9', final: '\uFEEA', initial: '\uFEEB', medial: '\uFEEC', joinPrev: true, joinNext: true }],
+  ['\u0648', { isolated: '\uFEED', final: '\uFEEE', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u0649', { isolated: '\uFEEF', final: '\uFEF0', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u064A', { isolated: '\uFEF1', final: '\uFEF2', initial: '\uFEF3', medial: '\uFEF4', joinPrev: true, joinNext: true }],
+  ['\u067E', { isolated: '\uFB56', final: '\uFB57', initial: '\uFB58', medial: '\uFB59', joinPrev: true, joinNext: true }],
+  ['\u0686', { isolated: '\uFB7A', final: '\uFB7B', initial: '\uFB7C', medial: '\uFB7D', joinPrev: true, joinNext: true }],
+  ['\u0698', { isolated: '\uFB8A', final: '\uFB8B', initial: null, medial: null, joinPrev: true, joinNext: false }],
+  ['\u06A9', { isolated: '\uFB8E', final: '\uFB8F', initial: '\uFB90', medial: '\uFB91', joinPrev: true, joinNext: true }],
+  ['\u06AF', { isolated: '\uFB92', final: '\uFB93', initial: '\uFB94', medial: '\uFB95', joinPrev: true, joinNext: true }],
+  ['\u06CC', { isolated: '\uFBFC', final: '\uFBFD', initial: '\uFBFE', medial: '\uFBFF', joinPrev: true, joinNext: true }]
+]);
 const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} {
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: ${FONT_FAMILY_STACK};
   color: ${DARK_TEXT_COLOR};
   background: #ffffff;
-  padding: 32px 40px;
+  padding: 32px;
   box-sizing: border-box;
-  max-width: 820px;
+  max-width: 672px;
   margin: 0 auto;
   line-height: 1.55;
 }
@@ -43,8 +106,8 @@ const EXPORT_STYLE_BLOCK = `
   display: block;
   padding: 20px 0;
   border-bottom: 1px solid rgba(9, 10, 27, 0.08);
-  page-break-inside: avoid;
-  break-inside: avoid;
+  page-break-inside: auto;
+  break-inside: auto;
 }
 .${EXPORT_TURN_CLASS}:last-child {
   border-bottom: none;
@@ -73,6 +136,21 @@ const EXPORT_STYLE_BLOCK = `
   background: rgba(17, 20, 40, 0.08);
   padding: 2px 4px;
   border-radius: 6px;
+}
+.${EXPORT_ROOT_CLASS} [dir="rtl"]:not(pre):not(code) {
+  direction: rtl;
+  unicode-bidi: isolate;
+  text-align: right;
+  letter-spacing: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+.${EXPORT_ROOT_CLASS} [dir="ltr"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+  letter-spacing: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
 }
 .${EXPORT_ROOT_CLASS} .katex,
 .${EXPORT_ROOT_CLASS} .katex * {
@@ -119,7 +197,7 @@ const DOCX_EXPORT_STYLE_BLOCK = `
   margin: 1in;
 }
 body {
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: ${FONT_FAMILY_STACK};
   color: ${DARK_TEXT_COLOR};
   background: #ffffff;
   margin: 0;
@@ -246,6 +324,69 @@ const COLOR_PROPERTIES = [
   ['borderImageSource', 'border-image-source']
 ];
 
+function getExtensionAssetUrl(path) {
+  if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+    try {
+      return chrome.runtime.getURL(path);
+    } catch (error) {
+      console.warn('[GPT Enhancer] Unable to resolve extension asset URL', error);
+      return path;
+    }
+  }
+  return path;
+}
+
+let exportFontRegistrationPromise = null;
+
+async function registerExportFonts() {
+  if (exportFontRegistrationPromise) {
+    return exportFontRegistrationPromise;
+  }
+  if (!document.fonts || typeof document.fonts.check !== 'function' || typeof FontFace !== 'function') {
+    exportFontRegistrationPromise = Promise.resolve();
+    return exportFontRegistrationPromise;
+  }
+  if (document.fonts.check('16px "Vazirmatn"')) {
+    exportFontRegistrationPromise = Promise.resolve();
+    return exportFontRegistrationPromise;
+  }
+
+  exportFontRegistrationPromise = (async () => {
+    const fontUrl = getExtensionAssetUrl(VAZIRMATN_FONT_PATH);
+    if (!fontUrl) {
+      return;
+    }
+    try {
+      const response = await fetch(fontUrl);
+      if (!response.ok) {
+        throw new Error(`Font request failed: ${response.status}`);
+      }
+      const buffer = await response.arrayBuffer();
+      const fontFace = new FontFace('Vazirmatn', buffer, {
+        style: 'normal',
+        weight: '100 900',
+        display: 'swap'
+      });
+      await fontFace.load();
+      document.fonts.add(fontFace);
+    } catch (error) {
+      console.warn('[GPT Enhancer] Unable to register Vazirmatn font', error);
+    }
+  })();
+
+  return exportFontRegistrationPromise;
+}
+
+function getJsPdfConstructor() {
+  if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
+    return window.jspdf.jsPDF;
+  }
+  if (typeof window.jsPDF === 'function') {
+    return window.jsPDF;
+  }
+  return null;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== EXPORT_MESSAGE_TYPE) {
     return undefined;
@@ -262,11 +403,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function handleExportRequest(format) {
-  const { root, stage, styleNode } = prepareExportStage();
+  await registerExportFonts();
+  const { root, stage, styleNode } = await prepareExportStage();
   try {
     ensureLibraries(format);
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
+    if (format === 'pdf') {
+      reshapeRtlTextNodes(root);
+    }
+    await ensureExportFontsLoaded();
     await inlineImages(root);
 
     if (format === 'docx') {
@@ -286,7 +432,8 @@ async function handleExportRequest(format) {
   }
 }
 
-function prepareExportStage() {
+async function prepareExportStage() {
+  await ensureConversationContentLoaded();
   const exportRoot = collectConversation();
   if (!exportRoot) {
     throw new Error('Unable to locate conversation content on this page.');
@@ -297,7 +444,7 @@ function prepareExportStage() {
   stage.style.position = 'fixed';
   stage.style.top = '0';
   stage.style.left = '0';
-  stage.style.width = '720px';
+  stage.style.width = '672px';
   stage.style.opacity = '0';
   stage.style.zIndex = '-1';
   stage.style.pointerEvents = 'none';
@@ -312,6 +459,45 @@ function prepareExportStage() {
   document.body.appendChild(stage);
 
   return { root: exportRoot, stage, styleNode };
+}
+
+async function ensureConversationContentLoaded() {
+  const selector = '[data-testid="conversation-turn"], [data-message-author-role]';
+  const main = document.querySelector('main');
+  const container = main || document.body;
+  if (!container) {
+    return;
+  }
+
+  const originalWindowScroll = { x: window.scrollX, y: window.scrollY };
+  const originalMainScrollTop = main ? main.scrollTop : null;
+
+  let previousCount = container.querySelectorAll(selector).length;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const nodes = container.querySelectorAll(selector);
+    if (!nodes.length) {
+      await delay(80);
+      continue;
+    }
+
+    const last = nodes[nodes.length - 1];
+    if (last && typeof last.scrollIntoView === 'function') {
+      last.scrollIntoView({ block: 'end', inline: 'nearest' });
+    }
+    window.scrollTo(0, document.body.scrollHeight);
+
+    await delay(160);
+    const currentCount = container.querySelectorAll(selector).length;
+    if (currentCount === previousCount) {
+      break;
+    }
+    previousCount = currentCount;
+  }
+
+  if (typeof originalMainScrollTop === 'number' && main) {
+    main.scrollTop = originalMainScrollTop;
+  }
+  window.scrollTo(originalWindowScroll.x, originalWindowScroll.y);
 }
 
 function collectConversation() {
@@ -464,18 +650,321 @@ function ensureDirectionalConsistency(root) {
       continue;
     }
 
-    const { rtlCount, ltrCount } = countDirectionCharacters(text);
+    const { rtlCount } = countDirectionCharacters(text);
     if (rtlCount === 0) {
       continue;
     }
 
-    if (rtlCount > ltrCount) {
-      element.setAttribute('dir', 'rtl');
-      element.style.setProperty('direction', 'rtl', 'important');
-      element.style.setProperty('unicode-bidi', 'plaintext', 'important');
-      element.style.setProperty('text-align', 'right', 'important');
+    element.setAttribute('dir', 'rtl');
+    element.style.removeProperty('direction');
+    element.style.removeProperty('unicode-bidi');
+    element.style.removeProperty('text-align');
+  }
+}
+
+function reshapeRtlTextNodes(root) {
+  if (!root) {
+    return;
+  }
+  const nodes = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode);
+  }
+  nodes.forEach((node) => processRtlTextNode(node));
+}
+
+function processRtlTextNode(node) {
+  const value = node.nodeValue;
+  if (!value || !containsRtlCharacters(value)) {
+    return;
+  }
+  if (shouldSkipArabicReshape(node)) {
+    return;
+  }
+
+  const segments = splitTextForDirectionalRuns(value);
+  if (!segments) {
+    const converted = convertAsciiDigitsToPersian(value);
+    node.nodeValue = reshapeArabicText(converted);
+    return;
+  }
+
+  const parent = node.parentNode;
+  if (!parent) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  segments.forEach((segment) => {
+    if (!segment.value) {
+      return;
+    }
+    if (segment.type === 'ltr') {
+      const span = document.createElement('span');
+      span.setAttribute('dir', 'ltr');
+      span.textContent = segment.value;
+      fragment.appendChild(span);
+    } else if (segment.type === 'neutral') {
+      const span = document.createElement('span');
+      span.setAttribute('dir', 'rtl');
+      span.textContent = convertAsciiDigitsToPersian(segment.value);
+      fragment.appendChild(span);
+    } else {
+      const converted = convertAsciiDigitsToPersian(segment.value);
+      if (containsRtlCharacters(converted)) {
+        fragment.appendChild(document.createTextNode(reshapeArabicText(converted)));
+      } else {
+        fragment.appendChild(document.createTextNode(converted));
+      }
+    }
+  });
+
+  parent.replaceChild(fragment, node);
+}
+
+function splitTextForDirectionalRuns(value) {
+  LTR_SEGMENT_REGEX.lastIndex = 0;
+  let match;
+  let lastIndex = 0;
+  let hasLtr = false;
+  const segments = [];
+
+  while ((match = LTR_SEGMENT_REGEX.exec(value))) {
+    const matchStart = match.index;
+    if (matchStart > lastIndex) {
+      segments.push({ type: 'rtl', value: value.slice(lastIndex, matchStart) });
+    }
+    segments.push({ type: 'ltr', value: match[0] });
+    hasLtr = true;
+    lastIndex = matchStart + match[0].length;
+  }
+
+  if (!hasLtr) {
+    return null;
+  }
+
+  if (lastIndex < value.length) {
+    segments.push({ type: 'rtl', value: value.slice(lastIndex) });
+  }
+
+  if (!segments.length) {
+    return null;
+  }
+
+  const expanded = [];
+  segments.forEach((segment) => {
+    if (segment.type !== 'rtl') {
+      expanded.push(segment);
+      return;
+    }
+    const subSegments = splitNeutralSegments(segment.value);
+    subSegments.forEach((subSegment) => expanded.push(subSegment));
+  });
+
+  return expanded;
+}
+
+function shouldSkipArabicReshape(textNode) {
+  let current = textNode.parentNode;
+  while (current && current.nodeType === Node.ELEMENT_NODE) {
+    const tag = current.tagName ? current.tagName.toLowerCase() : '';
+    if (tag === 'pre' || tag === 'code' || tag === 'script' || tag === 'style') {
+      return true;
+    }
+    if (current.classList && current.classList.contains(EXPORT_EQUATION_CLASS)) {
+      return true;
+    }
+    current = current.parentNode;
+  }
+  return false;
+}
+
+function reshapeArabicText(input) {
+  const chars = Array.from(input);
+  const output = [];
+  for (let index = 0; index < chars.length; index += 1) {
+    const currentChar = chars[index];
+    if (currentChar === ZWNJ) {
+      output.push(currentChar);
+      continue;
+    }
+    if (currentChar === TATWEEL) {
+      output.push(currentChar);
+      continue;
+    }
+    const currentForm = ARABIC_CHAR_FORMS.get(currentChar);
+    if (!currentForm) {
+      output.push(currentChar);
+      continue;
+    }
+
+    const prevInfo = findPreviousConnectable(chars, index);
+    const nextInfo = findNextConnectable(chars, index);
+    const connectPrev = Boolean(prevInfo && prevInfo.form.joinNext && currentForm.joinPrev);
+    const connectNext = Boolean(nextInfo && currentForm.joinNext && nextInfo.form.joinPrev);
+
+    let shaped = currentForm.isolated || currentChar;
+    if (connectPrev && connectNext && currentForm.medial) {
+      shaped = currentForm.medial;
+    } else if (connectPrev && currentForm.final) {
+      shaped = currentForm.final;
+    } else if (connectNext && currentForm.initial) {
+      shaped = currentForm.initial;
+    }
+
+    output.push(shaped);
+  }
+  return output.join('');
+}
+
+function findPreviousConnectable(chars, startIndex) {
+  for (let index = startIndex - 1; index >= 0; index -= 1) {
+    const candidate = chars[index];
+    if (candidate === ZWNJ) {
+      return null;
+    }
+    if (candidate === ZWJ) {
+      continue;
+    }
+    if (candidate === TATWEEL) {
+      continue;
+    }
+    const form = ARABIC_CHAR_FORMS.get(candidate);
+    if (!form) {
+      if (isArabicCombiningMark(candidate)) {
+        continue;
+      }
+      if (!isWhitespaceLike(candidate)) {
+        return null;
+      }
+      continue;
+    }
+    return { char: candidate, form };
+  }
+  return null;
+}
+
+function findNextConnectable(chars, startIndex) {
+  for (let index = startIndex + 1; index < chars.length; index += 1) {
+    const candidate = chars[index];
+    if (candidate === ZWNJ) {
+      return null;
+    }
+    if (candidate === ZWJ) {
+      continue;
+    }
+    if (candidate === TATWEEL) {
+      continue;
+    }
+    const form = ARABIC_CHAR_FORMS.get(candidate);
+    if (!form) {
+      if (isArabicCombiningMark(candidate)) {
+        continue;
+      }
+      if (!isWhitespaceLike(candidate)) {
+        return null;
+      }
+      continue;
+    }
+    return { char: candidate, form };
+  }
+  return null;
+}
+
+function isWhitespaceLike(char) {
+  if (!char) {
+    return false;
+  }
+  return /\s/.test(char);
+}
+
+function containsRtlCharacters(value) {
+  if (!value) {
+    return false;
+  }
+  RTL_CHAR_REGEX.lastIndex = 0;
+  return RTL_CHAR_REGEX.test(value);
+}
+
+function isArabicCombiningMark(char) {
+  if (!char) {
+    return false;
+  }
+  const code = char.codePointAt(0);
+  if (code === undefined) {
+    return false;
+  }
+  return (
+    (code >= 0x0610 && code <= 0x061A) ||
+    (code >= 0x064B && code <= 0x065F) ||
+    (code >= 0x0670 && code <= 0x0671) ||
+    (code >= 0x06D6 && code <= 0x06DC) ||
+    (code >= 0x06DF && code <= 0x06E8) ||
+    (code >= 0x06EA && code <= 0x06ED)
+  );
+}
+
+function splitNeutralSegments(value) {
+  const result = [];
+  if (!value) {
+    return result;
+  }
+  NEUTRAL_PUNCTUATION_REGEX.lastIndex = 0;
+  let match;
+  let lastIndex = 0;
+  while ((match = NEUTRAL_PUNCTUATION_REGEX.exec(value))) {
+    const index = match.index;
+    if (index > lastIndex) {
+      result.push({ type: 'rtl', value: value.slice(lastIndex, index) });
+    }
+    result.push({ type: 'neutral', value: match[0] });
+    lastIndex = index + match[0].length;
+  }
+  if (lastIndex < value.length) {
+    result.push({ type: 'rtl', value: value.slice(lastIndex) });
+  }
+  return result;
+}
+
+function convertAsciiDigitsToPersian(value) {
+  if (!value) {
+    return value;
+  }
+  let result = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    result += PERSIAN_DIGIT_MAP[char] || char;
+  }
+  return result;
+}
+
+async function ensureExportFontsLoaded() {
+  if (!document.fonts || typeof document.fonts.load !== 'function') {
+    return;
+  }
+
+  await registerExportFonts();
+
+  try {
+    await document.fonts.load('16px "Vazirmatn"');
+  } catch (error) {
+    console.warn('[GPT Enhancer] Unable to load Vazirmatn font', error);
+  }
+
+  if (typeof document.fonts.ready === 'object' && typeof document.fonts.ready.then === 'function') {
+    try {
+      await document.fonts.ready;
+    } catch (error) {
+      console.warn('[GPT Enhancer] Font readiness check failed', error);
     }
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function shouldAdjustDirection(element) {
@@ -951,7 +1440,27 @@ function extractLatex(element) {
   return element.textContent ? element.textContent.trim() : '';
 }
 
+function containsRtlContent(root) {
+  if (!root) {
+    return false;
+  }
+  if (root.querySelector('[dir="rtl"]')) {
+    return true;
+  }
+  if (!root.textContent) {
+    return false;
+  }
+  return containsRtlCharacters(root.textContent);
+}
+
 async function exportAsPdf(root) {
+  if (containsRtlContent(root)) {
+    const rasterized = await exportAsRasterizedPdf(root);
+    if (rasterized) {
+      return;
+    }
+  }
+
   const filename = buildFilename('pdf');
   const html2pdf = window.html2pdf;
   const options = {
@@ -961,11 +1470,50 @@ async function exportAsPdf(root) {
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak: {
-      mode: ['css'],
-      avoid: ['.' + EXPORT_TURN_CLASS]
+      mode: ['css', 'legacy']
     }
   };
   await html2pdf().set(options).from(root).save();
+}
+
+async function exportAsRasterizedPdf(root) {
+  const jsPdfConstructor = getJsPdfConstructor();
+  if (!jsPdfConstructor || !window.htmlToImage || typeof window.htmlToImage.toCanvas !== 'function') {
+    return false;
+  }
+
+  try {
+    const canvas = await window.htmlToImage.toCanvas(root, {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor: '#ffffff'
+    });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    const filename = buildFilename('pdf');
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const usableWidth = pageWidth - margin * 2;
+    const scaledHeight = canvas.height * (usableWidth / canvas.width);
+    const step = pageHeight - margin * 2;
+
+    let offset = 0;
+    while (offset < scaledHeight) {
+      pdf.addImage(imgData, 'PNG', margin, margin - offset, usableWidth, scaledHeight);
+      offset += step;
+      if (offset < scaledHeight) {
+        pdf.addPage();
+      }
+    }
+
+    pdf.save(filename);
+    return true;
+  } catch (error) {
+    console.warn('[GPT Enhancer] Rasterized PDF export failed', error);
+    return false;
+  }
 }
 
 async function exportAsDocx(root) {

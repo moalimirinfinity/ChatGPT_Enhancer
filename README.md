@@ -50,4 +50,4 @@ If you find GPT Enhancer helpful, you can support the project here: https://doni
 
 ## License
 
-This project is distributed for personal use; review the source code and adapt as needed for your own workflow.***
+This project is distributed for personal use; review the source code and adapt as needed for your own workflow.
