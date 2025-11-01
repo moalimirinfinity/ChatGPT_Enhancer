@@ -93,14 +93,15 @@ const FONT_IMPORT_CSS = `
 `;
 
 const PERSIAN_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-const MESSAGE_SELECTOR = '[data-message-author-role], [data-testid="conversation-turn"], article[role="presentation"], [data-testid="chat-message"]';
-const FONT_VARIABLES = [
-  '--font-body',
-  '--font-sans',
-  '--font-primary',
-  '--font-secondary',
-  '--font-default'
-];
+const MESSAGE_SELECTOR = [
+  '[data-testid="conversation-turn"]',
+  '[data-testid^="conversation-turn-"]',
+  'article[role="presentation"]',
+  '[data-testid="chat-message"]',
+  'div[data-message-author-role]',
+  'li[data-message-author-role]'
+].join(', ');
+const FONT_VARIABLES = ['--font-body'];
 let fontImportStyle = null;
 let fontObserver = null;
 let pendingFontSync = false;
