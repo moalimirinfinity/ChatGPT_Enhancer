@@ -42,6 +42,15 @@ const LEGACY_THEME_CLASSES = [
   'chatgpt-theme-original-light'
 ];
 let appliedThemeClass = null;
+const THEME_COMPATIBILITY = {
+  midnight: 'dark',
+  aurora: 'dark',
+  paper: 'light'
+};
+const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
+let lastKnownChatThemeMode = null;
+let themeModeSyncTimer = null;
+let lastThemeBlockNotice = null;
 
 const FONT_STACKS = {
   english: {
@@ -183,8 +192,9 @@ function applySettings(settings) {
     settings.enableFix && settings.fixTables
   );
 
+  const environmentThemeMode = getChatGPTThemeMode();
   if (settings.enableFix) {
-    applyTheme(settings.theme);
+    applyTheme(settings.theme, environmentThemeMode);
   } else {
     removeTheme();
   }
@@ -192,21 +202,32 @@ function applySettings(settings) {
   scheduleClassResetFlag();
 }
 
-function applyTheme(theme) {
+function applyTheme(theme, environmentThemeMode) {
   if (!root) {
     return;
   }
-  CUSTOM_THEME_CLASSES.forEach((className) => {
-    root.classList.remove(className);
-  });
-  appliedThemeClass = null;
-  LEGACY_THEME_CLASSES.forEach((className) => {
-    root.classList.remove(className);
-  });
-  const themeClass = resolveThemeClass(theme);
+  const mode = typeof environmentThemeMode === 'string' ? environmentThemeMode : getChatGPTThemeMode();
+  const { theme: applicableTheme, blocked, requested, requiredMode } = getApplicableTheme(theme, mode);
+  resetThemeClasses();
+  if (blocked && requested) {
+    const key = `${requested}:${requiredMode}:${mode || 'unknown'}`;
+    if (lastThemeBlockNotice !== key) {
+      lastThemeBlockNotice = key;
+      console.info(
+        `[GPT Enhancer] Skipping theme "${requested}" because ChatGPT is currently in ${mode || 'unknown'} mode.`
+      );
+    }
+    appliedThemeClass = null;
+    return;
+  }
+  const themeClass = resolveThemeClass(applicableTheme);
   if (themeClass) {
     root.classList.add(themeClass);
     appliedThemeClass = themeClass;
+    lastThemeBlockNotice = null;
+  } else {
+    appliedThemeClass = null;
+    lastThemeBlockNotice = null;
   }
 }
 
@@ -214,7 +235,201 @@ function removeTheme() {
   if (!root) {
     return;
   }
-  applyTheme(null);
+  resetThemeClasses();
+  lastThemeBlockNotice = null;
+}
+
+function resetThemeClasses() {
+  if (!root) {
+    return;
+  }
+  CUSTOM_THEME_CLASSES.forEach((className) => {
+    root.classList.remove(className);
+  });
+  LEGACY_THEME_CLASSES.forEach((className) => {
+    root.classList.remove(className);
+  });
+  appliedThemeClass = null;
+}
+
+function getApplicableTheme(theme, environmentThemeMode) {
+  const normalized = typeof theme === 'string' ? theme.trim().toLowerCase() : '';
+  if (!normalized || normalized === 'original') {
+    return {
+      theme: null,
+      blocked: false,
+      requested: normalized || null,
+      requiredMode: null,
+      environmentMode: environmentThemeMode || null
+    };
+  }
+  const requiredMode = THEME_COMPATIBILITY[normalized] || null;
+  if (requiredMode && environmentThemeMode && requiredMode !== environmentThemeMode) {
+    return {
+      theme: null,
+      blocked: true,
+      requested: normalized,
+      requiredMode,
+      environmentMode: environmentThemeMode
+    };
+  }
+  return {
+    theme: normalized,
+    blocked: false,
+    requested: normalized,
+    requiredMode,
+    environmentMode: environmentThemeMode || null
+  };
+}
+
+function getChatGPTThemeMode() {
+  const detected = detectChatGPTThemeMode();
+  syncDetectedThemeMode(detected);
+  return detected;
+}
+
+function detectChatGPTThemeMode() {
+  const tokens = gatherChatGPTThemeTokens();
+  const fromAttributes = interpretThemeTokens(tokens.attributes);
+  if (fromAttributes) {
+    return fromAttributes;
+  }
+  const fromClasses = interpretThemeTokens(tokens.classes);
+  if (fromClasses) {
+    return fromClasses;
+  }
+  const fromStorage = interpretThemeTokens(tokens.storage);
+  if (fromStorage) {
+    return fromStorage;
+  }
+  return prefersDarkScheme() ? 'dark' : 'light';
+}
+
+function gatherChatGPTThemeTokens() {
+  const groups = {
+    attributes: [],
+    classes: [],
+    storage: []
+  };
+  if (!root) {
+    return groups;
+  }
+  const attributeCandidates = [
+    'data-theme',
+    'data-color-mode',
+    'data-chat-theme',
+    'data-chat-base-theme',
+    'data-theme-mode',
+    'data-app-theme'
+  ];
+  attributeCandidates.forEach((name) => {
+    const value = root.getAttribute(name);
+    if (value) {
+      groups.attributes.push(value);
+    }
+  });
+  if (root.dataset) {
+    if (root.dataset.theme) {
+      groups.attributes.push(root.dataset.theme);
+    }
+    if (root.dataset.colorMode) {
+      groups.attributes.push(root.dataset.colorMode);
+    }
+    if (root.dataset.chatTheme) {
+      groups.attributes.push(root.dataset.chatTheme);
+    }
+  }
+  if (root.classList) {
+    root.classList.forEach((className) => {
+      if (className) {
+        groups.classes.push(className);
+      }
+    });
+  }
+  try {
+    const storageKeys = ['theme', 'chatgpt-theme', 'color-theme', 'chakra-ui-color-mode'];
+    storageKeys.forEach((key) => {
+      const value = window.localStorage.getItem(key);
+      if (value) {
+        groups.storage.push(value);
+      }
+    });
+  } catch (error) {
+    // Ignore storage access errors (e.g., when disabled by policy).
+  }
+  return groups;
+}
+
+function interpretThemeTokens(tokens) {
+  if (!tokens || !tokens.length) {
+    return null;
+  }
+  let candidate = null;
+  let sawSystem = false;
+
+  for (const token of tokens) {
+    const rawValue = String(token).trim();
+    if (!rawValue) {
+      continue;
+    }
+    const value = rawValue.toLowerCase();
+    if (value.includes('darkreader')) {
+      continue;
+    }
+    const hasDark = value.includes('dark');
+    const hasLight = value.includes('light');
+    if (hasDark && !hasLight) {
+      return 'dark';
+    }
+    if (hasLight && !hasDark && candidate !== 'dark') {
+      candidate = 'light';
+      continue;
+    }
+    if (!hasDark && !hasLight && (value === 'system' || value === 'auto')) {
+      sawSystem = true;
+    }
+  }
+
+  if (candidate) {
+    return candidate;
+  }
+
+  if (sawSystem) {
+    return prefersDarkScheme() ? 'dark' : 'light';
+  }
+
+  return null;
+}
+
+function prefersDarkScheme() {
+  return typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function syncDetectedThemeMode(mode) {
+  if (mode === lastKnownChatThemeMode && !themeModeSyncTimer) {
+    return;
+  }
+  lastKnownChatThemeMode = mode;
+  if (!chrome?.storage?.local) {
+    return;
+  }
+  if (themeModeSyncTimer) {
+    clearTimeout(themeModeSyncTimer);
+    themeModeSyncTimer = null;
+  }
+  themeModeSyncTimer = setTimeout(() => {
+    if (!chrome?.storage?.local) {
+      return;
+    }
+    if (mode) {
+      chrome.storage.local.set({ [STORAGE_THEME_MODE_KEY]: mode });
+    } else {
+      chrome.storage.local.remove(STORAGE_THEME_MODE_KEY);
+    }
+    themeModeSyncTimer = null;
+  }, 50);
 }
 
 function applyFontControl(settings) {
@@ -485,7 +700,11 @@ function classesInSync(settings) {
     }
   }
 
-  const desiredThemeClass = settings.enableFix ? resolveThemeClass(settings.theme) : null;
+  const environmentThemeMode = getChatGPTThemeMode();
+  const { theme: desiredTheme } = settings.enableFix
+    ? getApplicableTheme(settings.theme, environmentThemeMode)
+    : { theme: null };
+  const desiredThemeClass = settings.enableFix ? resolveThemeClass(desiredTheme) : null;
   if (!desiredThemeClass) {
     for (const themeClass of CUSTOM_THEME_CLASSES) {
       if (root.classList.contains(themeClass)) {
@@ -745,5 +964,30 @@ const rootObserver = new MutationObserver((mutations) => {
 });
 
 if (root) {
-  rootObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
+  rootObserver.observe(root, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme', 'data-color-mode', 'data-chat-theme']
+  });
+}
+
+try {
+  const colorSchemeMedia =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
+  if (colorSchemeMedia) {
+    const handleColorSchemeChange = () => {
+      const mode = getChatGPTThemeMode();
+      if (currentSettings.enableFix) {
+        applyTheme(currentSettings.theme, mode);
+      }
+    };
+    if (typeof colorSchemeMedia.addEventListener === 'function') {
+      colorSchemeMedia.addEventListener('change', handleColorSchemeChange);
+    } else if (typeof colorSchemeMedia.addListener === 'function') {
+      colorSchemeMedia.addListener(handleColorSchemeChange);
+    }
+  }
+} catch (error) {
+  // Ignore matchMedia issues.
 }

@@ -16,6 +16,12 @@ const FONT_DEFAULTS = {
   persian: 'vazirmatn'
 };
 const FONT_LANGUAGES = ['english', 'persian'];
+const THEME_COMPATIBILITY = {
+  midnight: 'dark',
+  aurora: 'dark',
+  paper: 'light'
+};
+const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 
 const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
@@ -23,6 +29,7 @@ let isBusy = false;
 let currentFontTab = FONT_LANGUAGES[0];
 let helpLanguage = 'english';
 let lastFocusedBeforeHelp = null;
+let chatBaseThemeMode = null;
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -56,6 +63,22 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.helpCloseBtn = document.getElementById('help-close-btn');
   controls.helpLangButtons = Array.from(document.querySelectorAll('.help-panel__lang-btn'));
   controls.helpSections = Array.from(document.querySelectorAll('.help-panel__section'));
+
+  if (chrome && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(STORAGE_THEME_MODE_KEY, (stored) => {
+      if (chrome.runtime.lastError) {
+        return;
+      }
+      chatBaseThemeMode =
+        stored && typeof stored[STORAGE_THEME_MODE_KEY] === 'string'
+          ? stored[STORAGE_THEME_MODE_KEY].toLowerCase()
+          : null;
+      if (chatBaseThemeMode !== 'dark' && chatBaseThemeMode !== 'light') {
+        chatBaseThemeMode = null;
+      }
+      updateThemeCardAvailability();
+    });
+  }
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -168,6 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   controls.themeCards.forEach((card) => {
     card.addEventListener('click', () => {
+      if (card.disabled) {
+        return;
+      }
       const { theme } = card.dataset;
       if (!currentSettings.enableFix) {
         return;
@@ -199,6 +225,18 @@ document.addEventListener('DOMContentLoaded', () => {
   setActiveFontTab(currentFontTab);
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local') {
+      if (Object.prototype.hasOwnProperty.call(changes, STORAGE_THEME_MODE_KEY)) {
+        const nextValue = changes[STORAGE_THEME_MODE_KEY].newValue;
+        chatBaseThemeMode =
+          typeof nextValue === 'string' ? nextValue.toLowerCase() : null;
+        if (chatBaseThemeMode !== 'dark' && chatBaseThemeMode !== 'light') {
+          chatBaseThemeMode = null;
+        }
+        updateThemeCardAvailability();
+      }
+      return;
+    }
     if (area !== 'sync') {
       return;
     }
@@ -325,11 +363,49 @@ function setThemeCardsDisabled(disabled) {
   }
 
   controls.themeCards.forEach((card) => {
-    card.classList.toggle('is-disabled', disabled);
-    if (disabled) {
+    if (!card) {
+      return;
+    }
+    card.dataset.dependentsDisabled = String(Boolean(disabled));
+  });
+  updateThemeCardAvailability();
+}
+
+function updateThemeCardAvailability() {
+  if (!controls.themeCards) {
+    return;
+  }
+  controls.themeCards.forEach((card) => {
+    if (!card) {
+      return;
+    }
+    const dependentsDisabled = card.dataset.dependentsDisabled === 'true';
+    const { theme } = card.dataset;
+    const requiredMode = theme ? THEME_COMPATIBILITY[theme] : null;
+    const incompatibilityKnown = Boolean(requiredMode && chatBaseThemeMode);
+    const incompatible =
+      incompatibilityKnown && requiredMode && chatBaseThemeMode && requiredMode !== chatBaseThemeMode;
+    card.classList.toggle('theme-card--forbidden', incompatible);
+    const disableForDependents = dependentsDisabled;
+    const disableForIncompatibility = incompatible;
+    const finalDisabled = disableForDependents || disableForIncompatibility;
+    card.disabled = finalDisabled;
+    card.classList.toggle('is-disabled', disableForDependents);
+    if (finalDisabled) {
       card.setAttribute('aria-disabled', 'true');
     } else {
       card.removeAttribute('aria-disabled');
+    }
+    if (incompatible) {
+      const message =
+        requiredMode === 'dark'
+          ? 'Enable ChatGPT dark mode to use this theme.'
+          : 'Enable ChatGPT light mode to use this theme.';
+      card.dataset.forbiddenTooltip = message;
+      card.title = message;
+    } else if (card.dataset.forbiddenTooltip) {
+      card.removeAttribute('title');
+      delete card.dataset.forbiddenTooltip;
     }
   });
 }
