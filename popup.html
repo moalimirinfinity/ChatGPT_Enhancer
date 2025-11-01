@@ -8,6 +8,14 @@
   </head>
   <body>
     <main class="panel">
+      <button
+        class="help-trigger"
+        type="button"
+        id="help-btn"
+        aria-label="Show help"
+      >
+        ?
+      </button>
       <header class="panel__header">
         <h1 class="panel__title">GPT Enhancer</h1>
         <p class="panel__subtitle">
@@ -458,6 +466,124 @@
           @moalimirinfinity
         </a>
       </p>
+      <div class="help-panel" id="help-panel" aria-hidden="true">
+        <div class="help-panel__container" role="dialog" aria-labelledby="help-panel-title" aria-modal="true" tabindex="-1">
+          <header class="help-panel__header">
+            <h2 class="help-panel__title" id="help-panel-title">How GPT Enhancer works</h2>
+            <div class="help-panel__language-toggle" role="tablist" aria-label="Help language">
+              <button
+                type="button"
+                class="help-panel__lang-btn is-active"
+                data-lang="english"
+                id="help-lang-english"
+                role="tab"
+                aria-selected="true"
+                aria-controls="help-section-english"
+              >
+                English
+              </button>
+              <button
+                type="button"
+                class="help-panel__lang-btn"
+                data-lang="persian"
+                id="help-lang-persian"
+                role="tab"
+                aria-selected="false"
+                aria-controls="help-section-persian"
+              >
+                فارسی
+              </button>
+            </div>
+            <button class="help-panel__close-btn" type="button" id="help-close-btn" aria-label="Close help">
+              ×
+            </button>
+          </header>
+          <div class="help-panel__body">
+            <section
+              class="help-panel__section is-active"
+              data-lang="english"
+              role="tabpanel"
+              id="help-section-english"
+              aria-labelledby="help-lang-english"
+            >
+              <p class="help-panel__intro">
+                GPT Enhancer polishes ChatGPT conversations. Use this quick guide to learn what every toggle does.
+              </p>
+              <ul class="help-panel__list">
+                <li>
+                  <strong>Enable extension</strong> — master switch. Turn it off to restore the original page instantly.
+                </li>
+                <li>
+                  <strong>Fonts</strong> — pick curated English and Persian fonts. The extension autodetects Persian messages and swaps fonts on the fly.
+                </li>
+                <li>
+                  <strong>KaTeX formulas</strong> — forces math to stay left-to-right and prepares equations for the copy helper.
+                </li>
+                <li>
+                  <strong>Code blocks</strong> — keeps snippets left-aligned with monospaced glyphs, so indentation remains intact.
+                </li>
+                <li>
+                  <strong>Tables</strong> — prevents table columns from mirroring when you mix Persian and English content.
+                </li>
+                <li>
+                  <strong>Click to copy equations</strong> — taps any KaTeX expression and copies the LaTeX text to your clipboard.
+                </li>
+                <li>
+                  <strong>Theme</strong> — pick Midnight or Aurora when ChatGPT runs in dark mode, and switch to Paper if you prefer the light interface.
+                </li>
+                <li>
+                  <strong>Export</strong> — save the visible conversation as PDF or DOCX once ChatGPT is open in the active tab.
+                </li>
+              </ul>
+              <p class="help-panel__hint">
+                Need the old look back? Disable the master toggle — every other option will pause until you turn it on again.
+              </p>
+            </section>
+            <section
+              class="help-panel__section"
+              data-lang="persian"
+              role="tabpanel"
+              id="help-section-persian"
+              aria-labelledby="help-lang-persian"
+              dir="rtl"
+              hidden
+            >
+              <p class="help-panel__intro">
+                افزونهٔ GPT Enhancer ظاهر و رفتار چت‌های ChatGPT را بهبود می‌دهد. این راهنما توضیح می‌دهد هر گزینه چه کاری انجام می‌دهد.
+              </p>
+              <ul class="help-panel__list">
+                <li>
+                  <strong>فعال‌سازی افزونه</strong> — کلید اصلی. با خاموش‌کردن آن همه تغییرات فوراً به حالت اولیه برمی‌گردد.
+                </li>
+                <li>
+                  <strong>فونت‌ها</strong> — مجموعه‌ای از فونت‌های انگلیسی و فارسی برگزیده. پیام‌های فارسی به صورت خودکار تشخیص داده و با فونت مناسب نمایش داده می‌شوند.
+                </li>
+                <li>
+                  <strong>فرمول‌های KaTeX</strong> — جهت نمایش فرمول‌ها را چپ‌به‌راست می‌کند و آن‌ها را برای کپی آماده نگه می‌دارد.
+                </li>
+                <li>
+                  <strong>بلوک‌های کد</strong> — کد را با فونت ثابت و چیدمان چپ‌چین نشان می‌دهد تا تورفتگی‌ها از بین نرود.
+                </li>
+                <li>
+                  <strong>جدول‌ها</strong> — اجازه نمی‌دهد ستون‌های جدول در متن‌های ترکیبی فارسی و انگلیسی جابه‌جا شوند.
+                </li>
+                <li>
+                  <strong>کلیک برای کپی فرمول</strong> — با لمس هر عبارت ریاضی KaTeX نسخهٔ LaTeX آن در کلیپ‌بورد کپی می‌شود.
+                </li>
+                <li>
+                  <strong>پوسته‌ها</strong> — در حالت تیرهٔ ChatGPT از پوسته‌های شبانه یا شفق استفاده کنید، و برای حالت روشن پوستهٔ کاغذی مناسب‌تر است.
+                </li>
+                <li>
+                  <strong>خروجی</strong> — وقتی صفحهٔ ChatGPT باز است گفت‌وگو را به صورت PDF یا DOCX ذخیره کنید.
+                </li>
+              </ul>
+              <p class="help-panel__hint">
+                برای بازگشت به حالت پیش‌فرض کافی است کلید اصلی را خاموش کنید؛ سایر گزینه‌ها تا زمانی که دوباره آن را روشن نکنید غیرفعال می‌مانند.
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
     </main>
     <script src="popup.js"></script>
   </body>

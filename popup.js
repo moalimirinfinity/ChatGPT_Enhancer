@@ -21,6 +21,8 @@ const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isBusy = false;
 let currentFontTab = FONT_LANGUAGES[0];
+let helpLanguage = 'english';
+let lastFocusedBeforeHelp = null;
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -49,6 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fontOptions = Array.from(document.querySelectorAll('.font-option'));
   controls.exportFormatRadios = Array.from(document.querySelectorAll('input[name="export-format"]'));
   controls.exportBtn = document.getElementById('export-btn');
+  controls.helpBtn = document.getElementById('help-btn');
+  controls.helpPanel = document.getElementById('help-panel');
+  controls.helpCloseBtn = document.getElementById('help-close-btn');
+  controls.helpLangButtons = Array.from(document.querySelectorAll('.help-panel__lang-btn'));
+  controls.helpSections = Array.from(document.querySelectorAll('.help-panel__section'));
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -132,6 +139,33 @@ document.addEventListener('DOMContentLoaded', () => {
   if (controls.exportBtn) {
     controls.exportBtn.addEventListener('click', handleExport);
   }
+  if (controls.helpBtn) {
+    controls.helpBtn.addEventListener('click', () => {
+      if (isHelpPanelOpen()) {
+        closeHelpPanel();
+      } else {
+        openHelpPanel();
+      }
+    });
+  }
+  if (controls.helpCloseBtn) {
+    controls.helpCloseBtn.addEventListener('click', closeHelpPanel);
+  }
+  controls.helpLangButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const { lang } = button.dataset;
+      if (!lang || lang === helpLanguage) {
+        return;
+      }
+      setHelpLanguage(lang);
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isHelpPanelOpen()) {
+      event.preventDefault();
+      closeHelpPanel();
+    }
+  });
   controls.themeCards.forEach((card) => {
     card.addEventListener('click', () => {
       const { theme } = card.dataset;
@@ -231,6 +265,7 @@ function applySettingsToUI(settings) {
   controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
   setActiveTheme(settings.theme);
   setThemeCardsDisabled(dependentsDisabled);
+  setHelpLanguage(helpLanguage);
 }
 
 function handleRefresh() {
@@ -562,6 +597,77 @@ function clearExportErrorTooltip() {
   if (controls.exportBtn) {
     controls.exportBtn.removeAttribute('title');
   }
+}
+
+function openHelpPanel() {
+  if (!controls.helpPanel) {
+    return;
+  }
+  setHelpLanguage(helpLanguage);
+  lastFocusedBeforeHelp =
+    document.activeElement && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  controls.helpPanel.classList.add('is-open');
+  controls.helpPanel.setAttribute('aria-hidden', 'false');
+  window.requestAnimationFrame(() => {
+    const container = controls.helpPanel?.querySelector('.help-panel__container');
+    if (container && container instanceof HTMLElement) {
+      container.focus();
+    }
+  });
+}
+
+function closeHelpPanel() {
+  if (!controls.helpPanel) {
+    return;
+  }
+  controls.helpPanel.classList.remove('is-open');
+  controls.helpPanel.setAttribute('aria-hidden', 'true');
+  const targetToFocus = lastFocusedBeforeHelp || controls.helpBtn;
+  if (targetToFocus && typeof targetToFocus.focus === 'function') {
+    targetToFocus.focus();
+  }
+  lastFocusedBeforeHelp = null;
+}
+
+function isHelpPanelOpen() {
+  return Boolean(controls.helpPanel && controls.helpPanel.classList.contains('is-open'));
+}
+
+function setHelpLanguage(language) {
+  if (!controls.helpLangButtons || !controls.helpSections || !language) {
+    return;
+  }
+  if (!['english', 'persian'].includes(language)) {
+    language = 'english';
+  }
+  helpLanguage = language;
+  controls.helpLangButtons.forEach((button) => {
+    if (!button) {
+      return;
+    }
+    const isActive = button.dataset.lang === language;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+    if (isActive) {
+      button.removeAttribute('tabindex');
+    } else {
+      button.setAttribute('tabindex', '-1');
+    }
+  });
+  controls.helpSections.forEach((section) => {
+    if (!section) {
+      return;
+    }
+    const isActive = section.dataset.lang === language;
+    section.classList.toggle('is-active', isActive);
+    if (isActive) {
+      section.removeAttribute('hidden');
+    } else {
+      section.setAttribute('hidden', 'true');
+    }
+  });
 }
 
 function safeStringify(value) {

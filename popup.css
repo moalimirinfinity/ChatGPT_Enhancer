@@ -153,6 +153,42 @@ body {
   z-index: 1;
 }
 
+.help-trigger {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--surface-outline-strong);
+  background: rgba(14, 18, 42, 0.78);
+  color: #eef1ff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  z-index: 3;
+}
+
+.help-trigger:hover {
+  transform: translateY(-1px);
+  background: rgba(22, 28, 58, 0.88);
+  box-shadow: 0 10px 16px rgba(7, 8, 20, 0.4);
+}
+
+.help-trigger:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.help-trigger:focus-visible {
+  outline: 2px solid rgba(118, 140, 255, 0.85);
+  outline-offset: 2px;
+}
+
 .panel__header {
   display: flex;
   flex-direction: column;
@@ -189,6 +225,170 @@ body {
   padding: 0;
   background: transparent;
   border: none;
+}
+
+.help-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  pointer-events: none;
+  transform: translateX(-100%);
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  opacity: 0;
+  z-index: 4;
+}
+
+.help-panel.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.help-panel__container {
+  background: linear-gradient(145deg, rgba(18, 23, 52, 0.98), rgba(11, 15, 38, 0.98));
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  box-shadow:
+    0 20px 40px rgba(6, 8, 24, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.help-panel__container:focus-visible {
+  outline: 2px solid rgba(118, 140, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.help-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-panel__title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f5f6fb;
+}
+
+.help-panel__language-toggle {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(10, 13, 31, 0.6);
+  border: 1px solid rgba(118, 140, 255, 0.22);
+}
+
+.help-panel__lang-btn {
+  border: none;
+  background: transparent;
+  color: #d8ddff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.help-panel__lang-btn.is-active {
+  background: linear-gradient(135deg, rgba(118, 140, 255, 0.9), rgba(94, 208, 255, 0.9));
+  color: #121426;
+  box-shadow: 0 6px 12px rgba(12, 14, 30, 0.35);
+}
+
+.help-panel__lang-btn:focus-visible {
+  outline: 2px solid rgba(118, 140, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.help-panel__close-btn {
+  border: none;
+  background: transparent;
+  color: #eef1ff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.help-panel__close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.help-panel__close-btn:focus-visible {
+  outline: 2px solid rgba(118, 140, 255, 0.75);
+  outline-offset: 2px;
+}
+
+.help-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+  flex: 1;
+}
+
+.help-panel__section {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  color: #eef1ff;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.help-panel__section.is-active {
+  display: flex;
+}
+
+.help-panel__intro {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.help-panel__list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-panel__list li {
+  color: #f5f6fb;
+}
+
+.help-panel__hint {
+  margin: 0;
+  color: rgba(198, 209, 255, 0.8);
+  font-size: 12px;
+}
+
+.help-panel__section[dir='rtl'] {
+  text-align: right;
+  padding-right: 0;
+  padding-left: 0;
+  font-family: "Sahel", "Vazirmatn", "Tahoma", sans-serif;
+}
+
+.help-panel__section[dir='rtl'] .help-panel__list {
+  padding-left: 0;
+  padding-right: 18px;
 }
 
 .export-controls {
