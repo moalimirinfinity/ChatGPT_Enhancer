@@ -109,6 +109,14 @@ let fontObserverReconnectTimer = null;
 const FONT_SYNC_INTERVAL_MS = 5000;
 let fontSyncIntervalId = null;
 
+function fontControlEnabledInSettings(settings) {
+  return Boolean(settings && settings.enableFix && settings.fontsEnabled);
+}
+
+function fontControlIsActive() {
+  return fontControlEnabledInSettings(currentSettings);
+}
+
 function resolveThemeClass(theme) {
   if (!theme || theme === 'original') {
     return null;
@@ -213,7 +221,7 @@ function applyFontControl(settings) {
   if (!root) {
     return;
   }
-  const enabled = Boolean(settings.fontsEnabled && settings.enableFix);
+  const enabled = fontControlEnabledInSettings(settings);
   toggleClass('chatgpt-font-control-enabled', enabled);
   if (!enabled) {
     root.style.removeProperty('--chatgpt-font-english');
@@ -259,7 +267,7 @@ function connectFontObserver() {
   }
   if (!conversationRoot) {
     disconnectFontObserver();
-    if (currentSettings.fontsEnabled) {
+    if (fontControlIsActive()) {
       fontObserverReconnectTimer = setTimeout(connectFontObserver, 500);
     }
     return;
@@ -286,11 +294,11 @@ function disconnectFontObserver() {
 }
 
 function startFontSyncInterval() {
-  if (fontSyncIntervalId || !currentSettings.fontsEnabled || !currentSettings.enableFix) {
+  if (fontSyncIntervalId || !fontControlIsActive()) {
     return;
   }
   fontSyncIntervalId = setInterval(() => {
-    if (!currentSettings.fontsEnabled || !currentSettings.enableFix) {
+    if (!fontControlIsActive()) {
       stopFontSyncInterval();
       return;
     }
@@ -324,13 +332,13 @@ function clearGlobalFontVariables() {
 }
 
 function scheduleFontSync() {
-  if (pendingFontSync) {
+  if (pendingFontSync || !fontControlIsActive()) {
     return;
   }
   pendingFontSync = true;
   const invoke = () => {
     pendingFontSync = false;
-    if (!currentSettings.fontsEnabled) {
+    if (!fontControlIsActive()) {
       return;
     }
     updateFontsForExistingMessages();
@@ -344,7 +352,7 @@ function scheduleFontSync() {
 
 
 function handleFontMutations(mutations) {
-  if (!currentSettings.fontsEnabled) {
+  if (!fontControlIsActive()) {
     return;
   }
   const englishFont = root ? root.style.getPropertyValue('--chatgpt-font-english') : null;
@@ -397,7 +405,7 @@ function collectMessageElements(node, bucket) {
 
 
 function updateFontsForExistingMessages() {
-  if (!currentSettings.fontsEnabled) {
+  if (!fontControlIsActive()) {
     return;
   }
   const englishFont = root ? root.style.getPropertyValue('--chatgpt-font-english') : null;
@@ -423,6 +431,9 @@ function resetMessageFontClasses() {
 
 function applyFontsToMessage(element, englishFont, persianFont) {
   if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  if (!fontControlIsActive()) {
     return;
   }
   element.classList.add('chatgpt-font-message');
@@ -464,7 +475,7 @@ function classesInSync(settings) {
     ['chatgpt-direction-fix-katex', settings.enableFix && settings.fixKatex],
     ['chatgpt-direction-fix-code', settings.enableFix && settings.fixCode],
     ['chatgpt-direction-fix-tables', settings.enableFix && settings.fixTables],
-    ['chatgpt-font-control-enabled', settings.fontsEnabled]
+    ['chatgpt-font-control-enabled', fontControlEnabledInSettings(settings)]
   ];
 
   for (const [className, shouldHave] of toggles) {

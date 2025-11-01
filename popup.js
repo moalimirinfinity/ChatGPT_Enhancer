@@ -339,12 +339,30 @@ function updateFontOptionSelection(language, value) {
   if (!controls.fontOptions) {
     return;
   }
-  const targetValue = value || FONT_DEFAULTS[language] || null;
-  controls.fontOptions.forEach((option) => {
-    if (!option || option.dataset.lang !== language) {
-      return;
+  const options = controls.fontOptions.filter(
+    (option) => option && option.dataset.lang === language
+  );
+  if (!options.length) {
+    return;
+  }
+  const hasExactMatch =
+    typeof value === 'string' && options.some((option) => option.dataset.value === value);
+  const defaultOption = options.find(
+    (option) => option.dataset.value === FONT_DEFAULTS[language]
+  );
+  const fallback =
+    (defaultOption && defaultOption.dataset.value) ||
+    (options[0] ? options[0].dataset.value : null);
+  const selectedValue = hasExactMatch ? value : fallback;
+  const settingsKey = language === 'persian' ? 'fontPersian' : 'fontEnglish';
+  if (currentSettings[settingsKey] !== selectedValue) {
+    currentSettings[settingsKey] = selectedValue;
+    if (!hasExactMatch && selectedValue) {
+      updateSetting(settingsKey, selectedValue);
     }
-    const isActive = option.dataset.value === targetValue;
+  }
+  options.forEach((option) => {
+    const isActive = option.dataset.value === selectedValue;
     option.classList.toggle('is-active', isActive);
     option.setAttribute('aria-pressed', String(isActive));
   });
