@@ -347,10 +347,22 @@ async function handleExportRequest(format) {
     } else {
       const printStyle = document.createElement('style');
       printStyle.textContent = `
-        /* THIS IS THE NEW RULE TO REMOVE HEADERS/FOOTERS */
         @page {
-          size: auto; /* Use the user's default paper size */
-          margin: 0mm !important; /* Set all margins to zero */
+          size: auto;
+          
+          /* 1. DEFINE THE MARGINS (like 0.6in) */
+          margin-top: 0.6in;
+          margin-bottom: 0.6in;
+          margin-left: 0.4in;
+          margin-right: 0.4in;
+
+          /* 2. EXPLICITLY HIDE THE HEADER/FOOTER CONTENT */
+          @top-left { content: ""; }
+          @top-center { content: ""; }
+          @top-right { content: ""; }
+          @bottom-left { content: ""; }
+          @bottom-center { content: ""; }
+          @bottom-right { content: ""; }
         }
 
         @media print {
@@ -367,17 +379,13 @@ async function handleExportRequest(format) {
             z-index: 9999 !important;
           }
           .${EXPORT_ROOT_CLASS} {
-            /* THIS IS THE UPDATE:
-              More space on top and bottom, 40px on sides.
-            */
-            padding-top: 80px !important;
-            padding-bottom: 70px !important;
-            padding-left: 40px !important;
-            padding-right: 40px !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-            box-sizing: border-box;
+             /* Keep padding at 0. The @page rule handles all margins. */
+             padding: 0 !important; 
+             
+             max-width: 100% !important;
+             margin: 0 !important;
+             box-shadow: none !important;
+             box-sizing: border-box; 
           }
         }
       `;
