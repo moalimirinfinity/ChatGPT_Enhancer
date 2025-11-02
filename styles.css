@@ -127,25 +127,25 @@ html.chatgpt-theme-paper {
   --chatgpt-theme-bg: linear-gradient(150deg, #f9f5ef 0%, #f2e7d8 48%, #efe0cf 100%);
   --chatgpt-theme-panel: rgba(255, 255, 255, 0.94);
   --chatgpt-theme-border: rgba(181, 152, 118, 0.34);
-  --chatgpt-theme-text: #2f2419;
-  --chatgpt-theme-text-muted: rgba(47, 36, 25, 0.58);
-  --chatgpt-theme-accent: #c87a2d;
+  --chatgpt-theme-text: #36261c;
+  --chatgpt-theme-text-muted: rgba(54, 38, 28, 0.58);
+  --chatgpt-theme-accent: #5d360f;
 }
 
-html.chatgpt-theme-daybreak {
-  --chatgpt-theme-bg: linear-gradient(145deg, #fff7e4 0%, #ffe7c5 52%, #ffd9bc 100%);
-  --chatgpt-theme-panel: rgba(255, 255, 255, 0.95);
-  --chatgpt-theme-border: rgba(225, 170, 118, 0.36);
-  --chatgpt-theme-text: #3a2714;
-  --chatgpt-theme-text-muted: rgba(58, 39, 20, 0.62);
-  --chatgpt-theme-accent: #d9824b;
+html.chatgpt-theme-skylight {
+  --chatgpt-theme-bg: linear-gradient(140deg, #fafdff 0%, #dff8ff 45%, #b4f4ff 100%);
+  --chatgpt-theme-panel: rgba(255, 255, 255, 0.96);
+  --chatgpt-theme-border: rgba(97, 196, 219, 0.38);
+  --chatgpt-theme-text: #1a2f3a;
+  --chatgpt-theme-text-muted: rgba(26, 47, 58, 0.64);
+  --chatgpt-theme-accent: #094861;
 }
 
 html.chatgpt-theme-midnight,
 html.chatgpt-theme-aurora,
 html.chatgpt-theme-nebula,
 html.chatgpt-theme-paper,
-html.chatgpt-theme-daybreak {
+html.chatgpt-theme-skylight {
   background: var(--chatgpt-theme-bg) !important;
   color: var(--chatgpt-theme-text) !important;
 }
@@ -154,42 +154,42 @@ html.chatgpt-theme-midnight body,
 html.chatgpt-theme-aurora body,
 html.chatgpt-theme-nebula body,
 html.chatgpt-theme-paper body,
-html.chatgpt-theme-daybreak body,
+html.chatgpt-theme-skylight body,
 html.chatgpt-theme-midnight #__next,
 html.chatgpt-theme-aurora #__next,
 html.chatgpt-theme-nebula #__next,
 html.chatgpt-theme-paper #__next,
-html.chatgpt-theme-daybreak #__next,
+html.chatgpt-theme-skylight #__next,
 html.chatgpt-theme-midnight #__next > div,
 html.chatgpt-theme-aurora #__next > div,
 html.chatgpt-theme-nebula #__next > div,
 html.chatgpt-theme-paper #__next > div,
-html.chatgpt-theme-daybreak #__next > div,
+html.chatgpt-theme-skylight #__next > div,
 html.chatgpt-theme-midnight #__next > div > div,
 html.chatgpt-theme-aurora #__next > div > div,
 html.chatgpt-theme-nebula #__next > div > div,
 html.chatgpt-theme-paper #__next > div > div,
-html.chatgpt-theme-daybreak #__next > div > div,
+html.chatgpt-theme-skylight #__next > div > div,
 html.chatgpt-theme-midnight nav,
 html.chatgpt-theme-aurora nav,
 html.chatgpt-theme-nebula nav,
 html.chatgpt-theme-paper nav,
-html.chatgpt-theme-daybreak nav,
+html.chatgpt-theme-skylight nav,
 html.chatgpt-theme-midnight main,
 html.chatgpt-theme-aurora main,
 html.chatgpt-theme-nebula main,
 html.chatgpt-theme-paper main,
-html.chatgpt-theme-daybreak main,
+html.chatgpt-theme-skylight main,
 html.chatgpt-theme-midnight aside,
 html.chatgpt-theme-aurora aside,
 html.chatgpt-theme-nebula aside,
 html.chatgpt-theme-paper aside,
-html.chatgpt-theme-daybreak aside,
+html.chatgpt-theme-skylight aside,
 html.chatgpt-theme-midnight footer,
 html.chatgpt-theme-aurora footer,
 html.chatgpt-theme-nebula footer,
 html.chatgpt-theme-paper footer,
-html.chatgpt-theme-daybreak footer {
+html.chatgpt-theme-skylight footer {
   background: var(--chatgpt-theme-bg) !important;
   color: var(--chatgpt-theme-text) !important;
 }
@@ -198,17 +198,17 @@ html.chatgpt-theme-midnight aside,
 html.chatgpt-theme-aurora aside,
 html.chatgpt-theme-nebula aside,
 html.chatgpt-theme-paper aside,
-html.chatgpt-theme-daybreak aside,
+html.chatgpt-theme-skylight aside,
 html.chatgpt-theme-midnight nav,
 html.chatgpt-theme-aurora nav,
 html.chatgpt-theme-nebula nav,
 html.chatgpt-theme-paper nav,
-html.chatgpt-theme-daybreak nav,
+html.chatgpt-theme-skylight nav,
 html.chatgpt-theme-midnight footer,
 html.chatgpt-theme-aurora footer,
 html.chatgpt-theme-nebula footer,
 html.chatgpt-theme-paper footer,
-html.chatgpt-theme-daybreak footer {
+html.chatgpt-theme-skylight footer {
   background: var(--chatgpt-theme-panel) !important;
 }
 
@@ -233,8 +233,8 @@ html.chatgpt-theme-original-light .text-token-text-primary {
 
 html.chatgpt-theme-paper .text-base,
 html.chatgpt-theme-paper .text-token-text-primary,
-html.chatgpt-theme-daybreak .text-base,
-html.chatgpt-theme-daybreak .text-token-text-primary {
+html.chatgpt-theme-skylight .text-base,
+html.chatgpt-theme-skylight .text-token-text-primary {
   color: var(--chatgpt-theme-text) !important;
 }
 
@@ -247,7 +247,7 @@ html.chatgpt-theme-original-light .text-token-text-secondary {
 }
 
 html.chatgpt-theme-paper .text-token-text-secondary,
-html.chatgpt-theme-daybreak .text-token-text-secondary {
+html.chatgpt-theme-skylight .text-token-text-secondary {
   color: var(--chatgpt-theme-text-muted) !important;
 }
 
@@ -266,8 +266,8 @@ html.chatgpt-theme-original-light .border-token-border-subtle {
 
 html.chatgpt-theme-paper .border-token-border-medium,
 html.chatgpt-theme-paper .border-token-border-subtle,
-html.chatgpt-theme-daybreak .border-token-border-medium,
-html.chatgpt-theme-daybreak .border-token-border-subtle {
+html.chatgpt-theme-skylight .border-token-border-medium,
+html.chatgpt-theme-skylight .border-token-border-subtle {
   border-color: var(--chatgpt-theme-border) !important;
 }
 
@@ -286,8 +286,8 @@ html.chatgpt-theme-original-light .text-token-text-accent {
 
 html.chatgpt-theme-paper .text-token-text-accent,
 html.chatgpt-theme-paper a,
-html.chatgpt-theme-daybreak .text-token-text-accent,
-html.chatgpt-theme-daybreak a {
+html.chatgpt-theme-skylight .text-token-text-accent,
+html.chatgpt-theme-skylight a {
   color: var(--chatgpt-theme-accent) !important;
 }
 
@@ -306,10 +306,10 @@ html.chatgpt-theme-paper button {
   border-color: rgba(143, 120, 88, 0.4) !important;
 }
 
-html.chatgpt-theme-daybreak button {
-  background: rgba(255, 255, 255, 0.9) !important;
+html.chatgpt-theme-skylight button {
+  background: rgba(255, 255, 255, 0.92) !important;
   color: var(--chatgpt-theme-text) !important;
-  border-color: rgba(206, 162, 114, 0.45) !important;
+  border-color: var(--chatgpt-theme-border) !important;
 }
 
 html.chatgpt-theme-original-light button {
@@ -326,7 +326,7 @@ html.chatgpt-theme-original-dark [class*='bg-token-'] {
 }
 
 html.chatgpt-theme-paper [class*='bg-token-'],
-html.chatgpt-theme-daybreak [class*='bg-token-'],
+html.chatgpt-theme-skylight [class*='bg-token-'],
 html.chatgpt-theme-original-light [class*='bg-token-'] {
   background-color: var(--chatgpt-theme-panel) !important;
 }
@@ -340,7 +340,7 @@ html.chatgpt-theme-original-light [class*='border-token-'] {
 }
 
 html.chatgpt-theme-paper [class*='border-token-'],
-html.chatgpt-theme-daybreak [class*='border-token-'] {
+html.chatgpt-theme-skylight [class*='border-token-'] {
   border-color: var(--chatgpt-theme-border) !important;
 }
 .chatgpt-direction-fix-toast {

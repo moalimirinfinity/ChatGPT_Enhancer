@@ -21,9 +21,17 @@ const THEME_COMPATIBILITY = {
   aurora: 'dark',
   nebula: 'dark',
   paper: 'light',
-  daybreak: 'light'
+  skylight: 'light'
 };
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
+
+function normalizeThemeAlias(theme) {
+  if (typeof theme !== 'string') {
+    return theme;
+  }
+  const normalized = theme.trim().toLowerCase();
+  return normalized === 'daybreak' ? 'skylight' : normalized;
+}
 
 const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
@@ -257,6 +265,13 @@ function updateSetting(key, value) {
 }
 
 function applySettingsToUI(settings) {
+  if (settings && typeof settings.theme === 'string') {
+    const normalizedTheme = normalizeThemeAlias(settings.theme);
+    if (normalizedTheme !== settings.theme) {
+      settings = { ...settings, theme: normalizedTheme };
+      updateSetting('theme', normalizedTheme);
+    }
+  }
   currentSettings = settings;
 
   isBusy = true;
@@ -345,6 +360,7 @@ function handleRefresh() {
 }
 
 function setActiveTheme(theme) {
+  theme = normalizeThemeAlias(theme);
   if (!controls.themeCards) {
     return;
   }

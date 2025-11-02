@@ -752,15 +752,15 @@ body {
 }
 
 .theme-card__swatch--nebula {
-  background: radial-gradient(circle at 20% -10%, #4a3d8f 0%, #1a1534 46%, #090817 100%);
+  background: radial-gradient(circle at 18% -12%, #2f1880 0%, #160c3f 52%, #050619 100%);
 }
 
 .theme-card__swatch--paper {
   background: linear-gradient(135deg, #f4d8a8 0%, #fef5e0 50%, #f0cda0 100%);
 }
 
-.theme-card__swatch--daybreak {
-  background: linear-gradient(135deg, #ffefd6 0%, #ffe3b8 48%, #ffd4b1 100%);
+.theme-card__swatch--skylight {
+  background: linear-gradient(135deg, #fafdff 0%, #d9f7ff 42%, #b4f4ff 100%);
 }
 
 .theme-card__label {

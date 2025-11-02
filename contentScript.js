@@ -35,7 +35,7 @@ const CUSTOM_THEME_CLASSES = [
   'chatgpt-theme-aurora',
   'chatgpt-theme-nebula',
   'chatgpt-theme-paper',
-  'chatgpt-theme-daybreak'
+  'chatgpt-theme-skylight'
 ];
 
 const LEGACY_THEME_CLASSES = [
@@ -43,18 +43,27 @@ const LEGACY_THEME_CLASSES = [
   'chatgpt-theme-original-dark',
   'chatgpt-theme-original-light'
 ];
+const DEPRECATED_THEME_CLASSES = ['chatgpt-theme-daybreak'];
 let appliedThemeClass = null;
 const THEME_COMPATIBILITY = {
   midnight: 'dark',
   aurora: 'dark',
   nebula: 'dark',
   paper: 'light',
-  daybreak: 'light'
+  skylight: 'light'
 };
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 let lastKnownChatThemeMode = null;
 let themeModeSyncTimer = null;
 let lastThemeBlockNotice = null;
+
+function normalizeThemeAlias(theme) {
+  if (typeof theme !== 'string') {
+    return theme;
+  }
+  const normalized = theme.trim().toLowerCase();
+  return normalized === 'daybreak' ? 'skylight' : normalized;
+}
 
 const FONT_STACKS = {
   english: {
@@ -131,6 +140,7 @@ function fontControlIsActive() {
 }
 
 function resolveThemeClass(theme) {
+  theme = normalizeThemeAlias(theme);
   if (!theme || theme === 'original') {
     return null;
   }
@@ -253,11 +263,14 @@ function resetThemeClasses() {
   LEGACY_THEME_CLASSES.forEach((className) => {
     root.classList.remove(className);
   });
+  DEPRECATED_THEME_CLASSES.forEach((className) => {
+    root.classList.remove(className);
+  });
   appliedThemeClass = null;
 }
 
 function getApplicableTheme(theme, environmentThemeMode) {
-  const normalized = typeof theme === 'string' ? theme.trim().toLowerCase() : '';
+  const normalized = typeof theme === 'string' ? normalizeThemeAlias(theme) : '';
   if (!normalized || normalized === 'original') {
     return {
       theme: null,
@@ -730,6 +743,11 @@ function classesInSync(settings) {
       return false;
     }
   }
+  for (const deprecatedClass of DEPRECATED_THEME_CLASSES) {
+    if (root.classList.contains(deprecatedClass)) {
+      return false;
+    }
+  }
 
   return true;
 }
@@ -782,6 +800,9 @@ function clearLegacyInlineStyles(scope) {
 }
 
 function mergeSettings(partial) {
+  if (partial && typeof partial.theme === 'string') {
+    partial = { ...partial, theme: normalizeThemeAlias(partial.theme) };
+  }
   currentSettings = { ...currentSettings, ...partial };
   applySettings(currentSettings);
   const cleanupScope = document.querySelector('main') || document;
