@@ -29,20 +29,7 @@ The GPT Enhancer icon will appear in your toolbar. Pin it for quicker access.
 
 > **Note:** Custom themes (Midnight/Aurora/Paper) only activate when they match ChatGPT’s current light/dark mode. The popup disables incompatible options automatically.
 
-## Development
 
-- The popup UI lives in `popup.html`, `popup.css`, and `popup.js`.
-- Core page logic runs via `contentScript.js`.
-- Export helpers are bundled in the `libs/` directory and used by `exporter.js`.
-
-For changes:
-
-```bash
-# Install dependencies for linting/build tools if needed (not required for basic edits)
-# npm install
-
-# Reload the extension in chrome://extensions after editing files
-```
 
 
 ## License
