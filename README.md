@@ -11,14 +11,6 @@ A browser extension that polishes the ChatGPT interface. It fixes mixed RTL/LTR 
 - **Conversation export** – save the current ChatGPT conversation as PDF or DOCX via the popup.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
 
-## Installation (developer mode)
-
-1. Clone or download this repository.
-2. Open Chrome (or any Chromium-based browser) and navigate to `chrome://extensions`.
-3. Enable **Developer mode**.
-4. Click **Load unpacked** and select the project folder.
-
-The GPT Enhancer icon will appear in your toolbar. Pin it for quicker access.
 
 ## Usage
 
