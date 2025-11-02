@@ -50,4 +50,5 @@ If you find GPT Enhancer helpful, you can support the project here: https://doni
 
 ## License
 
-This project is distributed for personal use; review the source code and adapt as needed for your own workflow.
+This project is licensed under the [CC BY-NC 4.0 License](https://creativecommons.org/licenses/by-nc/4.0/).  
+You may copy and adapt it for non-commercial use with attribution.
