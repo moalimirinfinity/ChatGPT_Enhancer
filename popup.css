@@ -695,40 +695,6 @@ body {
   border-color: rgba(108, 163, 255, 0.8);
 }
 
-.theme-card__hint {
-  position: absolute;
-  inset: 2px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  background: rgba(10, 14, 31, 0.92);
-  color: rgba(245, 247, 255, 0.92);
-  border: 1px solid rgba(118, 140, 255, 0.45);
-  box-shadow:
-    0 12px 18px rgba(6, 9, 20, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  text-transform: uppercase;
-  max-width: calc(100% - 8px);
-  line-height: 1.1;
-  opacity: 0;
-  transform: scale(0.92);
-  pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  z-index: 2;
-  text-align: center;
-}
-
-.theme-card:hover .theme-card__hint,
-.theme-card:focus-visible .theme-card__hint {
-  opacity: 1;
-  transform: scale(1);
-}
-
 .theme-card.is-disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -785,8 +751,16 @@ body {
   background: linear-gradient(135deg, #052d22 0%, #0b5a3f 55%, #108956 100%);
 }
 
+.theme-card__swatch--nebula {
+  background: radial-gradient(circle at 20% -10%, #4a3d8f 0%, #1a1534 46%, #090817 100%);
+}
+
 .theme-card__swatch--paper {
   background: linear-gradient(135deg, #f4d8a8 0%, #fef5e0 50%, #f0cda0 100%);
+}
+
+.theme-card__swatch--daybreak {
+  background: linear-gradient(135deg, #ffefd6 0%, #ffe3b8 48%, #ffd4b1 100%);
 }
 
 .theme-card__label {

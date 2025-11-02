@@ -33,7 +33,9 @@ const RESET_VALUES = {
 const CUSTOM_THEME_CLASSES = [
   'chatgpt-theme-midnight',
   'chatgpt-theme-aurora',
-  'chatgpt-theme-paper'
+  'chatgpt-theme-nebula',
+  'chatgpt-theme-paper',
+  'chatgpt-theme-daybreak'
 ];
 
 const LEGACY_THEME_CLASSES = [
@@ -45,7 +47,9 @@ let appliedThemeClass = null;
 const THEME_COMPATIBILITY = {
   midnight: 'dark',
   aurora: 'dark',
-  paper: 'light'
+  nebula: 'dark',
+  paper: 'light',
+  daybreak: 'light'
 };
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 let lastKnownChatThemeMode = null;

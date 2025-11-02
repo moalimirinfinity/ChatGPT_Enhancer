@@ -19,7 +19,9 @@ const FONT_LANGUAGES = ['english', 'persian'];
 const THEME_COMPATIBILITY = {
   midnight: 'dark',
   aurora: 'dark',
-  paper: 'light'
+  nebula: 'dark',
+  paper: 'light',
+  daybreak: 'light'
 };
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 

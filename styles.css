@@ -114,6 +114,15 @@ html.chatgpt-theme-aurora {
   --chatgpt-theme-accent: #78f5c7;
 }
 
+html.chatgpt-theme-nebula {
+  --chatgpt-theme-bg: radial-gradient(circle at 20% -10%, #231b46 0%, #0f1026 58%, #050613 100%);
+  --chatgpt-theme-panel: rgba(22, 20, 52, 0.88);
+  --chatgpt-theme-border: rgba(140, 114, 255, 0.38);
+  --chatgpt-theme-text: #ece9ff;
+  --chatgpt-theme-text-muted: rgba(213, 206, 255, 0.7);
+  --chatgpt-theme-accent: #b896ff;
+}
+
 html.chatgpt-theme-paper {
   --chatgpt-theme-bg: linear-gradient(150deg, #f9f5ef 0%, #f2e7d8 48%, #efe0cf 100%);
   --chatgpt-theme-panel: rgba(255, 255, 255, 0.94);
@@ -123,62 +132,98 @@ html.chatgpt-theme-paper {
   --chatgpt-theme-accent: #c87a2d;
 }
 
+html.chatgpt-theme-daybreak {
+  --chatgpt-theme-bg: linear-gradient(145deg, #fff7e4 0%, #ffe7c5 52%, #ffd9bc 100%);
+  --chatgpt-theme-panel: rgba(255, 255, 255, 0.95);
+  --chatgpt-theme-border: rgba(225, 170, 118, 0.36);
+  --chatgpt-theme-text: #3a2714;
+  --chatgpt-theme-text-muted: rgba(58, 39, 20, 0.62);
+  --chatgpt-theme-accent: #d9824b;
+}
+
 html.chatgpt-theme-midnight,
 html.chatgpt-theme-aurora,
-html.chatgpt-theme-paper {
+html.chatgpt-theme-nebula,
+html.chatgpt-theme-paper,
+html.chatgpt-theme-daybreak {
   background: var(--chatgpt-theme-bg) !important;
   color: var(--chatgpt-theme-text) !important;
 }
 
 html.chatgpt-theme-midnight body,
 html.chatgpt-theme-aurora body,
+html.chatgpt-theme-nebula body,
 html.chatgpt-theme-paper body,
+html.chatgpt-theme-daybreak body,
 html.chatgpt-theme-midnight #__next,
 html.chatgpt-theme-aurora #__next,
+html.chatgpt-theme-nebula #__next,
 html.chatgpt-theme-paper #__next,
+html.chatgpt-theme-daybreak #__next,
 html.chatgpt-theme-midnight #__next > div,
 html.chatgpt-theme-aurora #__next > div,
+html.chatgpt-theme-nebula #__next > div,
 html.chatgpt-theme-paper #__next > div,
+html.chatgpt-theme-daybreak #__next > div,
 html.chatgpt-theme-midnight #__next > div > div,
 html.chatgpt-theme-aurora #__next > div > div,
+html.chatgpt-theme-nebula #__next > div > div,
 html.chatgpt-theme-paper #__next > div > div,
+html.chatgpt-theme-daybreak #__next > div > div,
 html.chatgpt-theme-midnight nav,
 html.chatgpt-theme-aurora nav,
+html.chatgpt-theme-nebula nav,
 html.chatgpt-theme-paper nav,
+html.chatgpt-theme-daybreak nav,
 html.chatgpt-theme-midnight main,
 html.chatgpt-theme-aurora main,
+html.chatgpt-theme-nebula main,
 html.chatgpt-theme-paper main,
+html.chatgpt-theme-daybreak main,
 html.chatgpt-theme-midnight aside,
 html.chatgpt-theme-aurora aside,
+html.chatgpt-theme-nebula aside,
 html.chatgpt-theme-paper aside,
+html.chatgpt-theme-daybreak aside,
 html.chatgpt-theme-midnight footer,
 html.chatgpt-theme-aurora footer,
-html.chatgpt-theme-paper footer {
+html.chatgpt-theme-nebula footer,
+html.chatgpt-theme-paper footer,
+html.chatgpt-theme-daybreak footer {
   background: var(--chatgpt-theme-bg) !important;
   color: var(--chatgpt-theme-text) !important;
 }
 
 html.chatgpt-theme-midnight aside,
 html.chatgpt-theme-aurora aside,
+html.chatgpt-theme-nebula aside,
 html.chatgpt-theme-paper aside,
+html.chatgpt-theme-daybreak aside,
 html.chatgpt-theme-midnight nav,
 html.chatgpt-theme-aurora nav,
+html.chatgpt-theme-nebula nav,
 html.chatgpt-theme-paper nav,
+html.chatgpt-theme-daybreak nav,
 html.chatgpt-theme-midnight footer,
 html.chatgpt-theme-aurora footer,
-html.chatgpt-theme-paper footer {
+html.chatgpt-theme-nebula footer,
+html.chatgpt-theme-paper footer,
+html.chatgpt-theme-daybreak footer {
   background: var(--chatgpt-theme-panel) !important;
 }
 
 html.chatgpt-theme-midnight main > *,
-html.chatgpt-theme-aurora main > * {
+html.chatgpt-theme-aurora main > *,
+html.chatgpt-theme-nebula main > * {
   background-color: transparent !important;
 }
 
 html.chatgpt-theme-midnight .text-base,
 html.chatgpt-theme-aurora .text-base,
+html.chatgpt-theme-nebula .text-base,
 html.chatgpt-theme-midnight .text-token-text-primary,
 html.chatgpt-theme-aurora .text-token-text-primary,
+html.chatgpt-theme-nebula .text-token-text-primary,
 html.chatgpt-theme-original-dark .text-base,
 html.chatgpt-theme-original-dark .text-token-text-primary,
 html.chatgpt-theme-original-light .text-base,
@@ -187,25 +232,31 @@ html.chatgpt-theme-original-light .text-token-text-primary {
 }
 
 html.chatgpt-theme-paper .text-base,
-html.chatgpt-theme-paper .text-token-text-primary {
+html.chatgpt-theme-paper .text-token-text-primary,
+html.chatgpt-theme-daybreak .text-base,
+html.chatgpt-theme-daybreak .text-token-text-primary {
   color: var(--chatgpt-theme-text) !important;
 }
 
 html.chatgpt-theme-midnight .text-token-text-secondary,
 html.chatgpt-theme-aurora .text-token-text-secondary,
+html.chatgpt-theme-nebula .text-token-text-secondary,
 html.chatgpt-theme-original-dark .text-token-text-secondary,
 html.chatgpt-theme-original-light .text-token-text-secondary {
   color: var(--chatgpt-theme-text-muted) !important;
 }
 
-html.chatgpt-theme-paper .text-token-text-secondary {
+html.chatgpt-theme-paper .text-token-text-secondary,
+html.chatgpt-theme-daybreak .text-token-text-secondary {
   color: var(--chatgpt-theme-text-muted) !important;
 }
 
 html.chatgpt-theme-midnight .border-token-border-medium,
 html.chatgpt-theme-aurora .border-token-border-medium,
+html.chatgpt-theme-nebula .border-token-border-medium,
 html.chatgpt-theme-midnight .border-token-border-subtle,
 html.chatgpt-theme-aurora .border-token-border-subtle,
+html.chatgpt-theme-nebula .border-token-border-subtle,
 html.chatgpt-theme-original-dark .border-token-border-medium,
 html.chatgpt-theme-original-light .border-token-border-medium,
 html.chatgpt-theme-original-dark .border-token-border-subtle,
@@ -214,14 +265,18 @@ html.chatgpt-theme-original-light .border-token-border-subtle {
 }
 
 html.chatgpt-theme-paper .border-token-border-medium,
-html.chatgpt-theme-paper .border-token-border-subtle {
+html.chatgpt-theme-paper .border-token-border-subtle,
+html.chatgpt-theme-daybreak .border-token-border-medium,
+html.chatgpt-theme-daybreak .border-token-border-subtle {
   border-color: var(--chatgpt-theme-border) !important;
 }
 
 html.chatgpt-theme-midnight .text-token-text-accent,
 html.chatgpt-theme-aurora .text-token-text-accent,
+html.chatgpt-theme-nebula .text-token-text-accent,
 html.chatgpt-theme-midnight a,
 html.chatgpt-theme-aurora a,
+html.chatgpt-theme-nebula a,
 html.chatgpt-theme-original-dark a,
 html.chatgpt-theme-original-light a,
 html.chatgpt-theme-original-dark .text-token-text-accent,
@@ -230,12 +285,15 @@ html.chatgpt-theme-original-light .text-token-text-accent {
 }
 
 html.chatgpt-theme-paper .text-token-text-accent,
-html.chatgpt-theme-paper a {
+html.chatgpt-theme-paper a,
+html.chatgpt-theme-daybreak .text-token-text-accent,
+html.chatgpt-theme-daybreak a {
   color: var(--chatgpt-theme-accent) !important;
 }
 
 html.chatgpt-theme-midnight button,
 html.chatgpt-theme-aurora button,
+html.chatgpt-theme-nebula button,
 html.chatgpt-theme-original-dark button {
   background: rgba(255, 255, 255, 0.06) !important;
   color: var(--chatgpt-theme-text) !important;
@@ -248,6 +306,12 @@ html.chatgpt-theme-paper button {
   border-color: rgba(143, 120, 88, 0.4) !important;
 }
 
+html.chatgpt-theme-daybreak button {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--chatgpt-theme-text) !important;
+  border-color: rgba(206, 162, 114, 0.45) !important;
+}
+
 html.chatgpt-theme-original-light button {
   background: rgba(255, 255, 255, 0.92) !important;
   color: var(--chatgpt-theme-text) !important;
@@ -256,23 +320,27 @@ html.chatgpt-theme-original-light button {
 
 html.chatgpt-theme-midnight [class*='bg-token-'],
 html.chatgpt-theme-aurora [class*='bg-token-'],
+html.chatgpt-theme-nebula [class*='bg-token-'],
 html.chatgpt-theme-original-dark [class*='bg-token-'] {
   background-color: var(--chatgpt-theme-panel) !important;
 }
 
 html.chatgpt-theme-paper [class*='bg-token-'],
+html.chatgpt-theme-daybreak [class*='bg-token-'],
 html.chatgpt-theme-original-light [class*='bg-token-'] {
   background-color: var(--chatgpt-theme-panel) !important;
 }
 
 html.chatgpt-theme-midnight [class*='border-token-'],
 html.chatgpt-theme-aurora [class*='border-token-'],
+html.chatgpt-theme-nebula [class*='border-token-'],
 html.chatgpt-theme-original-dark [class*='border-token-'],
 html.chatgpt-theme-original-light [class*='border-token-'] {
   border-color: var(--chatgpt-theme-border) !important;
 }
 
-html.chatgpt-theme-paper [class*='border-token-'] {
+html.chatgpt-theme-paper [class*='border-token-'],
+html.chatgpt-theme-daybreak [class*='border-token-'] {
   border-color: var(--chatgpt-theme-border) !important;
 }
 .chatgpt-direction-fix-toast {
