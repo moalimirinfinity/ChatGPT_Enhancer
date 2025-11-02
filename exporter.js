@@ -1038,13 +1038,25 @@ async function convertKatexToImages(root) {
 
   for (const node of uniqueNodes) {
     try {
+      const latex = extractLatex(node);
+      if (node.closest('td, th')) {
+        // Use text fallback inside table cells to avoid DOCX rendering issues.
+        const textEquation = document.createElement('span');
+        textEquation.className = EXPORT_EQUATION_CLASS;
+        textEquation.setAttribute('dir', 'ltr');
+        textEquation.style.setProperty('direction', 'ltr', 'important');
+        textEquation.style.setProperty('unicode-bidi', 'normal', 'important');
+        textEquation.textContent = latex || (node.textContent ? node.textContent.trim() : 'Equation');
+        node.replaceWith(textEquation);
+        continue;
+      }
+
       const dataUrl = await window.htmlToImage.toPng(node, {
         quality: 1,
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: '#ffffff'
       });
-      const latex = extractLatex(node);
       const image = document.createElement('img');
       image.src = dataUrl;
       image.alt = latex ? `TeX: ${latex}` : 'Equation';
