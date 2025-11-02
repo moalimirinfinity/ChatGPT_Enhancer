@@ -347,6 +347,12 @@ async function handleExportRequest(format) {
     } else {
       const printStyle = document.createElement('style');
       printStyle.textContent = `
+        /* THIS IS THE NEW RULE TO REMOVE HEADERS/FOOTERS */
+        @page {
+          size: auto; /* Use the user's default paper size */
+          margin: 0mm !important; /* Set all margins to zero */
+        }
+
         @media print {
           body > *:not(.${EXPORT_STAGE_CLASS}) {
             display: none !important;
@@ -361,13 +367,17 @@ async function handleExportRequest(format) {
             z-index: 9999 !important;
           }
           .${EXPORT_ROOT_CLASS} {
-             padding: 40px !important;
-             max-width: 100% !important;
-             margin: 0 !important;
-             box-shadow: none !important;
-          }
-          .${EXPORT_TURN_CLASS} {
-             page-break-inside: avoid !important;
+            /* THIS IS THE UPDATE:
+              More space on top and bottom, 40px on sides.
+            */
+            padding-top: 80px !important;
+            padding-bottom: 70px !important;
+            padding-left: 40px !important;
+            padding-right: 40px !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            box-sizing: border-box;
           }
         }
       `;
