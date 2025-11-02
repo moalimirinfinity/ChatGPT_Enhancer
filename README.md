@@ -8,19 +8,8 @@ A browser extension that polishes the ChatGPT interface. It fixes mixed RTL/LTR 
 - **Fonts panel** – toggle custom English and Persian font stacks; the extension auto-detects Persian messages and applies the right typeface.
 - **Themes** – apply handcrafted themes (Midnight, Aurora, Paper); the extension only enables themes that match ChatGPT’s current light/dark mode.
 - **One-tap KaTeX copy** – click any KaTeX formula to copy its LaTeX.
-- **Conversation export** – save the current ChatGPT conversation as PDF or DOCX via the popup.
+- **Conversation export** – save the current ChatGPT conversation as PDF or DOCX via the pop-up.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
-
-
-## Usage
-
-1. Open a ChatGPT conversation at [chat.openai.com](https://chat.openai.com) or [chatgpt.com](https://chatgpt.com).
-2. Click the GPT Enhancer icon to open the popup.
-3. Use the master toggle to enable the extension, then customise fonts, layout fixes, themes, and export options as needed.
-4. For a walkthrough of every feature, tap the `?` icon in the popup to open the bilingual help panel.
-
-> **Note:** Custom themes (Midnight/Aurora/Paper) only activate when they match ChatGPT’s current light/dark mode. The popup disables incompatible options automatically.
-
 
 
 
