@@ -10,68 +10,6 @@ const RTL_CHAR_REGEX = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
 const VAZIRMATN_FONT_PATH = 'fonts/Vazirmatn-VF.woff2';
 const FONT_FAMILY_STACK = '"Vazirmatn", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
-const PDF_PAGE_HEIGHT_PX = 960;
-const ZWNJ = '\u200c';
-const ZWJ = '\u200d';
-const TATWEEL = '\u0640';
-const LTR_SEGMENT_REGEX = /[A-Za-z0-9@#$%^&*()_+\-=\/\\|{}\[\]:;"',.<>?!]+/g;
-const NEUTRAL_PUNCTUATION_REGEX = /[،؛؟!?%٪٫٬٫٬\u060C\u061B\u061F\.]/g;
-const PERSIAN_DIGIT_MAP = {
-  '0': '۰',
-  '1': '۱',
-  '2': '۲',
-  '3': '۳',
-  '4': '۴',
-  '5': '۵',
-  '6': '۶',
-  '7': '۷',
-  '8': '۸',
-  '9': '۹'
-};
-const ARABIC_CHAR_FORMS = new Map([
-  ['\u0621', { isolated: '\uFE80', final: null, initial: null, medial: null, joinPrev: false, joinNext: false }],
-  ['\u0622', { isolated: '\uFE81', final: '\uFE82', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0623', { isolated: '\uFE83', final: '\uFE84', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0624', { isolated: '\uFE85', final: '\uFE86', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0625', { isolated: '\uFE87', final: '\uFE88', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0626', { isolated: '\uFE89', final: '\uFE8A', initial: '\uFE8B', medial: '\uFE8C', joinPrev: true, joinNext: true }],
-  ['\u0627', { isolated: '\uFE8D', final: '\uFE8E', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0628', { isolated: '\uFE8F', final: '\uFE90', initial: '\uFE91', medial: '\uFE92', joinPrev: true, joinNext: true }],
-  ['\u0629', { isolated: '\uFE93', final: '\uFE94', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u062A', { isolated: '\uFE95', final: '\uFE96', initial: '\uFE97', medial: '\uFE98', joinPrev: true, joinNext: true }],
-  ['\u062B', { isolated: '\uFE99', final: '\uFE9A', initial: '\uFE9B', medial: '\uFE9C', joinPrev: true, joinNext: true }],
-  ['\u062C', { isolated: '\uFE9D', final: '\uFE9E', initial: '\uFE9F', medial: '\uFEA0', joinPrev: true, joinNext: true }],
-  ['\u062D', { isolated: '\uFEA1', final: '\uFEA2', initial: '\uFEA3', medial: '\uFEA4', joinPrev: true, joinNext: true }],
-  ['\u062E', { isolated: '\uFEA5', final: '\uFEA6', initial: '\uFEA7', medial: '\uFEA8', joinPrev: true, joinNext: true }],
-  ['\u062F', { isolated: '\uFEA9', final: '\uFEAA', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0630', { isolated: '\uFEAB', final: '\uFEAC', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0631', { isolated: '\uFEAD', final: '\uFEAE', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0632', { isolated: '\uFEAF', final: '\uFEB0', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0633', { isolated: '\uFEB1', final: '\uFEB2', initial: '\uFEB3', medial: '\uFEB4', joinPrev: true, joinNext: true }],
-  ['\u0634', { isolated: '\uFEB5', final: '\uFEB6', initial: '\uFEB7', medial: '\uFEB8', joinPrev: true, joinNext: true }],
-  ['\u0635', { isolated: '\uFEB9', final: '\uFEBA', initial: '\uFEBB', medial: '\uFEBC', joinPrev: true, joinNext: true }],
-  ['\u0636', { isolated: '\uFEBD', final: '\uFEBE', initial: '\uFEBF', medial: '\uFEC0', joinPrev: true, joinNext: true }],
-  ['\u0637', { isolated: '\uFEC1', final: '\uFEC2', initial: '\uFEC3', medial: '\uFEC4', joinPrev: true, joinNext: true }],
-  ['\u0638', { isolated: '\uFEC5', final: '\uFEC6', initial: '\uFEC7', medial: '\uFEC8', joinPrev: true, joinNext: true }],
-  ['\u0639', { isolated: '\uFEC9', final: '\uFECA', initial: '\uFECB', medial: '\uFECC', joinPrev: true, joinNext: true }],
-  ['\u063A', { isolated: '\uFECD', final: '\uFECE', initial: '\uFECF', medial: '\uFED0', joinPrev: true, joinNext: true }],
-  ['\u0641', { isolated: '\uFED1', final: '\uFED2', initial: '\uFED3', medial: '\uFED4', joinPrev: true, joinNext: true }],
-  ['\u0642', { isolated: '\uFED5', final: '\uFED6', initial: '\uFED7', medial: '\uFED8', joinPrev: true, joinNext: true }],
-  ['\u0643', { isolated: '\uFED9', final: '\uFEDA', initial: '\uFEDB', medial: '\uFEDC', joinPrev: true, joinNext: true }],
-  ['\u0644', { isolated: '\uFEDD', final: '\uFEDE', initial: '\uFEDF', medial: '\uFEE0', joinPrev: true, joinNext: true }],
-  ['\u0645', { isolated: '\uFEE1', final: '\uFEE2', initial: '\uFEE3', medial: '\uFEE4', joinPrev: true, joinNext: true }],
-  ['\u0646', { isolated: '\uFEE5', final: '\uFEE6', initial: '\uFEE7', medial: '\uFEE8', joinPrev: true, joinNext: true }],
-  ['\u0647', { isolated: '\uFEE9', final: '\uFEEA', initial: '\uFEEB', medial: '\uFEEC', joinPrev: true, joinNext: true }],
-  ['\u0648', { isolated: '\uFEED', final: '\uFEEE', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u0649', { isolated: '\uFEEF', final: '\uFEF0', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u064A', { isolated: '\uFEF1', final: '\uFEF2', initial: '\uFEF3', medial: '\uFEF4', joinPrev: true, joinNext: true }],
-  ['\u067E', { isolated: '\uFB56', final: '\uFB57', initial: '\uFB58', medial: '\uFB59', joinPrev: true, joinNext: true }],
-  ['\u0686', { isolated: '\uFB7A', final: '\uFB7B', initial: '\uFB7C', medial: '\uFB7D', joinPrev: true, joinNext: true }],
-  ['\u0698', { isolated: '\uFB8A', final: '\uFB8B', initial: null, medial: null, joinPrev: true, joinNext: false }],
-  ['\u06A9', { isolated: '\uFB8E', final: '\uFB8F', initial: '\uFB90', medial: '\uFB91', joinPrev: true, joinNext: true }],
-  ['\u06AF', { isolated: '\uFB92', final: '\uFB93', initial: '\uFB94', medial: '\uFB95', joinPrev: true, joinNext: true }],
-  ['\u06CC', { isolated: '\uFBFC', final: '\uFBFD', initial: '\uFBFE', medial: '\uFBFF', joinPrev: true, joinNext: true }]
-]);
 const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} {
   font-family: ${FONT_FAMILY_STACK};
@@ -377,16 +315,6 @@ async function registerExportFonts() {
   return exportFontRegistrationPromise;
 }
 
-function getJsPdfConstructor() {
-  if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
-    return window.jspdf.jsPDF;
-  }
-  if (typeof window.jsPDF === 'function') {
-    return window.jsPDF;
-  }
-  return null;
-}
-
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== EXPORT_MESSAGE_TYPE) {
     return undefined;
@@ -409,9 +337,6 @@ async function handleExportRequest(format) {
     ensureLibraries(format);
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
-    if (format === 'pdf') {
-      reshapeRtlTextNodes(root);
-    }
     await ensureExportFontsLoaded();
     await inlineImages(root);
 
@@ -420,9 +345,35 @@ async function handleExportRequest(format) {
       await convertKatexToImages(root);
       await exportAsDocx(root);
     } else {
-      adjustLargeBlocksForPdf(root);
-      relaxOversizedTurnBreaks(root);
-      await exportAsPdf(root);
+      const printStyle = document.createElement('style');
+      printStyle.textContent = `
+        @media print {
+          body > *:not(.${EXPORT_STAGE_CLASS}) {
+            display: none !important;
+          }
+          .${EXPORT_STAGE_CLASS} {
+            opacity: 1 !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            z-index: 9999 !important;
+          }
+          .${EXPORT_ROOT_CLASS} {
+             padding: 40px !important;
+             max-width: 100% !important;
+             margin: 0 !important;
+             box-shadow: none !important;
+          }
+          .${EXPORT_TURN_CLASS} {
+             page-break-inside: avoid !important;
+          }
+        }
+      `;
+      document.head.appendChild(printStyle);
+      window.print();
+      document.head.removeChild(printStyle);
     }
   } finally {
     if (styleNode && styleNode.parentNode) {
@@ -660,283 +611,6 @@ function ensureDirectionalConsistency(root) {
     element.style.removeProperty('unicode-bidi');
     element.style.removeProperty('text-align');
   }
-}
-
-function reshapeRtlTextNodes(root) {
-  if (!root) {
-    return;
-  }
-  const nodes = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  while (walker.nextNode()) {
-    nodes.push(walker.currentNode);
-  }
-  nodes.forEach((node) => processRtlTextNode(node));
-}
-
-function processRtlTextNode(node) {
-  const value = node.nodeValue;
-  if (!value || !containsRtlCharacters(value)) {
-    return;
-  }
-  if (shouldSkipArabicReshape(node)) {
-    return;
-  }
-
-  const segments = splitTextForDirectionalRuns(value);
-  if (!segments) {
-    const converted = convertAsciiDigitsToPersian(value);
-    node.nodeValue = reshapeArabicText(converted);
-    return;
-  }
-
-  const parent = node.parentNode;
-  if (!parent) {
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  segments.forEach((segment) => {
-    if (!segment.value) {
-      return;
-    }
-    if (segment.type === 'ltr') {
-      const span = document.createElement('span');
-      span.setAttribute('dir', 'ltr');
-      span.textContent = segment.value;
-      fragment.appendChild(span);
-    } else if (segment.type === 'neutral') {
-      const span = document.createElement('span');
-      span.setAttribute('dir', 'rtl');
-      span.textContent = convertAsciiDigitsToPersian(segment.value);
-      fragment.appendChild(span);
-    } else {
-      const converted = convertAsciiDigitsToPersian(segment.value);
-      if (containsRtlCharacters(converted)) {
-        fragment.appendChild(document.createTextNode(reshapeArabicText(converted)));
-      } else {
-        fragment.appendChild(document.createTextNode(converted));
-      }
-    }
-  });
-
-  parent.replaceChild(fragment, node);
-}
-
-function splitTextForDirectionalRuns(value) {
-  LTR_SEGMENT_REGEX.lastIndex = 0;
-  let match;
-  let lastIndex = 0;
-  let hasLtr = false;
-  const segments = [];
-
-  while ((match = LTR_SEGMENT_REGEX.exec(value))) {
-    const matchStart = match.index;
-    if (matchStart > lastIndex) {
-      segments.push({ type: 'rtl', value: value.slice(lastIndex, matchStart) });
-    }
-    segments.push({ type: 'ltr', value: match[0] });
-    hasLtr = true;
-    lastIndex = matchStart + match[0].length;
-  }
-
-  if (!hasLtr) {
-    return null;
-  }
-
-  if (lastIndex < value.length) {
-    segments.push({ type: 'rtl', value: value.slice(lastIndex) });
-  }
-
-  if (!segments.length) {
-    return null;
-  }
-
-  const expanded = [];
-  segments.forEach((segment) => {
-    if (segment.type !== 'rtl') {
-      expanded.push(segment);
-      return;
-    }
-    const subSegments = splitNeutralSegments(segment.value);
-    subSegments.forEach((subSegment) => expanded.push(subSegment));
-  });
-
-  return expanded;
-}
-
-function shouldSkipArabicReshape(textNode) {
-  let current = textNode.parentNode;
-  while (current && current.nodeType === Node.ELEMENT_NODE) {
-    const tag = current.tagName ? current.tagName.toLowerCase() : '';
-    if (tag === 'pre' || tag === 'code' || tag === 'script' || tag === 'style') {
-      return true;
-    }
-    if (current.classList && current.classList.contains(EXPORT_EQUATION_CLASS)) {
-      return true;
-    }
-    current = current.parentNode;
-  }
-  return false;
-}
-
-function reshapeArabicText(input) {
-  const chars = Array.from(input);
-  const output = [];
-  for (let index = 0; index < chars.length; index += 1) {
-    const currentChar = chars[index];
-    if (currentChar === ZWNJ) {
-      output.push(currentChar);
-      continue;
-    }
-    if (currentChar === TATWEEL) {
-      output.push(currentChar);
-      continue;
-    }
-    const currentForm = ARABIC_CHAR_FORMS.get(currentChar);
-    if (!currentForm) {
-      output.push(currentChar);
-      continue;
-    }
-
-    const prevInfo = findPreviousConnectable(chars, index);
-    const nextInfo = findNextConnectable(chars, index);
-    const connectPrev = Boolean(prevInfo && prevInfo.form.joinNext && currentForm.joinPrev);
-    const connectNext = Boolean(nextInfo && currentForm.joinNext && nextInfo.form.joinPrev);
-
-    let shaped = currentForm.isolated || currentChar;
-    if (connectPrev && connectNext && currentForm.medial) {
-      shaped = currentForm.medial;
-    } else if (connectPrev && currentForm.final) {
-      shaped = currentForm.final;
-    } else if (connectNext && currentForm.initial) {
-      shaped = currentForm.initial;
-    }
-
-    output.push(shaped);
-  }
-  return output.join('');
-}
-
-function findPreviousConnectable(chars, startIndex) {
-  for (let index = startIndex - 1; index >= 0; index -= 1) {
-    const candidate = chars[index];
-    if (candidate === ZWNJ) {
-      return null;
-    }
-    if (candidate === ZWJ) {
-      continue;
-    }
-    if (candidate === TATWEEL) {
-      continue;
-    }
-    const form = ARABIC_CHAR_FORMS.get(candidate);
-    if (!form) {
-      if (isArabicCombiningMark(candidate)) {
-        continue;
-      }
-      if (!isWhitespaceLike(candidate)) {
-        return null;
-      }
-      continue;
-    }
-    return { char: candidate, form };
-  }
-  return null;
-}
-
-function findNextConnectable(chars, startIndex) {
-  for (let index = startIndex + 1; index < chars.length; index += 1) {
-    const candidate = chars[index];
-    if (candidate === ZWNJ) {
-      return null;
-    }
-    if (candidate === ZWJ) {
-      continue;
-    }
-    if (candidate === TATWEEL) {
-      continue;
-    }
-    const form = ARABIC_CHAR_FORMS.get(candidate);
-    if (!form) {
-      if (isArabicCombiningMark(candidate)) {
-        continue;
-      }
-      if (!isWhitespaceLike(candidate)) {
-        return null;
-      }
-      continue;
-    }
-    return { char: candidate, form };
-  }
-  return null;
-}
-
-function isWhitespaceLike(char) {
-  if (!char) {
-    return false;
-  }
-  return /\s/.test(char);
-}
-
-function containsRtlCharacters(value) {
-  if (!value) {
-    return false;
-  }
-  RTL_CHAR_REGEX.lastIndex = 0;
-  return RTL_CHAR_REGEX.test(value);
-}
-
-function isArabicCombiningMark(char) {
-  if (!char) {
-    return false;
-  }
-  const code = char.codePointAt(0);
-  if (code === undefined) {
-    return false;
-  }
-  return (
-    (code >= 0x0610 && code <= 0x061A) ||
-    (code >= 0x064B && code <= 0x065F) ||
-    (code >= 0x0670 && code <= 0x0671) ||
-    (code >= 0x06D6 && code <= 0x06DC) ||
-    (code >= 0x06DF && code <= 0x06E8) ||
-    (code >= 0x06EA && code <= 0x06ED)
-  );
-}
-
-function splitNeutralSegments(value) {
-  const result = [];
-  if (!value) {
-    return result;
-  }
-  NEUTRAL_PUNCTUATION_REGEX.lastIndex = 0;
-  let match;
-  let lastIndex = 0;
-  while ((match = NEUTRAL_PUNCTUATION_REGEX.exec(value))) {
-    const index = match.index;
-    if (index > lastIndex) {
-      result.push({ type: 'rtl', value: value.slice(lastIndex, index) });
-    }
-    result.push({ type: 'neutral', value: match[0] });
-    lastIndex = index + match[0].length;
-  }
-  if (lastIndex < value.length) {
-    result.push({ type: 'rtl', value: value.slice(lastIndex) });
-  }
-  return result;
-}
-
-function convertAsciiDigitsToPersian(value) {
-  if (!value) {
-    return value;
-  }
-  let result = '';
-  for (let index = 0; index < value.length; index += 1) {
-    const char = value[index];
-    result += PERSIAN_DIGIT_MAP[char] || char;
-  }
-  return result;
 }
 
 async function ensureExportFontsLoaded() {
@@ -1218,9 +892,6 @@ function relativeLuminance({ r, g, b }) {
 }
 
 function ensureLibraries(format) {
-  if (format === 'pdf' && typeof window.html2pdf !== 'function') {
-    throw new Error('html2pdf library missing');
-  }
   if (format === 'docx') {
     if (!window.htmlDocx) {
       throw new Error('htmlDocx library missing');
@@ -1330,63 +1001,6 @@ function prepareDocxSpecificAdjustments(root) {
   });
 }
 
-function adjustLargeBlocksForPdf(root) {
-  const threshold = PDF_PAGE_HEIGHT_PX * 0.92;
-  const selectors = ['pre', 'table', 'blockquote', 'section', 'article', 'ul', 'ol', 'dl'];
-  const targets = root.querySelectorAll(selectors.join(','));
-
-  targets.forEach((node) => {
-    const height = getElementHeight(node);
-    if (height <= threshold) {
-      return;
-    }
-
-    allowPageSplits(node);
-
-    if (node.matches('pre')) {
-      node.style.setProperty('white-space', 'pre-wrap', 'important');
-      node.style.setProperty('word-break', 'break-word', 'important');
-      node.style.setProperty('overflow-wrap', 'anywhere', 'important');
-    }
-
-    if (node.matches('table')) {
-      node.style.setProperty('table-layout', 'fixed', 'important');
-    }
-
-  });
-}
-
-function relaxOversizedTurnBreaks(root) {
-  const threshold = PDF_PAGE_HEIGHT_PX * 0.95;
-  const turns = root.querySelectorAll('.' + EXPORT_TURN_CLASS);
-  turns.forEach((turn) => {
-    const height = getElementHeight(turn);
-    if (height <= threshold) {
-      return;
-    }
-
-    allowPageSplits(turn);
-
-    const innerSelectors = ['pre', 'table', 'blockquote', 'section', 'article', 'ul', 'ol', 'dl'];
-    innerSelectors.forEach((selector) => {
-      turn.querySelectorAll(selector).forEach((node) => allowPageSplits(node));
-    });
-  });
-}
-
-function allowPageSplits(node) {
-  node.style.setProperty('page-break-inside', 'auto', 'important');
-  node.style.setProperty('break-inside', 'auto', 'important');
-}
-
-function getElementHeight(node) {
-  const rect = typeof node.getBoundingClientRect === 'function' ? node.getBoundingClientRect() : null;
-  if (rect && rect.height) {
-    return rect.height;
-  }
-  return Math.max(node.scrollHeight || 0, node.offsetHeight || 0);
-}
-
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1438,82 +1052,6 @@ function extractLatex(element) {
     return fallback.textContent.trim();
   }
   return element.textContent ? element.textContent.trim() : '';
-}
-
-function containsRtlContent(root) {
-  if (!root) {
-    return false;
-  }
-  if (root.querySelector('[dir="rtl"]')) {
-    return true;
-  }
-  if (!root.textContent) {
-    return false;
-  }
-  return containsRtlCharacters(root.textContent);
-}
-
-async function exportAsPdf(root) {
-  if (containsRtlContent(root)) {
-    const rasterized = await exportAsRasterizedPdf(root);
-    if (rasterized) {
-      return;
-    }
-  }
-
-  const filename = buildFilename('pdf');
-  const html2pdf = window.html2pdf;
-  const options = {
-    margin: 0.5,
-    filename,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-    pagebreak: {
-      mode: ['css', 'legacy']
-    }
-  };
-  await html2pdf().set(options).from(root).save();
-}
-
-async function exportAsRasterizedPdf(root) {
-  const jsPdfConstructor = getJsPdfConstructor();
-  if (!jsPdfConstructor || !window.htmlToImage || typeof window.htmlToImage.toCanvas !== 'function') {
-    return false;
-  }
-
-  try {
-    const canvas = await window.htmlToImage.toCanvas(root, {
-      pixelRatio: 2,
-      cacheBust: true,
-      backgroundColor: '#ffffff'
-    });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-    const filename = buildFilename('pdf');
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const usableWidth = pageWidth - margin * 2;
-    const scaledHeight = canvas.height * (usableWidth / canvas.width);
-    const step = pageHeight - margin * 2;
-
-    let offset = 0;
-    while (offset < scaledHeight) {
-      pdf.addImage(imgData, 'PNG', margin, margin - offset, usableWidth, scaledHeight);
-      offset += step;
-      if (offset < scaledHeight) {
-        pdf.addPage();
-      }
-    }
-
-    pdf.save(filename);
-    return true;
-  } catch (error) {
-    console.warn('[GPT Enhancer] Rasterized PDF export failed', error);
-    return false;
-  }
 }
 
 async function exportAsDocx(root) {
