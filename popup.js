@@ -110,16 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const enabled = controls.fontToggle.checked && currentSettings.enableFix;
-      if (!enabled && currentSettings.fontsEnabled) {
-        updateSetting('fontsEnabled', false);
-        return;
-      }
-      if (enabled !== currentSettings.fontsEnabled) {
-        updateSetting('fontsEnabled', enabled);
-      }
+      const toggledOn = enabled;
       if (!enabled) {
         controls.fontToggle.checked = false;
-        setFontControlsDisabled(true);
+      }
+      setFontControlsDisabled(!toggledOn);
+      if (enabled !== currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', enabled);
       }
     });
   }
@@ -559,10 +556,9 @@ function handleExport() {
       (response) => {
         const messageError = chrome.runtime.lastError;
         if (messageError || !response || !response.ok) {
-          const { message, followup, originalMessage } = buildHandledExportError({
+          const { message, originalMessage } = buildHandledExportError({
             response,
-            runtimeError: messageError,
-            tab: activeTab
+            runtimeError: messageError
           });
           reportExportError(message, {
             runtimeError: messageError,
@@ -572,9 +568,6 @@ function handleExport() {
           setExportErrorTooltip(message);
           setExportIdleState(EXPORT_LABEL_ERROR);
           resetExportLabelSoon();
-          if (followup === 'reload-tab') {
-            chrome.tabs.reload(activeTab.id);
-          }
           return;
         }
         clearExportErrorTooltip();
@@ -637,22 +630,21 @@ function buildExportErrorMessage(response, runtimeError) {
   return safeStringify(error);
 }
 
-function buildHandledExportError({ response, runtimeError, tab }) {
+function buildHandledExportError({ response, runtimeError }) {
   const baseMessage = buildExportErrorMessage(response, runtimeError);
   if (!runtimeError || !runtimeError.message) {
-    return { message: baseMessage, followup: null, originalMessage: baseMessage };
+    return { message: baseMessage, originalMessage: baseMessage };
   }
 
   if (runtimeError.message.includes('Receiving end does not exist')) {
-    const guidance = 'Reloading ChatGPT so the export helper can load. Please try again once the page finishes loading.';
+    const guidance = 'Reload ChatGPT in this tab so the export helper can load, then try again once the page finishes.';
     return {
       message: guidance,
-      followup: tab ? 'reload-tab' : null,
       originalMessage: baseMessage
     };
   }
 
-  return { message: baseMessage, followup: null, originalMessage: baseMessage };
+  return { message: baseMessage, originalMessage: baseMessage };
 }
 
 function reportExportError(message, context) {
