@@ -44,9 +44,6 @@ For changes:
 # Reload the extension in chrome://extensions after editing files
 ```
 
-## Support
-
-If you find GPT Enhancer helpful, you can support the project here: https://donito.me/u-qd7d6
 
 ## License
 
