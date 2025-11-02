@@ -4,18 +4,42 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
-  theme: 'original'
+  exportFormat: 'pdf',
+  theme: 'original',
+  fontsEnabled: false,
+  fontEnglish: 'inter',
+  fontPersian: 'vazirmatn'
 };
+
+const FONT_DEFAULTS = {
+  english: 'inter',
+  persian: 'vazirmatn'
+};
+const FONT_LANGUAGES = ['english', 'persian'];
+const THEME_COMPATIBILITY = {
+  midnight: 'dark',
+  aurora: 'dark',
+  paper: 'light'
+};
+const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 
 const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isBusy = false;
+let currentFontTab = FONT_LANGUAGES[0];
+let helpLanguage = 'english';
+let lastFocusedBeforeHelp = null;
+let chatBaseThemeMode = null;
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
-const DONATION_URL = 'https://zarinp.al/moalimirinfinity';
+const DONATION_URL = 'https://donito.me/u-qd7d6';
 const DONATE_LABEL_DEFAULT = 'Support';
 const DONATE_LABEL_BUSY = 'Opening…';
+const EXPORT_LABEL_DEFAULT = 'Export conversation';
+const EXPORT_LABEL_BUSY = 'Exporting…';
+const EXPORT_LABEL_ERROR = 'Export failed';
+const EXPORT_LABEL_UNAVAILABLE = 'Open ChatGPT to export';
 
 document.addEventListener('DOMContentLoaded', () => {
   controls.enableFix = document.getElementById('toggle-enable');
@@ -27,6 +51,34 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
   controls.accordionHeaders = Array.from(document.querySelectorAll('.accordion__header'));
+  controls.fontToggle = document.getElementById('toggle-fonts');
+  controls.fontControl = document.querySelector('.font-control');
+  controls.fontTabs = Array.from(document.querySelectorAll('.font-tab'));
+  controls.fontOptionLists = Array.from(document.querySelectorAll('.font-options'));
+  controls.fontOptions = Array.from(document.querySelectorAll('.font-option'));
+  controls.exportFormatRadios = Array.from(document.querySelectorAll('input[name="export-format"]'));
+  controls.exportBtn = document.getElementById('export-btn');
+  controls.helpBtn = document.getElementById('help-btn');
+  controls.helpPanel = document.getElementById('help-panel');
+  controls.helpCloseBtn = document.getElementById('help-close-btn');
+  controls.helpLangButtons = Array.from(document.querySelectorAll('.help-panel__lang-btn'));
+  controls.helpSections = Array.from(document.querySelectorAll('.help-panel__section'));
+
+  if (chrome && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(STORAGE_THEME_MODE_KEY, (stored) => {
+      if (chrome.runtime.lastError) {
+        return;
+      }
+      chatBaseThemeMode =
+        stored && typeof stored[STORAGE_THEME_MODE_KEY] === 'string'
+          ? stored[STORAGE_THEME_MODE_KEY].toLowerCase()
+          : null;
+      if (chatBaseThemeMode !== 'dark' && chatBaseThemeMode !== 'light') {
+        chatBaseThemeMode = null;
+      }
+      updateThemeCardAvailability();
+    });
+  }
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
@@ -44,13 +96,104 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       updateSetting(key, input.checked);
+      if (key === 'enableFix' && !input.checked && currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', false);
+      }
     });
   });
 
   controls.refreshBtn.addEventListener('click', handleRefresh);
   controls.donateBtn.addEventListener('click', handleDonate);
+  if (controls.fontToggle) {
+    controls.fontToggle.addEventListener('change', () => {
+      if (isBusy) {
+        return;
+      }
+      const enabled = controls.fontToggle.checked && currentSettings.enableFix;
+      if (!enabled && currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', false);
+        return;
+      }
+      if (enabled !== currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', enabled);
+      }
+      if (!enabled) {
+        controls.fontToggle.checked = false;
+        setFontControlsDisabled(true);
+      }
+    });
+  }
+  controls.fontTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const { lang } = tab.dataset;
+      if (!lang || lang === currentFontTab) {
+        return;
+      }
+      setActiveFontTab(lang);
+    });
+  });
+  controls.fontOptions.forEach((option) => {
+    option.addEventListener('click', () => {
+      if (isBusy) {
+        return;
+      }
+      if (controls.fontToggle && !controls.fontToggle.checked) {
+        return;
+      }
+      const { lang, value } = option.dataset;
+      if (!lang || !value) {
+        return;
+      }
+      const targetKey = lang === 'persian' ? 'fontPersian' : 'fontEnglish';
+      if (currentSettings[targetKey] === value) {
+        return;
+      }
+      updateSetting(targetKey, value);
+    });
+  });
+  controls.exportFormatRadios.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (isBusy) {
+        return;
+      }
+      updateSetting('exportFormat', input.value);
+    });
+  });
+  if (controls.exportBtn) {
+    controls.exportBtn.addEventListener('click', handleExport);
+  }
+  if (controls.helpBtn) {
+    controls.helpBtn.addEventListener('click', () => {
+      if (isHelpPanelOpen()) {
+        closeHelpPanel();
+      } else {
+        openHelpPanel();
+      }
+    });
+  }
+  if (controls.helpCloseBtn) {
+    controls.helpCloseBtn.addEventListener('click', closeHelpPanel);
+  }
+  controls.helpLangButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const { lang } = button.dataset;
+      if (!lang || lang === helpLanguage) {
+        return;
+      }
+      setHelpLanguage(lang);
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isHelpPanelOpen()) {
+      event.preventDefault();
+      closeHelpPanel();
+    }
+  });
   controls.themeCards.forEach((card) => {
     card.addEventListener('click', () => {
+      if (card.disabled) {
+        return;
+      }
       const { theme } = card.dataset;
       if (!currentSettings.enableFix) {
         return;
@@ -79,7 +222,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  setActiveFontTab(currentFontTab);
+
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local') {
+      if (Object.prototype.hasOwnProperty.call(changes, STORAGE_THEME_MODE_KEY)) {
+        const nextValue = changes[STORAGE_THEME_MODE_KEY].newValue;
+        chatBaseThemeMode =
+          typeof nextValue === 'string' ? nextValue.toLowerCase() : null;
+        if (chatBaseThemeMode !== 'dark' && chatBaseThemeMode !== 'light') {
+          chatBaseThemeMode = null;
+        }
+        updateThemeCardAvailability();
+      }
+      return;
+    }
     if (area !== 'sync') {
       return;
     }
@@ -109,6 +266,18 @@ function applySettingsToUI(settings) {
   controls.fixCode.checked = settings.fixCode;
   controls.fixTables.checked = settings.fixTables;
   controls.copyKatex.checked = settings.copyKatex;
+  if (controls.fontToggle) {
+    const fontsEnabled = settings.enableFix && settings.fontsEnabled;
+    controls.fontToggle.checked = fontsEnabled;
+  }
+  updateFontOptionSelection('english', settings.fontEnglish);
+  updateFontOptionSelection('persian', settings.fontPersian);
+  setActiveFontTab(currentFontTab);
+  setFontControlsDisabled(!(settings.enableFix && settings.fontsEnabled));
+  const targetFormat = settings.exportFormat || DEFAULT_SETTINGS.exportFormat;
+  controls.exportFormatRadios.forEach((input) => {
+    input.checked = input.value === targetFormat;
+  });
   isBusy = false;
 
   const dependentsDisabled = !settings.enableFix;
@@ -119,6 +288,14 @@ function applySettingsToUI(settings) {
       toggle.classList.toggle('toggle--disabled', dependentsDisabled);
     }
   });
+  if (controls.fontToggle) {
+    if (dependentsDisabled) {
+      controls.fontToggle.checked = false;
+      if (currentSettings.fontsEnabled) {
+        updateSetting('fontsEnabled', false);
+      }
+    }
+  }
 
   controls.refreshBtn.disabled = false;
   controls.refreshBtn.textContent = REFRESH_LABEL_DEFAULT;
@@ -126,6 +303,7 @@ function applySettingsToUI(settings) {
   controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
   setActiveTheme(settings.theme);
   setThemeCardsDisabled(dependentsDisabled);
+  setHelpLanguage(helpLanguage);
 }
 
 function handleRefresh() {
@@ -185,11 +363,146 @@ function setThemeCardsDisabled(disabled) {
   }
 
   controls.themeCards.forEach((card) => {
-    card.classList.toggle('is-disabled', disabled);
-    if (disabled) {
+    if (!card) {
+      return;
+    }
+    card.dataset.dependentsDisabled = String(Boolean(disabled));
+  });
+  updateThemeCardAvailability();
+}
+
+function updateThemeCardAvailability() {
+  if (!controls.themeCards) {
+    return;
+  }
+  controls.themeCards.forEach((card) => {
+    if (!card) {
+      return;
+    }
+    const dependentsDisabled = card.dataset.dependentsDisabled === 'true';
+    const { theme } = card.dataset;
+    const requiredMode = theme ? THEME_COMPATIBILITY[theme] : null;
+    const incompatibilityKnown = Boolean(requiredMode && chatBaseThemeMode);
+    const incompatible =
+      incompatibilityKnown && requiredMode && chatBaseThemeMode && requiredMode !== chatBaseThemeMode;
+    card.classList.toggle('theme-card--forbidden', incompatible);
+    const disableForDependents = dependentsDisabled;
+    const disableForIncompatibility = incompatible;
+    const finalDisabled = disableForDependents || disableForIncompatibility;
+    card.disabled = finalDisabled;
+    card.classList.toggle('is-disabled', disableForDependents);
+    if (finalDisabled) {
       card.setAttribute('aria-disabled', 'true');
     } else {
       card.removeAttribute('aria-disabled');
+    }
+    if (incompatible) {
+      const message =
+        requiredMode === 'dark'
+          ? 'Enable ChatGPT dark mode to use this theme.'
+          : 'Enable ChatGPT light mode to use this theme.';
+      card.dataset.forbiddenTooltip = message;
+      card.title = message;
+    } else if (card.dataset.forbiddenTooltip) {
+      card.removeAttribute('title');
+      delete card.dataset.forbiddenTooltip;
+    }
+  });
+}
+
+function setActiveFontTab(language) {
+  if (!controls.fontTabs || !controls.fontOptionLists) {
+    return;
+  }
+  if (!FONT_LANGUAGES.includes(language)) {
+    language = FONT_LANGUAGES[0];
+  }
+  currentFontTab = language;
+  controls.fontTabs.forEach((tab) => {
+    if (!tab) {
+      return;
+    }
+    const { lang } = tab.dataset;
+    const isActive = lang === language;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+    if (isActive) {
+      tab.removeAttribute('tabindex');
+    } else {
+      tab.setAttribute('tabindex', '-1');
+    }
+  });
+  controls.fontOptionLists.forEach((group) => {
+    if (!group) {
+      return;
+    }
+    const isActive = group.dataset.lang === language;
+    group.classList.toggle('is-active', isActive);
+    if (isActive) {
+      group.removeAttribute('hidden');
+    } else {
+      group.setAttribute('hidden', 'true');
+    }
+  });
+}
+
+function updateFontOptionSelection(language, value) {
+  if (!controls.fontOptions) {
+    return;
+  }
+  const options = controls.fontOptions.filter(
+    (option) => option && option.dataset.lang === language
+  );
+  if (!options.length) {
+    return;
+  }
+  const hasExactMatch =
+    typeof value === 'string' && options.some((option) => option.dataset.value === value);
+  const defaultOption = options.find(
+    (option) => option.dataset.value === FONT_DEFAULTS[language]
+  );
+  const fallback =
+    (defaultOption && defaultOption.dataset.value) ||
+    (options[0] ? options[0].dataset.value : null);
+  const selectedValue = hasExactMatch ? value : fallback;
+  const settingsKey = language === 'persian' ? 'fontPersian' : 'fontEnglish';
+  if (currentSettings[settingsKey] !== selectedValue) {
+    currentSettings[settingsKey] = selectedValue;
+    if (!hasExactMatch && selectedValue) {
+      updateSetting(settingsKey, selectedValue);
+    }
+  }
+  options.forEach((option) => {
+    const isActive = option.dataset.value === selectedValue;
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function setFontControlsDisabled(disabled) {
+  if (controls.fontControl) {
+    controls.fontControl.classList.toggle('font-control--disabled', disabled);
+  }
+  controls.fontTabs.forEach((tab) => {
+    if (!tab) {
+      return;
+    }
+    tab.disabled = disabled;
+    if (disabled) {
+      tab.setAttribute('aria-disabled', 'true');
+    } else {
+      tab.removeAttribute('aria-disabled');
+    }
+  });
+  controls.fontOptions.forEach((option) => {
+    if (!option) {
+      return;
+    }
+    option.disabled = disabled;
+    if (disabled) {
+      option.setAttribute('aria-disabled', 'true');
+    } else {
+      option.removeAttribute('aria-disabled');
     }
   });
 }
@@ -207,4 +520,248 @@ function handleDonate() {
 
     window.setTimeout(() => window.close(), 300);
   });
+}
+
+function handleExport() {
+  if (!controls.exportBtn) {
+    return;
+  }
+  clearExportErrorTooltip();
+  setExportBusyState(EXPORT_LABEL_BUSY);
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabQueryError = chrome.runtime.lastError;
+    if (tabQueryError || !tabs.length) {
+      const message = buildExportErrorMessage(null, tabQueryError) || 'Unable to access active tab.';
+      reportExportError(message, { runtimeError: tabQueryError });
+      setExportErrorTooltip(message);
+      setExportIdleState(EXPORT_LABEL_ERROR);
+      resetExportLabelSoon();
+      return;
+    }
+
+    const activeTab = tabs[0];
+    if (!isChatGPTUrl(activeTab.url || '')) {
+      const message = 'Open ChatGPT in the current tab before exporting.';
+      reportExportError(message, { url: activeTab.url });
+      setExportErrorTooltip(message);
+      setExportIdleState(EXPORT_LABEL_UNAVAILABLE);
+      resetExportLabelSoon();
+      return;
+    }
+
+    chrome.tabs.sendMessage(
+      activeTab.id,
+      {
+        type: 'GPT_EXPORT_CONVERSATION',
+        format: getSelectedExportFormat()
+      },
+      (response) => {
+        const messageError = chrome.runtime.lastError;
+        if (messageError || !response || !response.ok) {
+          const { message, followup, originalMessage } = buildHandledExportError({
+            response,
+            runtimeError: messageError,
+            tab: activeTab
+          });
+          reportExportError(message, {
+            runtimeError: messageError,
+            response,
+            originalMessage
+          });
+          setExportErrorTooltip(message);
+          setExportIdleState(EXPORT_LABEL_ERROR);
+          resetExportLabelSoon();
+          if (followup === 'reload-tab') {
+            chrome.tabs.reload(activeTab.id);
+          }
+          return;
+        }
+        clearExportErrorTooltip();
+        setExportIdleState(EXPORT_LABEL_DEFAULT);
+        window.setTimeout(() => window.close(), 400);
+      }
+    );
+  });
+}
+
+function setExportBusyState(label) {
+  controls.exportBtn.disabled = true;
+  controls.exportBtn.textContent = label;
+}
+
+function setExportIdleState(label) {
+  controls.exportBtn.disabled = false;
+  controls.exportBtn.textContent = label;
+}
+
+function resetExportLabelSoon() {
+  window.setTimeout(() => {
+    if (controls.exportBtn && controls.exportBtn.textContent !== EXPORT_LABEL_BUSY) {
+      controls.exportBtn.textContent = EXPORT_LABEL_DEFAULT;
+    }
+  }, 2000);
+}
+
+function getSelectedExportFormat() {
+  const checked = controls.exportFormatRadios.find((input) => input.checked);
+  return checked ? checked.value : DEFAULT_SETTINGS.exportFormat;
+}
+
+function isChatGPTUrl(url) {
+  return url.startsWith('https://chat.openai.com') || url.startsWith('https://chatgpt.com');
+}
+
+function buildExportErrorMessage(response, runtimeError) {
+  if (runtimeError) {
+    return runtimeError.message || safeStringify(runtimeError);
+  }
+
+  if (!response) {
+    return 'No response received from the page.';
+  }
+
+  const { error } = response;
+  if (!error) {
+    return 'Export failed for an unknown reason.';
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (typeof error.message === 'string') {
+    return error.message;
+  }
+
+  return safeStringify(error);
+}
+
+function buildHandledExportError({ response, runtimeError, tab }) {
+  const baseMessage = buildExportErrorMessage(response, runtimeError);
+  if (!runtimeError || !runtimeError.message) {
+    return { message: baseMessage, followup: null, originalMessage: baseMessage };
+  }
+
+  if (runtimeError.message.includes('Receiving end does not exist')) {
+    const guidance = 'Reloading ChatGPT so the export helper can load. Please try again once the page finishes loading.';
+    return {
+      message: guidance,
+      followup: tab ? 'reload-tab' : null,
+      originalMessage: baseMessage
+    };
+  }
+
+  return { message: baseMessage, followup: null, originalMessage: baseMessage };
+}
+
+function reportExportError(message, context) {
+  if (context) {
+    console.error('[GPT Enhancer] Export failed:', message, context);
+  } else {
+    console.error('[GPT Enhancer] Export failed:', message);
+  }
+}
+
+function setExportErrorTooltip(message) {
+  if (controls.exportBtn) {
+    controls.exportBtn.title = message;
+  }
+}
+
+function clearExportErrorTooltip() {
+  if (controls.exportBtn) {
+    controls.exportBtn.removeAttribute('title');
+  }
+}
+
+function openHelpPanel() {
+  if (!controls.helpPanel) {
+    return;
+  }
+  setHelpLanguage(helpLanguage);
+  lastFocusedBeforeHelp =
+    document.activeElement && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  controls.helpPanel.classList.add('is-open');
+  controls.helpPanel.setAttribute('aria-hidden', 'false');
+  window.requestAnimationFrame(() => {
+    const container = controls.helpPanel?.querySelector('.help-panel__container');
+    if (container && container instanceof HTMLElement) {
+      container.focus();
+    }
+  });
+}
+
+function closeHelpPanel() {
+  if (!controls.helpPanel) {
+    return;
+  }
+  controls.helpPanel.classList.remove('is-open');
+  controls.helpPanel.setAttribute('aria-hidden', 'true');
+  const targetToFocus = lastFocusedBeforeHelp || controls.helpBtn;
+  if (targetToFocus && typeof targetToFocus.focus === 'function') {
+    targetToFocus.focus();
+  }
+  lastFocusedBeforeHelp = null;
+}
+
+function isHelpPanelOpen() {
+  return Boolean(controls.helpPanel && controls.helpPanel.classList.contains('is-open'));
+}
+
+function setHelpLanguage(language) {
+  if (!controls.helpLangButtons || !controls.helpSections || !language) {
+    return;
+  }
+  if (!['english', 'persian'].includes(language)) {
+    language = 'english';
+  }
+  helpLanguage = language;
+  controls.helpLangButtons.forEach((button) => {
+    if (!button) {
+      return;
+    }
+    const isActive = button.dataset.lang === language;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+    if (isActive) {
+      button.removeAttribute('tabindex');
+    } else {
+      button.setAttribute('tabindex', '-1');
+    }
+  });
+  controls.helpSections.forEach((section) => {
+    if (!section) {
+      return;
+    }
+    const isActive = section.dataset.lang === language;
+    section.classList.toggle('is-active', isActive);
+    if (isActive) {
+      section.removeAttribute('hidden');
+    } else {
+      section.setAttribute('hidden', 'true');
+    }
+  });
+}
+
+function safeStringify(value) {
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      return value.toString();
+    }
+  }
+  return String(value);
 }
