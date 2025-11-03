@@ -262,6 +262,46 @@ const COLOR_PROPERTIES = [
   ['borderImageSource', 'border-image-source']
 ];
 
+const MARKDOWN_BLOCK_TAGS = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'canvas',
+  'dd',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'li',
+  'main',
+  'nav',
+  'noscript',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'table',
+  'tbody',
+  'thead',
+  'tfoot',
+  'ul'
+]);
+
+const MARKDOWN_CODE_LANGUAGE_REGEX = /language-([a-z0-9+-]+)/i;
+
 function getExtensionAssetUrl(path) {
   if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
     try {
@@ -338,60 +378,71 @@ async function handleExportRequest(format) {
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
     await ensureExportFontsLoaded();
-    await inlineImages(root);
+    if (format !== 'markdown') {
+      await inlineImages(root);
+    }
 
-    if (format === 'docx') {
-      prepareDocxSpecificAdjustments(root);
-      await convertKatexToImages(root);
-      await exportAsDocx(root);
-    } else {
-      const printStyle = document.createElement('style');
-      printStyle.textContent = `
-        @page {
-          size: auto;
-          
-          /* 1. DEFINE THE MARGINS (like 0.6in) */
-          margin-top: 0.6in;
-          margin-bottom: 0.6in;
-          margin-left: 0.4in;
-          margin-right: 0.4in;
+    switch (format) {
+      case 'docx':
+        prepareDocxSpecificAdjustments(root);
+        await convertKatexToImages(root);
+        await exportAsDocx(root);
+        break;
+      case 'markdown':
+        exportAsMarkdown(root);
+        break;
+      case 'png':
+        await exportAsPng(stage, root);
+        break;
+      default:
+        const printStyle = document.createElement('style');
+        printStyle.textContent = `
+          @page {
+            size: auto;
+            
+            /* 1. DEFINE THE MARGINS (like 0.6in) */
+            margin-top: 0.6in;
+            margin-bottom: 0.6in;
+            margin-left: 0.4in;
+            margin-right: 0.4in;
 
-          /* 2. EXPLICITLY HIDE THE HEADER/FOOTER CONTENT */
-          @top-left { content: ""; }
-          @top-center { content: ""; }
-          @top-right { content: ""; }
-          @bottom-left { content: ""; }
-          @bottom-center { content: ""; }
-          @bottom-right { content: ""; }
-        }
+            /* 2. EXPLICITLY HIDE THE HEADER/FOOTER CONTENT */
+            @top-left { content: ""; }
+            @top-center { content: ""; }
+            @top-right { content: ""; }
+            @bottom-left { content: ""; }
+            @bottom-center { content: ""; }
+            @bottom-right { content: ""; }
+          }
 
-        @media print {
-          body > *:not(.${EXPORT_STAGE_CLASS}) {
-            display: none !important;
+          @media print {
+            body > *:not(.${EXPORT_STAGE_CLASS}) {
+              display: none !important;
+            }
+            .${EXPORT_STAGE_CLASS} {
+              opacity: 1 !important;
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              z-index: 9999 !important;
+            }
+            .${EXPORT_ROOT_CLASS} {
+               /* Keep padding at 0. The @page rule handles all margins. */
+               padding: 0 !important; 
+               
+               max-width: 100% !important;
+               margin: 0 !important;
+               box-shadow: none !important;
+               box-sizing: border-box; 
+            }
           }
-          .${EXPORT_STAGE_CLASS} {
-            opacity: 1 !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            z-index: 9999 !important;
-          }
-          .${EXPORT_ROOT_CLASS} {
-             /* Keep padding at 0. The @page rule handles all margins. */
-             padding: 0 !important; 
-             
-             max-width: 100% !important;
-             margin: 0 !important;
-             box-shadow: none !important;
-             box-sizing: border-box; 
-          }
-        }
-      `;
-      document.head.appendChild(printStyle);
-      window.print();
-      document.head.removeChild(printStyle);
+        `;
+        document.head.appendChild(printStyle);
+        window.print();
+        document.head.removeChild(printStyle);
+        break;
     }
   } finally {
     if (styleNode && styleNode.parentNode) {
@@ -910,13 +961,11 @@ function relativeLuminance({ r, g, b }) {
 }
 
 function ensureLibraries(format) {
-  if (format === 'docx') {
-    if (!window.htmlDocx) {
-      throw new Error('htmlDocx library missing');
-    }
-    if (!window.htmlToImage) {
-      throw new Error('htmlToImage library missing');
-    }
+  if (format === 'docx' && !window.htmlDocx) {
+    throw new Error('htmlDocx library missing');
+  }
+  if ((format === 'docx' || format === 'png') && !window.htmlToImage) {
+    throw new Error('htmlToImage library missing');
   }
 }
 
@@ -1082,6 +1131,483 @@ function extractLatex(element) {
     return fallback.textContent.trim();
   }
   return element.textContent ? element.textContent.trim() : '';
+}
+
+function exportAsMarkdown(root) {
+  const markdown = serializeExportRootToMarkdown(root);
+  const content = markdown.endsWith('\n') ? markdown : `${markdown}\n`;
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  triggerDownload(blob, buildFilename('md'));
+}
+
+async function exportAsPng(stage, root) {
+  const originalStageStyles = {
+    opacity: stage.style.opacity,
+    pointerEvents: stage.style.pointerEvents,
+    position: stage.style.position,
+    top: stage.style.top,
+    left: stage.style.left,
+    right: stage.style.right,
+    width: stage.style.width,
+    maxWidth: stage.style.maxWidth,
+    padding: stage.style.padding,
+    background: stage.style.background
+  };
+  const originalRootDisplay = root.style.display;
+
+  const computedRoot = window.getComputedStyle(root);
+  const clone = root.cloneNode(true);
+  clone.style.margin = '0';
+  clone.style.padding = '0';
+  clone.style.maxWidth = 'none';
+  clone.style.width = 'auto';
+  clone.style.boxSizing = computedRoot.boxSizing || 'border-box';
+
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'inline-block';
+  wrapper.style.background = '#ffffff';
+  wrapper.style.boxSizing = 'border-box';
+  wrapper.style.maxWidth = 'none';
+  wrapper.style.paddingTop = computedRoot.paddingTop || '32px';
+  wrapper.style.paddingRight = computedRoot.paddingRight || '32px';
+  wrapper.style.paddingBottom = computedRoot.paddingBottom || '32px';
+  wrapper.style.paddingLeft = computedRoot.paddingLeft || '32px';
+  wrapper.style.direction = computedRoot.direction || 'ltr';
+  wrapper.appendChild(clone);
+
+  root.style.display = 'none';
+  stage.style.opacity = '1';
+  stage.style.pointerEvents = 'none';
+  stage.style.position = 'static';
+  stage.style.top = '';
+  stage.style.left = '';
+  stage.style.right = '';
+  stage.style.width = 'auto';
+  stage.style.maxWidth = 'none';
+  stage.style.padding = '0';
+  stage.style.background = '#ffffff';
+
+  stage.appendChild(wrapper);
+
+  try {
+    const rect = wrapper.getBoundingClientRect();
+    const measuredWidth = Math.max(rect.width, wrapper.scrollWidth);
+    const measuredHeight = Math.max(rect.height, wrapper.scrollHeight);
+    const width = Math.max(1, Math.ceil(measuredWidth));
+    const height = Math.max(1, Math.ceil(measuredHeight));
+
+    const dataUrl = await window.htmlToImage.toPng(wrapper, {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor: '#ffffff',
+      width,
+      height,
+      style: {
+        width: `${width}px`,
+        height: `${height}px`,
+        margin: '0',
+        boxSizing: 'border-box'
+      }
+    });
+    const blob = dataUrlToBlob(dataUrl);
+    triggerDownload(blob, buildFilename('png'));
+  } finally {
+    wrapper.remove();
+    root.style.display = originalRootDisplay;
+    stage.style.opacity = originalStageStyles.opacity;
+    stage.style.pointerEvents = originalStageStyles.pointerEvents;
+    stage.style.position = originalStageStyles.position;
+    stage.style.top = originalStageStyles.top;
+    stage.style.left = originalStageStyles.left;
+    stage.style.right = originalStageStyles.right;
+    stage.style.width = originalStageStyles.width;
+    stage.style.maxWidth = originalStageStyles.maxWidth;
+    stage.style.padding = originalStageStyles.padding;
+    stage.style.background = originalStageStyles.background;
+  }
+}
+
+function serializeExportRootToMarkdown(root) {
+  const segments = [];
+  const context = { listDepth: 0, preserveWhitespace: false, inLink: false };
+  Array.from(root.childNodes).forEach((child) => {
+    const chunk = serializeNodeToMarkdown(child, context);
+    if (chunk && chunk.trim()) {
+      segments.push(chunk.trim());
+    }
+  });
+  return segments.join('\n\n');
+}
+
+function serializeNodeToMarkdown(node, context) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return serializeTextNode(node, context);
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return '';
+  }
+
+  const tag = node.tagName.toLowerCase();
+  switch (tag) {
+    case 'br':
+      return '\n';
+    case 'hr':
+      return '---';
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6': {
+      const depth = Number(tag[1]);
+      const headingContent = serializeInlineChildren(node, context).trim();
+      if (!headingContent) {
+        return '';
+      }
+      return `${'#'.repeat(depth)} ${headingContent}`;
+    }
+    case 'p':
+      return serializeInlineChildren(node, context).trim();
+    case 'blockquote':
+      return serializeBlockquote(node, context);
+    case 'pre':
+      return serializePreformattedBlock(node);
+    case 'ul':
+      return serializeList(node, context, false);
+    case 'ol':
+      return serializeList(node, context, true);
+    case 'table':
+      return serializeTable(node, context);
+    case 'thead':
+    case 'tbody':
+    case 'tfoot':
+      return serializeBlockChildren(node, context);
+    case 'li':
+      return serializeBlockChildren(node, context);
+    case 'strong':
+    case 'b': {
+      const strongContent = serializeInlineChildren(node, context).trim();
+      return strongContent ? `**${strongContent}**` : '';
+    }
+    case 'em':
+    case 'i': {
+      const italicContent = serializeInlineChildren(node, context).trim();
+      return italicContent ? `*${italicContent}*` : '';
+    }
+    case 'del':
+    case 's': {
+      const strikeContent = serializeInlineChildren(node, context).trim();
+      return strikeContent ? `~~${strikeContent}~~` : '';
+    }
+    case 'code':
+    case 'kbd':
+      return serializeInlineCode(node, context);
+    case 'a':
+      return serializeLink(node, context);
+    case 'img':
+      return serializeImage(node);
+    case 'sup': {
+      const supContent = serializeInlineChildren(node, context).trim();
+      return supContent ? `^(${supContent})` : '';
+    }
+    case 'sub': {
+      const subContent = serializeInlineChildren(node, context).trim();
+      return subContent ? `~(${subContent})` : '';
+    }
+    case 'mark': {
+      const markContent = serializeInlineChildren(node, context).trim();
+      return markContent ? `==${markContent}==` : '';
+    }
+    case 'span':
+    case 'small':
+    case 'label':
+    case 'summary':
+    case 'details':
+    case 'figure':
+    case 'figcaption':
+    case 'section':
+    case 'article':
+    case 'main':
+    case 'header':
+    case 'footer':
+    case 'aside':
+    case 'div':
+      return serializeGenericBlock(node, context);
+    default:
+      return serializeGenericBlock(node, context);
+  }
+}
+
+function serializeGenericBlock(node, context) {
+  if (hasBlockDescendant(node)) {
+    return serializeBlockChildren(node, context);
+  }
+  return serializeInlineChildren(node, context).trim();
+}
+
+function serializeInlineChildren(node, context) {
+  const childContext = { ...context };
+  const parts = [];
+  node.childNodes.forEach((child) => {
+    const chunk = serializeNodeToMarkdown(child, childContext);
+    if (chunk) {
+      parts.push(chunk);
+    }
+  });
+  const combined = parts.join('');
+  if (context && context.preserveWhitespace) {
+    return combined;
+  }
+  return combined.replace(/\s*\n\s*/g, '\n').replace(/[ \t]{2,}/g, ' ');
+}
+
+function serializeBlockChildren(node, context) {
+  const childContext = { ...context };
+  const pieces = [];
+  node.childNodes.forEach((child) => {
+    const chunk = serializeNodeToMarkdown(child, childContext);
+    if (chunk) {
+      const trimmed = chunk.replace(/\s+$/g, '');
+      if (trimmed.trim()) {
+        pieces.push(trimmed);
+      }
+    }
+  });
+  return pieces.join('\n\n');
+}
+
+function serializeTextNode(node, context) {
+  let text = node.nodeValue || '';
+  if (!text) {
+    return '';
+  }
+  text = text.replace(/\u00a0/g, ' ');
+  if (context && context.preserveWhitespace) {
+    return text;
+  }
+  return escapeMarkdownText(text.replace(/\s+/g, ' '));
+}
+
+function serializeBlockquote(node, context) {
+  const content = serializeBlockChildren(node, context);
+  if (!content) {
+    return '';
+  }
+  return content
+    .split('\n')
+    .map((line) => (line.trim() ? `> ${line}` : '>'))
+    .join('\n');
+}
+
+function serializePreformattedBlock(node) {
+  const codeNode = node.querySelector('code');
+  const raw = codeNode ? codeNode.textContent || '' : node.textContent || '';
+  const language = codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '';
+  const content = sanitizeCodeBlockContent(raw);
+  const fence = '```';
+  return `${fence}${language}\n${content}\n${fence}`;
+}
+
+function serializeInlineCode(node, context) {
+  if (node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre') {
+    return '';
+  }
+  const childContext = { ...context, preserveWhitespace: true };
+  const content = serializeInlineChildren(node, childContext);
+  if (!content) {
+    return '';
+  }
+  const safeContent = content.replace(/`/g, '\\`');
+  return `\`${safeContent}\``;
+}
+
+function serializeLink(node, context) {
+  const href = node.getAttribute('href') || '';
+  const title = node.getAttribute('title');
+  const text = serializeInlineChildren(node, { ...context, inLink: true }).trim() || href;
+  if (!href) {
+    return text;
+  }
+  const destination = escapeLinkDestination(href);
+  const titlePart = title ? ` "${escapeMarkdownText(title)}"` : '';
+  return `[${text}](${destination}${titlePart})`;
+}
+
+function serializeImage(node) {
+  const alt = escapeMarkdownText((node.getAttribute('alt') || '').trim());
+  const src = node.getAttribute('src') || '';
+  if (!src) {
+    return alt ? `![${alt}]()` : '';
+  }
+  const title = node.getAttribute('title');
+  const destination = escapeLinkDestination(src);
+  const titlePart = title ? ` "${escapeMarkdownText(title)}"` : '';
+  return `![${alt}](${destination}${titlePart})`;
+}
+
+function serializeList(node, context, ordered) {
+  const depth = typeof context.listDepth === 'number' ? context.listDepth : 0;
+  const items = [];
+  const startAttr = ordered ? parseInt(node.getAttribute('start'), 10) : null;
+  let index = Number.isFinite(startAttr) ? startAttr : 1;
+
+  Array.from(node.children).forEach((child) => {
+    if (!child || child.nodeType !== Node.ELEMENT_NODE || child.tagName.toLowerCase() !== 'li') {
+      return;
+    }
+    const itemContent = serializeListItem(child, { ...context, listDepth: depth + 1 });
+    if (itemContent === null) {
+      return;
+    }
+    const lines = itemContent.split('\n');
+    if (!lines.length) {
+      return;
+    }
+    const indent = '  '.repeat(depth);
+    const prefix = ordered ? `${index}. ` : '- ';
+    const continuationIndent = ordered ? `${indent}${' '.repeat(prefix.length)}` : `${indent}  `;
+    const formatted = lines
+      .map((line, lineIndex) => {
+        if (!line.trim()) {
+          return '';
+        }
+        if (lineIndex === 0) {
+          return `${indent}${prefix}${line}`;
+        }
+        if (/^\s/.test(line)) {
+          return line;
+        }
+        return `${continuationIndent}${line}`;
+      })
+      .join('\n');
+    if (formatted) {
+      items.push(formatted);
+    }
+    if (ordered) {
+      index += 1;
+    }
+  });
+
+  return items.join('\n');
+}
+
+function serializeListItem(node, context) {
+  const content = serializeBlockChildren(node, context);
+  if (!content) {
+    return null;
+  }
+  return content;
+}
+
+function serializeTable(node, context) {
+  const rows = Array.from(node.querySelectorAll('tr'));
+  if (!rows.length) {
+    return '';
+  }
+
+  const matrix = rows
+    .map((row) => {
+      const cells = Array.from(row.children).filter((cell) => {
+        if (!cell || cell.nodeType !== Node.ELEMENT_NODE) {
+          return false;
+        }
+        const tagName = cell.tagName.toLowerCase();
+        return tagName === 'td' || tagName === 'th';
+      });
+      if (!cells.length) {
+        return null;
+      }
+      return cells.map((cell) => escapeTableCell(serializeInlineChildren(cell, context).trim()));
+    })
+    .filter(Boolean);
+
+  if (!matrix.length) {
+    return '';
+  }
+
+  const columnCount = matrix.reduce((max, row) => Math.max(max, row.length), 0);
+  const normalizedRows = matrix.map((row) => {
+    const copy = row.slice();
+    while (copy.length < columnCount) {
+      copy.push('');
+    }
+    return copy;
+  });
+
+  let headerIndex = rows.findIndex((row) => row.querySelector('th'));
+  if (headerIndex < 0) {
+    headerIndex = 0;
+  }
+
+  const headerRow = normalizedRows[headerIndex];
+  const bodyRows = normalizedRows.filter((_, idx) => idx !== headerIndex);
+
+  const headerLine = `| ${headerRow.join(' | ')} |`;
+  const separatorLine = `| ${new Array(columnCount).fill('---').join(' | ')} |`;
+  const bodyLines = bodyRows.length ? bodyRows.map((row) => `| ${row.join(' | ')} |`) : [];
+  return [headerLine, separatorLine, ...bodyLines].join('\n');
+}
+
+function escapeTableCell(text) {
+  return text.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+}
+
+function sanitizeCodeBlockContent(text) {
+  return text.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ').replace(/\s+$/, '');
+}
+
+function extractCodeLanguage(className) {
+  const match = className.match(MARKDOWN_CODE_LANGUAGE_REGEX);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function escapeMarkdownText(text) {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/([`*_{}\[\]()#+\-!.>])/g, '\\$1');
+}
+
+function escapeLinkDestination(value) {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/\s/g, '%20');
+}
+
+function hasBlockDescendant(node) {
+  return Array.from(node.childNodes).some((child) => {
+    if (!child || child.nodeType !== Node.ELEMENT_NODE) {
+      return false;
+    }
+    return MARKDOWN_BLOCK_TAGS.has(child.tagName.toLowerCase());
+  });
+}
+
+function dataUrlToBlob(dataUrl) {
+  const parts = dataUrl.split(',');
+  if (parts.length < 2) {
+    throw new Error('Invalid data URL');
+  }
+  const meta = parts[0];
+  const base64 = parts[1];
+  const mimeMatch = meta.match(/data:([^;]+)(;base64)?/i);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+  const isBase64 = Boolean(mimeMatch && mimeMatch[2]);
+
+  if (!isBase64) {
+    const decoded = decodeURIComponent(base64);
+    return new Blob([decoded], { type: mimeType });
+  }
+
+  const binary = atob(base64);
+  const length = binary.length;
+  const buffer = new Uint8Array(length);
+  for (let index = 0; index < length; index += 1) {
+    buffer[index] = binary.charCodeAt(index);
+  }
+  return new Blob([buffer], { type: mimeType });
 }
 
 async function exportAsDocx(root) {
