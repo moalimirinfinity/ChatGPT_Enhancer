@@ -489,35 +489,70 @@ async function ensureConversationContentLoaded() {
     return;
   }
 
+  const scrollHost =
+    main ||
+    (document.scrollingElement instanceof HTMLElement
+      ? document.scrollingElement
+      : document.documentElement instanceof HTMLElement
+      ? document.documentElement
+      : null);
   const originalWindowScroll = { x: window.scrollX, y: window.scrollY };
-  const originalMainScrollTop = main ? main.scrollTop : null;
+  const originalScrollTop = scrollHost ? scrollHost.scrollTop : null;
 
+  try {
+    await exhaustVirtualizedContent(container, scrollHost, selector, 'start');
+    await exhaustVirtualizedContent(container, scrollHost, selector, 'end');
+  } finally {
+    if (scrollHost && typeof originalScrollTop === 'number') {
+      scrollHost.scrollTop = originalScrollTop;
+    }
+    window.scrollTo(originalWindowScroll.x, originalWindowScroll.y);
+  }
+}
+
+async function exhaustVirtualizedContent(container, scrollHost, selector, direction) {
+  const maxAttempts = 8;
   let previousCount = container.querySelectorAll(selector).length;
-  for (let attempt = 0; attempt < 6; attempt += 1) {
+  let idleAttempts = 0;
+
+  for (let attempt = 0; attempt < maxAttempts && idleAttempts < 2; attempt += 1) {
     const nodes = container.querySelectorAll(selector);
     if (!nodes.length) {
       await delay(80);
       continue;
     }
 
-    const last = nodes[nodes.length - 1];
-    if (last && typeof last.scrollIntoView === 'function') {
-      last.scrollIntoView({ block: 'end', inline: 'nearest' });
+    if (direction === 'end') {
+      const last = nodes[nodes.length - 1];
+      if (last && typeof last.scrollIntoView === 'function') {
+        last.scrollIntoView({ block: 'end', inline: 'nearest' });
+      }
+      if (scrollHost) {
+        scrollHost.scrollTop = scrollHost.scrollHeight;
+      } else {
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+    } else {
+      const first = nodes[0];
+      if (first && typeof first.scrollIntoView === 'function') {
+        first.scrollIntoView({ block: 'start', inline: 'nearest' });
+      }
+      if (scrollHost) {
+        scrollHost.scrollTop = 0;
+      } else {
+        window.scrollTo(0, 0);
+      }
     }
-    window.scrollTo(0, document.body.scrollHeight);
 
-    await delay(160);
+    await delay(180);
     const currentCount = container.querySelectorAll(selector).length;
     if (currentCount === previousCount) {
-      break;
+      idleAttempts += 1;
+    } else {
+      previousCount = currentCount;
+      idleAttempts = 0;
     }
-    previousCount = currentCount;
   }
-
-  if (typeof originalMainScrollTop === 'number' && main) {
-    main.scrollTop = originalMainScrollTop;
-  }
-  window.scrollTo(originalWindowScroll.x, originalWindowScroll.y);
 }
 
 function collectConversation() {
@@ -670,8 +705,8 @@ function ensureDirectionalConsistency(root) {
       continue;
     }
 
-    const { rtlCount } = countDirectionCharacters(text);
-    if (rtlCount === 0) {
+    const { rtlCount, ltrCount } = countDirectionCharacters(text);
+    if (rtlCount === 0 || rtlCount <= ltrCount) {
       continue;
     }
 
@@ -1405,7 +1440,8 @@ function serializePreformattedBlock(node) {
   const raw = codeNode ? codeNode.textContent || '' : node.textContent || '';
   const language = codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '';
   const content = sanitizeCodeBlockContent(raw);
-  const fence = '```';
+  const fenceLength = Math.max(3, longestStreak(content, '`') + 1);
+  const fence = '`'.repeat(fenceLength);
   return `${fence}${language}\n${content}\n${fence}`;
 }
 
@@ -1414,12 +1450,22 @@ function serializeInlineCode(node, context) {
     return '';
   }
   const childContext = { ...context, preserveWhitespace: true };
-  const content = serializeInlineChildren(node, childContext);
+  let content = serializeInlineChildren(node, childContext);
   if (!content) {
     return '';
   }
-  const safeContent = content.replace(/`/g, '\\`');
-  return `\`${safeContent}\``;
+  let codeText = content.replace(/\r\n?/g, '\n').replace(/\n/g, ' ');
+  const fenceLength = Math.max(1, longestStreak(codeText, '`') + 1);
+  if (
+    codeText.startsWith(' ') ||
+    codeText.endsWith(' ') ||
+    codeText.startsWith('`') ||
+    codeText.endsWith('`')
+  ) {
+    codeText = ` ${codeText} `;
+  }
+  const fence = '`'.repeat(fenceLength);
+  return `${fence}${codeText}${fence}`;
 }
 
 function serializeLink(node, context) {
@@ -1555,6 +1601,25 @@ function escapeTableCell(text) {
 
 function sanitizeCodeBlockContent(text) {
   return text.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ').replace(/\s+$/, '');
+}
+
+function longestStreak(value, character) {
+  if (!value || !character) {
+    return 0;
+  }
+  let max = 0;
+  let current = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === character) {
+      current += 1;
+      if (current > max) {
+        max = current;
+      }
+    } else {
+      current = 0;
+    }
+  }
+  return max;
 }
 
 function extractCodeLanguage(className) {
