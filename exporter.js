@@ -10,6 +10,9 @@ const RTL_CHAR_REGEX = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
 const VAZIRMATN_FONT_PATH = 'fonts/Vazirmatn-VF.woff2';
 const FONT_FAMILY_STACK = '"Vazirmatn", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
+const PNG_EXPORT_PIXEL_LIMIT = 32000000;
+const PNG_EXPORT_MIN_PIXEL_RATIO = 0.75;
+const PNG_EXPORT_APPROX_PAGE_HEIGHT = 1200;
 const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} {
   font-family: ${FONT_FAMILY_STACK};
@@ -1231,20 +1234,74 @@ async function exportAsPng(stage, root) {
     const width = Math.max(1, Math.ceil(measuredWidth));
     const height = Math.max(1, Math.ceil(measuredHeight));
 
-    const dataUrl = await window.htmlToImage.toPng(wrapper, {
-      pixelRatio: 2,
-      cacheBust: true,
-      backgroundColor: '#ffffff',
-      width,
-      height,
-      style: {
-        width: `${width}px`,
-        height: `${height}px`,
-        margin: '0',
-        boxSizing: 'border-box'
-      }
-    });
-    const blob = dataUrlToBlob(dataUrl);
+    const pixelArea = width * height;
+    if (!Number.isFinite(pixelArea) || pixelArea <= 0) {
+      throw createExportError('png-invalid-dimensions', 'Unable to determine export size for image export.', {
+        width,
+        height
+      });
+    }
+
+    const basePixelRatio = 2;
+    let pixelRatio = basePixelRatio;
+    if (pixelArea * pixelRatio * pixelRatio > PNG_EXPORT_PIXEL_LIMIT) {
+      const adjustedRatio = Math.sqrt(PNG_EXPORT_PIXEL_LIMIT / pixelArea);
+      pixelRatio = Math.max(PNG_EXPORT_MIN_PIXEL_RATIO, Math.min(basePixelRatio, adjustedRatio));
+    }
+
+    const estimatedPages = estimatePageCount(height);
+    if (pixelArea * pixelRatio * pixelRatio > PNG_EXPORT_PIXEL_LIMIT) {
+      const message = `Conversation is too large to export as a single image (estimated ${estimatedPages} pages). Please use PDF or DOCX export instead.`;
+      console.warn('[GPT Enhancer] PNG export aborted: dimensions exceed safe limits.', {
+        width,
+        height,
+        pixelRatio,
+        estimatedPages
+      });
+      throw createExportError('png-too-large', message, {
+        width,
+        height,
+        pixelRatio,
+        estimatedPages
+      });
+    }
+
+    if (pixelRatio < basePixelRatio) {
+      console.warn('[GPT Enhancer] PNG export resolution reduced to avoid browser memory limits.', {
+        width,
+        height,
+        requestedPixelRatio: basePixelRatio,
+        appliedPixelRatio: pixelRatio,
+        estimatedPages
+      });
+    }
+
+    let renderOutcome;
+    try {
+      renderOutcome = await renderNodeToPngSafely(wrapper, {
+        pixelRatio,
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        width,
+        height,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+          margin: '0',
+          boxSizing: 'border-box'
+        }
+      });
+    } catch (error) {
+      throw wrapHtmlToImageError(error, {
+        width,
+        height,
+        pixelRatio,
+        estimatedPages,
+        suppressedWarnings: error && error.suppressedHtmlToImageLogs ? error.suppressedHtmlToImageLogs : undefined
+      });
+    }
+
+    const blob = dataUrlToBlob(renderOutcome.dataUrl);
     triggerDownload(blob, buildFilename('png'));
   } finally {
     wrapper.remove();
@@ -1622,6 +1679,288 @@ function longestStreak(value, character) {
   return max;
 }
 
+function estimatePageCount(height) {
+  if (!Number.isFinite(height) || height <= 0) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(height / PNG_EXPORT_APPROX_PAGE_HEIGHT));
+}
+
+function createExportError(code, message, details) {
+  const error = new Error(message);
+  error.name = 'ExportError';
+  error.code = code;
+  if (details) {
+    error.details = details;
+  }
+  return error;
+}
+
+function wrapHtmlToImageError(error, context) {
+  const estimatedPages = context && Number.isFinite(context.estimatedPages) ? context.estimatedPages : null;
+  let message = 'Unable to render conversation as PNG.';
+
+  if (error && typeof error.message === 'string') {
+    if (/canvas is tainted|tainted canv/i.test(error.message)) {
+      message = 'PNG export failed because some images block cross-origin rendering. Try PDF or Markdown instead.';
+    } else if (/data url is too long|the string to be encoded/i.test(error.message)) {
+      message =
+        'PNG export produced data that is too large for the browser to serialize. Please try PDF or DOCX export instead.';
+    } else if (/memory|array buffer|alloc/i.test(error.message)) {
+      message =
+        'PNG export ran out of memory. The conversation is likely too long; try PDF or DOCX export instead.';
+    }
+  }
+
+  if (context && Array.isArray(context.suppressedWarnings) && context.suppressedWarnings.length) {
+    message += ' Some remote styles or assets could not be embedded and were skipped.';
+  }
+
+  if (estimatedPages && estimatedPages > 10) {
+    message += ' Large conversations are better suited for PDF or DOCX exports.';
+  }
+
+  console.error('[GPT Enhancer] PNG export failed.', { cause: error, context });
+  return createExportError('png-render-failed', message, {
+    ...context,
+    cause: error
+  });
+}
+
+async function renderNodeToPngSafely(node, options) {
+  const suppressedLogs = [];
+  const release = interceptHtmlToImageConsole((level, args) => {
+    const captured = captureSuppressedHtmlToImageLog(args);
+    if (!captured) {
+      return false;
+    }
+    suppressedLogs.push({ level, ...captured });
+    return true;
+  });
+
+  try {
+    const dataUrl = await window.htmlToImage.toPng(node, options);
+    if (suppressedLogs.length) {
+      const exampleLines = suppressedLogs
+        .slice(0, 3)
+        .map((entry) => `  • ${entry.summary || 'Remote asset could not be embedded.'}`)
+        .join('\n');
+      const suffix =
+        suppressedLogs.length > 3 ? `\n  • (${suppressedLogs.length - 3} more similar message${suppressedLogs.length - 3 === 1 ? '' : 's'})` : '';
+      console.warn(
+        `[GPT Enhancer] PNG export skipped ${suppressedLogs.length} remote asset${suppressedLogs.length === 1 ? '' : 's'} that could not be embedded.\n${exampleLines}${suffix}`
+      );
+    }
+    return { dataUrl, warnings: suppressedLogs };
+  } catch (error) {
+    if (error && typeof error === 'object') {
+      error.suppressedHtmlToImageLogs = suppressedLogs;
+    }
+    throw error;
+  } finally {
+    release();
+  }
+}
+
+function interceptHtmlToImageConsole(handler) {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+
+  console.error = (...args) => {
+    if (!handler || !handler('error', args)) {
+      originalError.apply(console, args);
+    }
+  };
+  console.warn = (...args) => {
+    if (!handler || !handler('warn', args)) {
+      originalWarn.apply(console, args);
+    }
+  };
+
+  return () => {
+    console.error = originalError;
+    console.warn = originalWarn;
+  };
+}
+
+function normalizeConsoleMessage(args) {
+  if (!args || !args.length) {
+    return '';
+  }
+  const [first] = args;
+  if (typeof first === 'string') {
+    return first;
+  }
+  if (first instanceof Error && typeof first.message === 'string') {
+    return first.message;
+  }
+  return '';
+}
+
+function captureSuppressedHtmlToImageLog(args) {
+  if (!Array.isArray(args) || !args.length) {
+    return null;
+  }
+
+  const stringInputs = args.filter((value) => typeof value === 'string' && value);
+  const candidates = [...stringInputs];
+  const normalized = normalizeConsoleMessage(args);
+  if (normalized) {
+    candidates.push(normalized);
+  }
+  const derived = args
+    .map((value) => stringifyConsoleArg(value))
+    .filter((value) => value && !candidates.includes(value));
+  candidates.push(...derived);
+
+  const message = candidates.find((candidate) => shouldSuppressHtmlToImageMessage(candidate));
+  if (!message) {
+    return null;
+  }
+
+  const summary = summarizeSuppressedWarning(message, args);
+  return {
+    summary,
+    message,
+    rawArgs: args
+  };
+}
+
+function shouldSuppressHtmlToImageMessage(message) {
+  if (!message || typeof message !== 'string') {
+    return false;
+  }
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('error inlining remote css') ||
+    lower.includes('error loading remote stylesheet') ||
+    lower.includes('error while reading css rules') ||
+    lower.includes('failed to fetch resource')
+  );
+}
+
+function summarizeSuppressedWarning(message, args) {
+  let sanitized = sanitizeSuppressedMessage(message);
+  if (sanitized && /^\[object\s+[^\]]+\]$/i.test(sanitized)) {
+    sanitized = '';
+  }
+
+  const url = extractFirstUrl(args);
+  const descriptor = extractErrorDescriptor(args);
+
+  if (!sanitized && url) {
+    sanitized = descriptor ? `${url} (${descriptor})` : url;
+  } else if (sanitized && url && !sanitized.includes(url)) {
+    sanitized = `${url} — ${sanitized}`;
+  }
+
+  if (!sanitized && descriptor) {
+    sanitized = descriptor;
+  }
+
+  if (!sanitized) {
+    sanitized = 'Remote asset could not be embedded.';
+  }
+
+  return sanitized;
+}
+
+function sanitizeSuppressedMessage(message) {
+  if (!message || typeof message !== 'string') {
+    return '';
+  }
+  let sanitized = message.trim();
+  const patterns = [
+    /^error inlining remote css file[:\s]*/i,
+    /^error loading remote stylesheet[:\s]*/i,
+    /^error while reading css rules from[:\s]*/i,
+    /^failed to fetch resource[:\s]*/i
+  ];
+  patterns.forEach((pattern) => {
+    sanitized = sanitized.replace(pattern, '');
+  });
+  sanitized = sanitized.replace(/\s+/g, ' ').trim();
+  return sanitized;
+}
+
+function extractFirstUrl(args) {
+  if (!Array.isArray(args)) {
+    return '';
+  }
+  const urlRegex = /(https?:\/\/[^\s"'()<>]+[\w/#?&=%+-])/i;
+  for (const arg of args) {
+    if (typeof arg === 'string') {
+      const match = arg.match(urlRegex);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  return '';
+}
+
+function extractErrorDescriptor(args) {
+  if (!Array.isArray(args)) {
+    return '';
+  }
+  for (const arg of args) {
+    if (!arg) {
+      continue;
+    }
+    if (arg instanceof Error) {
+      return arg.message || arg.name || '';
+    }
+    if (typeof DOMException !== 'undefined' && arg instanceof DOMException) {
+      return `${arg.name}${arg.code ? ` (${arg.code})` : ''}`;
+    }
+    if (typeof arg === 'object') {
+      const message = typeof arg.message === 'string' ? arg.message : null;
+      if (message) {
+        return message;
+      }
+      const name = typeof arg.name === 'string' ? arg.name : null;
+      if (name) {
+        return name;
+      }
+    }
+    if (typeof arg === 'string') {
+      if (/domexception/i.test(arg)) {
+        return arg;
+      }
+      if (/security/i.test(arg)) {
+        return arg;
+      }
+    }
+  }
+  return '';
+}
+
+function stringifyConsoleArg(arg) {
+  if (!arg) {
+    return '';
+  }
+  if (typeof arg === 'string') {
+    return arg;
+  }
+  if (arg instanceof Error) {
+    return arg.message || arg.name || '';
+  }
+  if (typeof DOMException !== 'undefined' && arg instanceof DOMException) {
+    return arg.message || arg.name || '';
+  }
+  if (typeof arg === 'object') {
+    if (typeof arg.message === 'string') {
+      return arg.message;
+    }
+    if (typeof arg.toString === 'function') {
+      const result = arg.toString();
+      if (result && result !== '[object Object]') {
+        return result;
+      }
+    }
+  }
+  return '';
+}
 function extractCodeLanguage(className) {
   const match = className.match(MARKDOWN_CODE_LANGUAGE_REGEX);
   return match ? match[1].toLowerCase() : '';
