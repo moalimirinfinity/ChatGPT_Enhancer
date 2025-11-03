@@ -451,6 +451,34 @@
                 />
                 <span class="export-segment__label">Word</span>
               </label>
+              <label
+                class="export-segment__option"
+                data-tooltip="Export may not be precise yet—we're working on it."
+              >
+                <input
+                  class="export-segment__input"
+                  type="radio"
+                  name="export-format"
+                  id="export-format-markdown"
+                  value="markdown"
+                  aria-describedby="export-tooltip-message"
+                />
+                <span class="export-segment__label">Markdown</span>
+              </label>
+              <label
+                class="export-segment__option"
+                data-tooltip="Export may not be precise yet—we're working on it."
+              >
+                <input
+                  class="export-segment__input"
+                  type="radio"
+                  name="export-format"
+                  id="export-format-png"
+                  value="png"
+                  aria-describedby="export-tooltip-message"
+                />
+                <span class="export-segment__label">Image</span>
+              </label>
             </div>
           </div>
           <button
@@ -551,7 +579,7 @@
                   <strong>Theme</strong> — pick Midnight or Aurora when ChatGPT runs in dark mode, and switch to Paper if you prefer the light interface.
                 </li>
                 <li>
-                  <strong>Export</strong> — save the visible conversation as PDF or DOCX once ChatGPT is open in the active tab.
+                  <strong>Export</strong> — save the visible conversation as PDF, DOCX, Markdown, or Image once ChatGPT is open in the active tab.
                 </li>
               </ul>
               <p class="help-panel__hint">
@@ -593,7 +621,7 @@
                   <strong>پوسته‌ها</strong> — در حالت تیرهٔ ChatGPT از پوسته‌های میدنایت یا اورورا استفاده کنید، و برای حالت روشن پوستهٔ کاغذی مناسب‌تر است.
                 </li>
                 <li>
-                  <strong>خروجی</strong> — وقتی صفحهٔ ChatGPT باز است گفت‌وگو را به صورت PDF یا DOCX ذخیره کنید.(درحال حاضر خروجی پی دی اف برای فارسی دچار مشکل است برای همین از وورد استفاده کنید)
+                  <strong>خروجی</strong> — وقتی صفحهٔ ChatGPT باز است گفت‌وگو را به صورت PDF، DOCX، Markdown یا تصویر ذخیره کنید. (درحال حاضر خروجی PDF برای فارسی دچار مشکل است؛ بنابراین از Word استفاده کنید.)
                 </li>
               </ul>
               <p class="help-panel__hint">

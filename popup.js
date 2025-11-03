@@ -666,10 +666,12 @@ function buildHandledExportError({ response, runtimeError }) {
 }
 
 function reportExportError(message, context) {
+  console.error('[GPT Enhancer] Export failed:', message);
   if (context) {
-    console.error('[GPT Enhancer] Export failed:', message, context);
-  } else {
-    console.error('[GPT Enhancer] Export failed:', message);
+    const normalized = normalizeErrorContext(context);
+    if (normalized !== undefined) {
+      console.error('[GPT Enhancer] Export details:', normalized);
+    }
   }
 }
 
@@ -683,6 +685,65 @@ function clearExportErrorTooltip() {
   if (controls.exportBtn) {
     controls.exportBtn.removeAttribute('title');
   }
+}
+
+function normalizeErrorContext(value) {
+  return normalizeErrorValue(value, new WeakSet());
+}
+
+function normalizeErrorValue(value, seen) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value !== 'object') {
+    return value;
+  }
+  if (seen.has(value)) {
+    return '[Circular]';
+  }
+  seen.add(value);
+
+  if (value instanceof Error) {
+    return {
+      message: value.message,
+      stack: value.stack
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeErrorValue(item, seen));
+  }
+
+  if (typeof Node !== 'undefined' && value instanceof Node) {
+    return `<${value.nodeName?.toLowerCase() || 'node'}>`;
+  }
+
+  const result = {};
+
+  if (typeof value.message === 'string' && !('message' in result)) {
+    result.message = value.message;
+  }
+  if (typeof value.code !== 'undefined' && !('code' in result)) {
+    result.code = value.code;
+  }
+  if (typeof value.stack === 'string' && !('stack' in result)) {
+    result.stack = value.stack;
+  }
+
+  Object.keys(value).forEach((key) => {
+    const entry = value[key];
+    if (typeof entry === 'function') {
+      return;
+    }
+    result[key] = normalizeErrorValue(entry, seen);
+  });
+
+  const keys = Object.keys(result);
+  if (!keys.length) {
+    return '[Unserializable object]';
+  }
+
+  return result;
 }
 
 function openHelpPanel() {
