@@ -478,7 +478,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   max-height: 240px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -495,8 +495,8 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 20px 30px 26px;
-  min-height: 88px;
+  padding: 16px 24px 22px;
+  min-height: 78px;
   border-radius: 14px;
   background: rgba(18, 23, 52, 0.82);
   border: 1px solid var(--surface-outline);
@@ -514,15 +514,15 @@ body {
 
 .prompt-card__handle {
   position: absolute;
-  top: 10px;
-  left: 12px;
+  top: 8px;
+  left: 10px;
   border: 1px solid transparent;
   background: rgba(12, 16, 38, 0.6);
   color: #a8b8ff;
   font-size: 16px;
-  border-radius: 8px;
-  width: 30px;
-  height: 30px;
+  border-radius: 7px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -548,7 +548,7 @@ body {
 .prompt-card__title {
   position: relative;
   margin: 0;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: #eef1ff;
   word-break: break-word;
@@ -562,9 +562,9 @@ body {
   border: 1px solid rgba(122, 164, 255, 0.25);
   background: rgba(18, 23, 52, 0.74);
   color: #d4e2ff;
-  border-radius: 10px;
-  width: 32px;
-  height: 32px;
+  border-radius: 9px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -580,22 +580,22 @@ body {
 }
 
 .prompt-card__action--copy {
-  left: 12px;
-  bottom: 10px;
+  left: 10px;
+  bottom: 8px;
 }
 
 .prompt-card__action--edit {
-  right: 12px;
-  top: 10px;
-  width: 28px;
-  height: 28px;
+  right: 10px;
+  top: 8px;
+  width: 24px;
+  height: 24px;
 }
 
 .prompt-card__action--delete {
-  right: 12px;
-  bottom: 10px;
-  width: 28px;
-  height: 28px;
+  right: 10px;
+  bottom: 8px;
+  width: 24px;
+  height: 24px;
 }
 
 .prompt-card__action.is-copied {
@@ -610,8 +610,8 @@ body {
 }
 
 .prompt-card__icon {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: block;
 }
 
