@@ -297,7 +297,7 @@ body {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 0 64px 16px 64px;
+  padding: 0 48px 16px 48px;
 }
 
 .prompts-header__texts {
@@ -328,6 +328,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   box-shadow: 0 6px 14px rgba(8, 10, 27, 0.22);
+  transform: translateY(50%);
 }
 
 .prompts-count__label {
@@ -346,6 +347,13 @@ body {
   max-width: 100%;
 }
 
+.prompt-search {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto 10px;
+  display: block;
+}
+
 .prompts-error {
   margin: 0;
   padding: 10px 12px;
@@ -355,7 +363,6 @@ body {
   color: #ff97ae;
   font-size: 12px;
   line-height: 1.5;
-  text-align: center;
 }
 
 .prompt-form {
@@ -395,6 +402,9 @@ body {
 
 .prompt-form__textarea {
   min-height: 110px;
+  resize: none;
+  overflow-y: hidden;
+  transition: height 0.1s ease-out;
 }
 
 .prompt-form__input:focus,
@@ -478,6 +488,13 @@ body {
   color: var(--text-subtle);
   font-size: 12px;
   line-height: 1.6;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.prompts-empty__primary,
+.prompts-empty__secondary {
+  margin: 0;
 }
 
 .prompts-empty p {
@@ -500,6 +517,7 @@ body {
   overflow-x: hidden;
   padding-right: 6px;
   align-items: center;
+  width: 100%;
 }
 
 .prompt-list[data-has-items="false"] {
@@ -519,6 +537,9 @@ body {
   border: 1px solid var(--surface-outline);
   box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
 .prompt-card--dragging {
@@ -555,6 +576,11 @@ body {
   background: rgba(122, 164, 255, 0.12);
   border-color: rgba(122, 164, 255, 0.4);
   color: #d4e2ff;
+}
+
+.prompt-card__handle[draggable='false'] {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .prompt-card__handle:focus-visible {
@@ -596,8 +622,13 @@ body {
   color: #ffffff;
 }
 
-.prompt-card__action--copy {
+.prompt-card__action--use {
   left: 7px;
+  bottom: 6px;
+}
+
+.prompt-card__action--copy {
+  right: 7px;
   bottom: 6px;
 }
 
@@ -609,10 +640,11 @@ body {
 }
 
 .prompt-card__action--delete {
-  right: 7px;
+  left: 50%;
   bottom: 6px;
   width: 28px;
   height: 28px;
+  transform: translateX(-50%);
 }
 
 .prompt-card__action.is-copied {

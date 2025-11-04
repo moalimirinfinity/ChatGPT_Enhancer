@@ -564,6 +564,14 @@
                 <span class="prompts-count__label">prompts</span>
               </span>
             </div>
+            <input
+              type="search"
+              id="prompt-search"
+              class="prompt-search prompt-form__input"
+              placeholder="Search prompts..."
+              autocomplete="off"
+              aria-label="Search saved prompts"
+            />
             <div id="prompt-error" class="prompts-error" role="status" aria-live="polite" hidden></div>
           </section>
           <section class="panel__section">
@@ -600,8 +608,8 @@
           </section>
           <section class="panel__section">
             <div id="prompts-empty" class="prompts-empty">
-              <p>You have no saved prompts yet.</p>
-              <p>Create your first prompt to see it here.</p>
+              <p class="prompts-empty__primary">You have no saved prompts yet.</p>
+              <p class="prompts-empty__secondary">Create your first prompt to see it here.</p>
             </div>
             <ul id="prompt-list" class="prompt-list" aria-live="polite"></ul>
           </section>

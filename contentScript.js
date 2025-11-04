@@ -1016,3 +1016,21 @@ try {
 } catch (error) {
   // Ignore matchMedia issues.
 }
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message && message.type === 'GPT_INJECT_PROMPT') {
+    const textArea = document.getElementById('prompt-textarea');
+    if (textArea && textArea instanceof HTMLTextAreaElement) {
+      textArea.value = typeof message.text === 'string' ? message.text : '';
+      textArea.focus();
+      textArea.dispatchEvent(new Event('input', { bubbles: true }));
+      textArea.style.height = 'auto';
+      textArea.style.height = `${textArea.scrollHeight}px`;
+      sendResponse({ ok: true });
+    } else {
+      sendResponse({ ok: false });
+    }
+    return false;
+  }
+  return false;
+});

@@ -27,12 +27,22 @@ const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
 const PROMPT_TITLE_MAX_LENGTH = 80;
 const PROMPT_COPY_RESET_DELAY = 1600;
+const PROMPTS_EMPTY_DEFAULT_PRIMARY = 'You have no saved prompts yet.';
+const PROMPTS_EMPTY_DEFAULT_SECONDARY = 'Create your first prompt to see it here.';
+const PROMPTS_EMPTY_FILTERED_PRIMARY = 'No prompts match your search.';
+const PROMPTS_EMPTY_FILTERED_SECONDARY = 'Try a different keyword or clear the search.';
 const PROMPT_ACTION_LABELS = {
+  use: 'Use prompt',
   copy: 'Copy prompt',
   edit: 'Edit prompt',
   delete: 'Delete prompt'
 };
 const PROMPT_ACTION_ICONS = {
+  use: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
+    </svg>
+  `,
   copy: `
     <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z"></path>
@@ -81,6 +91,7 @@ let prompts = [];
 let editingPromptId = null;
 const promptCopyTimers = new Map();
 let promptDragState = null;
+let promptSearchQuery = '';
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -127,7 +138,16 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptSubmitButton = document.querySelector('.prompt-form__submit');
   controls.promptList = document.getElementById('prompt-list');
   controls.promptsEmpty = document.getElementById('prompts-empty');
+  controls.promptsEmptyPrimary = document.querySelector('.prompts-empty__primary');
+  controls.promptsEmptySecondary = document.querySelector('.prompts-empty__secondary');
   controls.promptError = document.getElementById('prompt-error');
+  controls.promptSearch = document.getElementById('prompt-search');
+  if (controls.promptsEmptyPrimary) {
+    controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
+  }
+  if (controls.promptsEmptySecondary) {
+    controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_DEFAULT_SECONDARY;
+  }
 
   if (chrome && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(STORAGE_THEME_MODE_KEY, (stored) => {
@@ -245,6 +265,13 @@ document.addEventListener('DOMContentLoaded', () => {
       setHelpLanguage(lang);
     });
   });
+  if (controls.promptSearch) {
+    controls.promptSearch.addEventListener('input', handlePromptSearch);
+  }
+  if (controls.promptTextInput) {
+    controls.promptTextInput.addEventListener('input', () => autoResizeTextarea(controls.promptTextInput));
+    autoResizeTextarea(controls.promptTextInput);
+  }
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && isHelpPanelOpen()) {
       event.preventDefault();
@@ -884,7 +911,7 @@ function initPromptFeature() {
 function loadPromptsFromStorage() {
   if (!chrome?.storage?.sync) {
     prompts = [];
-    renderPrompts();
+    renderPromptsWithCurrentFilter({ scrollToTop: true });
     return;
   }
 
@@ -893,25 +920,41 @@ function loadPromptsFromStorage() {
       console.error('[GPT Enhancer] Failed to load prompts', chrome.runtime.lastError);
       showPromptError('Unable to load prompts from storage.');
       prompts = [];
-      renderPrompts();
+      renderPromptsWithCurrentFilter({ scrollToTop: true });
       return;
     }
     const storedPrompts = stored ? stored[PROMPTS_STORAGE_KEY] : [];
     prompts = normalizePromptCollection(storedPrompts);
-    renderPrompts();
+    renderPromptsWithCurrentFilter({ scrollToTop: true });
     clearPromptError();
   });
 }
 
 function synchronizePromptsFromStorage(value) {
   prompts = normalizePromptCollection(value);
-  renderPrompts();
+  renderPromptsWithCurrentFilter({ scrollToTop: true });
 }
 
-function renderPrompts(options = {}) {
+function getFilteredPrompts() {
+  const query = promptSearchQuery;
+  if (!query) {
+    return prompts;
+  }
+  const loweredQuery = query.toLowerCase();
+  return prompts.filter((prompt) => {
+    const title = typeof prompt.title === 'string' ? prompt.title.toLowerCase() : '';
+    const text = typeof prompt.text === 'string' ? prompt.text.toLowerCase() : '';
+    return title.includes(loweredQuery) || text.includes(loweredQuery);
+  });
+}
+
+function renderPrompts(promptsToRender = prompts, options = {}) {
   if (!controls.promptList) {
     return;
   }
+
+  const list = Array.isArray(promptsToRender) ? promptsToRender : [];
+  const isFiltered = Boolean(promptSearchQuery);
 
   promptCopyTimers.forEach((timer, button) => {
     clearTimeout(timer);
@@ -922,13 +965,14 @@ function renderPrompts(options = {}) {
   promptCopyTimers.clear();
 
   const fragment = document.createDocumentFragment();
-  prompts.forEach((prompt) => {
-    const card = buildPromptCard(prompt);
+  list.forEach((prompt) => {
+    const card = buildPromptCard(prompt, { disableDrag: isFiltered });
     fragment.appendChild(card);
   });
 
   controls.promptList.replaceChildren(fragment);
-  updatePromptsEmptyState();
+  controls.promptList.setAttribute('data-filtered', String(isFiltered));
+  updatePromptsEmptyState(list);
 
   if (options.scrollToTop && controls.promptList) {
     controls.promptList.scrollTop = 0;
@@ -946,7 +990,29 @@ function renderPrompts(options = {}) {
   }
 }
 
-function buildPromptCard(prompt) {
+function renderPromptsWithCurrentFilter(options = {}) {
+  renderPrompts(getFilteredPrompts(), options);
+}
+
+function handlePromptSearch(event) {
+  const value = event?.target?.value || '';
+  promptSearchQuery = value.toLowerCase().trim();
+  renderPromptsWithCurrentFilter({ scrollToTop: true });
+  clearPromptError();
+}
+
+function autoResizeTextarea(element) {
+  if (!element) {
+    return;
+  }
+  element.style.height = 'auto';
+  const computed = window.getComputedStyle(element);
+  const minHeight = parseInt(computed.minHeight, 10) || 0;
+  const nextHeight = Math.max(element.scrollHeight + 2, minHeight);
+  element.style.height = `${nextHeight}px`;
+}
+
+function buildPromptCard(prompt, { disableDrag } = {}) {
   const card = document.createElement('li');
   card.className = 'prompt-card';
   card.dataset.id = prompt.id;
@@ -958,7 +1024,7 @@ function buildPromptCard(prompt) {
   const handle = document.createElement('button');
   handle.type = 'button';
   handle.className = 'prompt-card__handle';
-  handle.setAttribute('draggable', 'true');
+  handle.setAttribute('draggable', String(!disableDrag));
   handle.setAttribute('aria-label', `Reorder prompt "${getPromptDisplayTitle(prompt)}"`);
   const handleIcon = document.createElement('span');
   handleIcon.setAttribute('aria-hidden', 'true');
@@ -972,12 +1038,14 @@ function buildPromptCard(prompt) {
   title.className = 'prompt-card__title';
   title.textContent = getPromptDisplayTitle(prompt);
 
+  const useAction = buildPromptActionButton('use');
   const copyAction = buildPromptActionButton('copy');
   const editAction = buildPromptActionButton('edit');
   const deleteAction = buildPromptActionButton('delete');
 
   card.appendChild(handle);
   card.appendChild(title);
+  card.appendChild(useAction);
   card.appendChild(copyAction);
   card.appendChild(editAction);
   card.appendChild(deleteAction);
@@ -1023,13 +1091,23 @@ function restorePromptActionButton(button) {
   button.classList.remove('is-copied');
 }
 
-function updatePromptsEmptyState() {
-  const hasPrompts = prompts.length > 0;
+function updatePromptsEmptyState(list) {
+  const collection = Array.isArray(list) ? list : [];
+  const hasPrompts = collection.length > 0;
   if (controls.promptsEmpty) {
     controls.promptsEmpty.hidden = hasPrompts;
   }
   if (controls.promptList) {
     controls.promptList.setAttribute('data-has-items', String(hasPrompts));
+  }
+  if (!hasPrompts && controls.promptsEmptyPrimary && controls.promptsEmptySecondary) {
+    if (promptSearchQuery) {
+      controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_FILTERED_PRIMARY;
+      controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_FILTERED_SECONDARY;
+    } else {
+      controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
+      controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_DEFAULT_SECONDARY;
+    }
   }
   updatePromptsCount();
 }
@@ -1114,10 +1192,10 @@ async function handlePromptFormSubmit(event) {
 
   prompts = nextPrompts;
   const renderOptions = { focusId };
-  if (!editingPromptId) {
+  if (!promptSearchQuery && !editingPromptId) {
     renderOptions.scrollToTop = true;
   }
-  renderPrompts(renderOptions);
+  renderPromptsWithCurrentFilter(renderOptions);
 
   try {
     await persistPrompts(nextPrompts);
@@ -1125,11 +1203,12 @@ async function handlePromptFormSubmit(event) {
     exitPromptEditMode();
     if (controls.promptTextInput) {
       controls.promptTextInput.focus();
+      autoResizeTextarea(controls.promptTextInput);
     }
   } catch (error) {
     console.error('[GPT Enhancer] Failed to save prompts', error);
     prompts = previousPrompts;
-    renderPrompts({ focusId: editingPromptId || null });
+    renderPromptsWithCurrentFilter({ focusId: editingPromptId || null });
     showPromptError('Unable to save your prompt. Please try again.');
   }
 }
@@ -1147,6 +1226,7 @@ function enterPromptEditMode(prompt) {
   }
   if (controls.promptTextInput) {
     controls.promptTextInput.value = prompt.text || '';
+    autoResizeTextarea(controls.promptTextInput);
   }
   if (controls.promptCancelButton) {
     controls.promptCancelButton.hidden = false;
@@ -1170,6 +1250,7 @@ function exitPromptEditMode() {
   }
   if (controls.promptTextInput) {
     controls.promptTextInput.value = '';
+    autoResizeTextarea(controls.promptTextInput);
   }
   if (controls.promptCancelButton) {
     controls.promptCancelButton.hidden = true;
@@ -1199,6 +1280,9 @@ function handlePromptListClick(event) {
   }
 
   switch (target.dataset.action) {
+    case 'use':
+      handleUsePrompt(prompt);
+      break;
     case 'copy':
       copyPromptToClipboard(prompt, target);
       break;
@@ -1212,6 +1296,60 @@ function handlePromptListClick(event) {
     default:
       break;
   }
+}
+
+async function handleUsePrompt(prompt) {
+  if (!prompt || typeof prompt.text !== 'string' || !prompt.text.trim()) {
+    showPromptError('This prompt is empty and cannot be used.');
+    return;
+  }
+
+  const text = prompt.text.trim();
+
+  try {
+    const tabs = await queryActiveTab();
+    const activeTab = tabs && tabs[0];
+
+    if (activeTab && isChatGPTUrl(activeTab.url || '')) {
+      await sendMessageToTab(activeTab.id, {
+        type: 'GPT_INJECT_PROMPT',
+        text
+      });
+      clearPromptError();
+      window.close();
+      return;
+    }
+
+    await writeTextToClipboard(text);
+    showPromptError('Open ChatGPT to use prompts directly. Prompt copied instead.');
+  } catch (error) {
+    console.error('[GPT Enhancer] Failed to use prompt', error);
+    showPromptError('Could not send prompt to ChatGPT.');
+  }
+}
+
+function queryActiveTab() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      resolve(tabs);
+    });
+  });
+}
+
+function sendMessageToTab(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      resolve(response);
+    });
+  });
 }
 
 async function copyPromptToClipboard(prompt, button) {
@@ -1367,6 +1505,10 @@ function generatePromptId() {
 }
 
 function handlePromptDragStart(event) {
+  if (promptSearchQuery) {
+    event.preventDefault();
+    return;
+  }
   const handle = event.currentTarget;
   if (!(handle instanceof HTMLElement)) {
     return;
@@ -1408,11 +1550,15 @@ function handlePromptDragEnd() {
   }
   promptDragState = null;
   if (!reordered) {
-    renderPrompts({ focusId: id });
+    renderPromptsWithCurrentFilter({ focusId: id });
   }
 }
 
 function handlePromptDragOver(event) {
+  if (promptSearchQuery) {
+    event.preventDefault();
+    return;
+  }
   if (!promptDragState || !controls.promptList) {
     return;
   }
@@ -1443,6 +1589,10 @@ function handlePromptDragOver(event) {
 }
 
 function handlePromptDrop(event) {
+  if (promptSearchQuery) {
+    event.preventDefault();
+    return;
+  }
   if (!promptDragState) {
     return;
   }
@@ -1451,13 +1601,18 @@ function handlePromptDrop(event) {
 }
 
 function applyPromptOrderFromDom(options = {}) {
+  if (promptSearchQuery) {
+    renderPromptsWithCurrentFilter();
+    showPromptError('Clear the search to reorder prompts.');
+    return;
+  }
   if (!controls.promptList) {
     return;
   }
   const orderedCards = Array.from(controls.promptList.querySelectorAll('.prompt-card'));
   if (!orderedCards.length) {
     prompts = [];
-    renderPrompts();
+    renderPromptsWithCurrentFilter();
     persistPrompts([]);
     if (promptDragState) {
       promptDragState.reordered = true;
@@ -1467,7 +1622,7 @@ function applyPromptOrderFromDom(options = {}) {
 
   const orderedIds = orderedCards.map((card) => card.dataset.id).filter(Boolean);
   if (!orderedIds.length) {
-    renderPrompts();
+    renderPromptsWithCurrentFilter();
     if (promptDragState) {
       promptDragState.reordered = true;
     }
@@ -1490,7 +1645,7 @@ function applyPromptOrderFromDom(options = {}) {
   });
 
   if (next.length !== prompts.length || !changed) {
-    renderPrompts({ focusId: options.focusId || (promptDragState ? promptDragState.id : null) });
+    renderPromptsWithCurrentFilter({ focusId: options.focusId || (promptDragState ? promptDragState.id : null) });
     if (promptDragState) {
       promptDragState.reordered = true;
     }
@@ -1499,7 +1654,7 @@ function applyPromptOrderFromDom(options = {}) {
 
   const previousPrompts = prompts.slice();
   prompts = next;
-  renderPrompts({ focusId: options.focusId || (promptDragState ? promptDragState.id : null) });
+  renderPromptsWithCurrentFilter({ focusId: options.focusId || (promptDragState ? promptDragState.id : null) });
   if (promptDragState) {
     promptDragState.reordered = true;
   }
@@ -1511,13 +1666,17 @@ function applyPromptOrderFromDom(options = {}) {
     .catch((error) => {
       console.error('[GPT Enhancer] Failed to persist reordered prompts', error);
       prompts = previousPrompts;
-      renderPrompts({ focusId: options.focusId || null });
+      renderPromptsWithCurrentFilter({ focusId: options.focusId || null });
       showPromptError('Unable to save the new prompt order. Please try again.');
     });
 }
 
 function handlePromptHandleKeyDown(event) {
   if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+    return;
+  }
+  if (promptSearchQuery) {
+    showPromptError('Clear the search to reorder prompts.');
     return;
   }
   event.preventDefault();
@@ -1541,6 +1700,10 @@ function movePromptByKeyboard(promptId, delta) {
   if (!delta) {
     return;
   }
+  if (promptSearchQuery) {
+    showPromptError('Clear the search to reorder prompts.');
+    return;
+  }
   const index = prompts.findIndex((prompt) => prompt.id === promptId);
   if (index === -1) {
     return;
@@ -1554,7 +1717,7 @@ function movePromptByKeyboard(promptId, delta) {
   const [moved] = next.splice(index, 1);
   next.splice(targetIndex, 0, moved);
   prompts = next;
-  renderPrompts({ focusId: promptId });
+  renderPromptsWithCurrentFilter({ focusId: promptId });
   persistPrompts(next)
     .then(() => {
       clearPromptError();
@@ -1562,7 +1725,7 @@ function movePromptByKeyboard(promptId, delta) {
     .catch((error) => {
       console.error('[GPT Enhancer] Failed to reorder prompts via keyboard', error);
       prompts = previousPrompts;
-      renderPrompts({ focusId: promptId });
+      renderPromptsWithCurrentFilter({ focusId: promptId });
       showPromptError('Unable to reorder prompts. Please try again.');
     });
 }
@@ -1580,7 +1743,7 @@ function confirmPromptDeletion(promptId) {
   const previousPrompts = prompts.slice();
   const next = prompts.filter((item) => item.id !== promptId);
   prompts = next;
-  renderPrompts();
+  renderPromptsWithCurrentFilter();
   if (editingPromptId === promptId) {
     exitPromptEditMode();
   }
@@ -1591,7 +1754,7 @@ function confirmPromptDeletion(promptId) {
     .catch((error) => {
       console.error('[GPT Enhancer] Failed to delete prompt', error);
       prompts = previousPrompts;
-      renderPrompts();
+      renderPromptsWithCurrentFilter();
       showPromptError('Unable to delete the prompt. Please try again.');
     });
 }
