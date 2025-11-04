@@ -612,10 +612,6 @@ body {
   gap: 8px;
 }
 
-.prompt-card__action--use {
-  order: 0;
-}
-
 .prompt-card__action--copy {
   order: 1;
 }
@@ -1469,4 +1465,48 @@ body {
 .font-option:focus-visible {
   outline: 2px solid rgba(118, 140, 255, 0.6);
   outline-offset: 2px;
+}
+
+/* --- Add these styles to popup.css for the new card layout --- */
+
+/* New header for handle and title */
+.prompt-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Refactored card: uses flex column */
+.prompt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  min-height: auto;
+  text-align: left; /* Keep text left-aligned */
+}
+
+/* Refactored handle: no longer positioned */
+.prompt-card__handle {
+  position: static;
+  flex-shrink: 0;
+}
+
+/* Refactored title: no longer positioned */
+.prompt-card__title {
+  position: static;
+  flex-grow: 1;
+  padding: 0;
+  text-align: left;
+  margin: 0; /* Ensure no default margin */
+}
+
+/* Refactored actions: no longer positioned */
+.prompt-card__actions {
+  position: static;
+  transform: none;
+  display: flex; /* Use flex to center */
+  justify-content: center; /* Center the icons */
+  width: 100%;
 }

@@ -32,17 +32,11 @@ const PROMPTS_EMPTY_DEFAULT_SECONDARY = 'Create your first prompt to see it here
 const PROMPTS_EMPTY_FILTERED_PRIMARY = 'No prompts match your search.';
 const PROMPTS_EMPTY_FILTERED_SECONDARY = 'Try a different keyword or clear the search.';
 const PROMPT_ACTION_LABELS = {
-  use: 'Use prompt',
   copy: 'Copy prompt',
   edit: 'Edit prompt',
   delete: 'Delete prompt'
 };
 const PROMPT_ACTION_ICONS = {
-  use: `
-    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
-    </svg>
-  `,
   copy: `
     <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z"></path>
@@ -1057,19 +1051,23 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   title.className = 'prompt-card__title';
   title.textContent = getPromptDisplayTitle(prompt);
 
-  const useAction = buildPromptActionButton('use');
+  // Create a header wrapper
+  const header = document.createElement('div');
+  header.className = 'prompt-card__header';
+  header.appendChild(handle);
+  header.appendChild(title);
+
   const copyAction = buildPromptActionButton('copy');
   const editAction = buildPromptActionButton('edit');
   const deleteAction = buildPromptActionButton('delete');
   const actions = document.createElement('div');
   actions.className = 'prompt-card__actions';
-  actions.appendChild(useAction);
   actions.appendChild(copyAction);
   actions.appendChild(editAction);
   actions.appendChild(deleteAction);
 
-  card.appendChild(handle);
-  card.appendChild(title);
+  // Append header and actions
+  card.appendChild(header);
   card.appendChild(actions);
 
   return card;
@@ -1305,9 +1303,6 @@ function handlePromptListClick(event) {
   }
 
   switch (target.dataset.action) {
-    case 'use':
-      handleUsePrompt(prompt);
-      break;
     case 'copy':
       copyPromptToClipboard(prompt, target);
       break;
@@ -1329,67 +1324,13 @@ function handlePromptListClick(event) {
   }
 }
 
-async function handleUsePrompt(prompt) {
-  if (!prompt || typeof prompt.text !== 'string' || !prompt.text.trim()) {
-    showPromptError('This prompt is empty and cannot be used.');
-    return;
-  }
-
-  const text = prompt.text.trim();
-
-  try {
-    const tabs = await queryActiveTab();
-    const activeTab = tabs && tabs[0];
-
-    if (activeTab && isChatGPTUrl(activeTab.url || '')) {
-      await sendMessageToTab(activeTab.id, {
-        type: 'GPT_INJECT_PROMPT',
-        text
-      });
-      clearPromptError();
-      window.close();
-      return;
-    }
-
-    await writeTextToClipboard(text);
-    showPromptError('Open ChatGPT to use prompts directly. Prompt copied instead.');
-  } catch (error) {
-    console.error('[GPT Enhancer] Failed to use prompt', error);
-    showPromptError('Could not send prompt to ChatGPT.');
-  }
-}
-
-function queryActiveTab() {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-        return;
-      }
-      resolve(tabs);
-    });
-  });
-}
-
-function sendMessageToTab(tabId, message) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-        return;
-      }
-      resolve(response);
-    });
-  });
-}
-
-async function copyPromptToClipboard(prompt, button) {
+function copyPromptToClipboard(prompt, button) {
   if (!prompt || typeof prompt.text !== 'string' || !prompt.text.trim()) {
     showPromptError('This prompt is empty and cannot be copied.');
     return;
   }
   try {
-    await writeTextToClipboard(prompt.text);
+    writeTextToClipboard(prompt.text);
     showCopyFeedback(button);
     clearPromptError();
   } catch (error) {
