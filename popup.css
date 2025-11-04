@@ -297,7 +297,13 @@ body {
 
 .prompts-header {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 6px;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
 }
 
 .prompts-header__texts {
@@ -326,7 +332,8 @@ body {
   font-size: 12px;
   font-weight: 600;
   box-shadow: 0 6px 14px rgba(8, 10, 27, 0.22);
-  margin-left: auto;
+  margin-top: 6px;
+  width: fit-content;
 }
 
 .prompts-count__label {
@@ -347,7 +354,7 @@ body {
 
 .prompt-search {
   width: 100%;
-  max-width: 360px;
+  max-width: 320px;
   margin: 0 auto 10px;
   display: block;
 }
@@ -486,7 +493,7 @@ body {
   color: var(--text-subtle);
   font-size: 12px;
   line-height: 1.6;
-  max-width: 360px;
+  max-width: 320px;
   margin: 0 auto;
 }
 
@@ -509,7 +516,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   max-height: 240px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -528,15 +535,15 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 14px 18px 48px;
-  min-height: 76px;
+  padding: 14px 14px 44px;
+  min-height: 70px;
   border-radius: 12px;
   background: rgba(18, 23, 52, 0.82);
   border: 1px solid var(--surface-outline);
   box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
   width: 100%;
-  max-width: 340px;
+  max-width: 320px;
   margin: 0 auto;
 }
 
@@ -579,6 +586,7 @@ body {
 .prompt-card__handle--disabled {
   cursor: default;
   opacity: 0.6;
+  pointer-events: none;
 }
 
 .prompt-card__handle:focus-visible {
@@ -603,8 +611,8 @@ body {
   background: rgba(18, 23, 52, 0.74);
   color: #d4e2ff;
   border-radius: 9px;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -626,7 +634,7 @@ body {
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .prompt-card__action--use {
@@ -639,14 +647,10 @@ body {
 
 .prompt-card__action--edit {
   order: 2;
-  width: 28px;
-  height: 28px;
 }
 
 .prompt-card__action--delete {
   order: 3;
-  width: 28px;
-  height: 28px;
 }
 
 .prompt-card__action.is-copied {
@@ -661,8 +665,8 @@ body {
 }
 
 .prompt-card__icon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   display: block;
 }
 

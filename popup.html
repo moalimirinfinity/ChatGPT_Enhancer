@@ -574,37 +574,50 @@
             />
             <div id="prompt-error" class="prompts-error" role="status" aria-live="polite" hidden></div>
           </section>
-          <section class="panel__section">
-            <form id="prompt-form" class="prompt-form" novalidate>
-              <div class="prompt-form__field">
-                <label class="prompt-form__label" for="prompt-name">Title</label>
-                <input
-                  class="prompt-form__input"
-                  type="text"
-                  id="prompt-name"
-                  name="prompt-name"
-                  placeholder="Optional title"
-                  autocomplete="off"
-                />
-              </div>
-              <div class="prompt-form__field">
-                <label class="prompt-form__label" for="prompt-text">Prompt</label>
-                <textarea
-                  class="prompt-form__textarea"
-                  id="prompt-text"
-                  name="prompt-text"
-                  rows="4"
-                  placeholder="Write your prompt"
-                  required
-                ></textarea>
-              </div>
-              <div class="prompt-form__actions">
-                <button type="submit" class="prompt-form__submit">Save prompt</button>
-                <button type="button" class="prompt-form__cancel" id="prompt-cancel-button" hidden>
-                  Cancel edit
-                </button>
-              </div>
-            </form>
+          <section class="panel__section panel__section--accordion">
+            <button
+              class="accordion__header"
+              type="button"
+              id="prompt-form-accordion-header"
+              aria-controls="prompt-form-section"
+              aria-expanded="false"
+              data-target="prompt-form-section"
+            >
+              <span class="panel__section-title">Add New Prompt</span>
+              <span class="accordion__icon" aria-hidden="true">></span>
+            </button>
+            <div id="prompt-form-section" class="accordion__content">
+              <form id="prompt-form" class="prompt-form" novalidate>
+                <div class="prompt-form__field">
+                  <label class="prompt-form__label" for="prompt-name">Title</label>
+                  <input
+                    class="prompt-form__input"
+                    type="text"
+                    id="prompt-name"
+                    name="prompt-name"
+                    placeholder="Optional title"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="prompt-form__field">
+                  <label class="prompt-form__label" for="prompt-text">Prompt</label>
+                  <textarea
+                    class="prompt-form__textarea"
+                    id="prompt-text"
+                    name="prompt-text"
+                    rows="4"
+                    placeholder="Write your prompt"
+                    required
+                  ></textarea>
+                </div>
+                <div class="prompt-form__actions">
+                  <button type="submit" class="prompt-form__submit">Save prompt</button>
+                  <button type="button" class="prompt-form__cancel" id="prompt-cancel-button" hidden>
+                    Cancel edit
+                  </button>
+                </div>
+              </form>
+            </div>
           </section>
           <section class="panel__section">
             <div id="prompts-empty" class="prompts-empty">

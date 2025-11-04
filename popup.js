@@ -113,6 +113,14 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
   controls.accordionHeaders = Array.from(document.querySelectorAll('.accordion__header'));
+  controls.promptFormAccordionHeader = document.getElementById('prompt-form-accordion-header');
+  controls.promptFormSection = document.getElementById('prompt-form-section');
+  if (
+    controls.promptFormAccordionHeader &&
+    !controls.accordionHeaders.includes(controls.promptFormAccordionHeader)
+  ) {
+    controls.accordionHeaders.push(controls.promptFormAccordionHeader);
+  }
   controls.fontToggle = document.getElementById('toggle-fonts');
   controls.fontControl = document.querySelector('.font-control');
   controls.fontTabs = Array.from(document.querySelectorAll('.font-tab'));
@@ -272,6 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
     controls.promptTextInput.addEventListener('input', () => autoResizeTextarea(controls.promptTextInput));
     autoResizeTextarea(controls.promptTextInput);
   }
+  if (controls.promptFormAccordionHeader && controls.promptFormSection) {
+    setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, false);
+  }
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && isHelpPanelOpen()) {
       event.preventDefault();
@@ -306,8 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const expanded = header.getAttribute('aria-expanded') === 'true';
-      header.setAttribute('aria-expanded', String(!expanded));
-      content.classList.toggle('is-open', !expanded);
+      setAccordionExpanded(header, content, !expanded);
     });
   });
 
@@ -994,6 +1004,14 @@ function renderPromptsWithCurrentFilter(options = {}) {
   renderPrompts(getFilteredPrompts(), options);
 }
 
+function setAccordionExpanded(header, content, expanded) {
+  if (!header || !content) {
+    return;
+  }
+  header.setAttribute('aria-expanded', String(expanded));
+  content.classList.toggle('is-open', expanded);
+}
+
 function handlePromptSearch(event) {
   const value = event?.target?.value || '';
   promptSearchQuery = value.toLowerCase().trim();
@@ -1111,6 +1129,9 @@ function updatePromptsEmptyState(list) {
     } else {
       controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
       controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_DEFAULT_SECONDARY;
+      if (controls.promptFormAccordionHeader && controls.promptFormSection) {
+        setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, true);
+      }
     }
   }
   updatePromptsCount();
@@ -1265,7 +1286,7 @@ function exitPromptEditMode() {
 }
 
 function handlePromptListClick(event) {
-  const target = event.target instanceof HTMLElement ? event.target.closest('.prompt-card__action') : null;
+  const target = event.target instanceof Element ? event.target.closest('.prompt-card__action') : null;
   if (!target) {
     return;
   }
@@ -1510,6 +1531,7 @@ function generatePromptId() {
 
 function handlePromptDragStart(event) {
   if (promptSearchQuery) {
+    showPromptError('Clear the search to reorder prompts.');
     event.preventDefault();
     return;
   }
