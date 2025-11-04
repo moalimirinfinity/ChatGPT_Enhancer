@@ -23,7 +23,6 @@
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
       "css": ["styles.css"],
       "js": [
-        "libs/html2pdf.bundle.min.js",
         "libs/html-docx.min.js",
         "libs/html-to-image.min.js",
         "contentScript.js",
