@@ -286,18 +286,18 @@ body {
   border: none;
 }
 
+
 .panel__section--prompts-intro {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: center;
+  align-items: stretch;
   text-align: center;
 }
 
 .prompts-header {
-  position: relative;
-  width: 100%;
   display: flex;
   justify-content: center;
-  padding: 0 48px 16px 48px;
 }
 
 .prompts-header__texts {
@@ -314,9 +314,7 @@ body {
 }
 
 .prompts-count {
-  position: absolute;
-  right: 0;
-  bottom: 0;
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -328,7 +326,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   box-shadow: 0 6px 14px rgba(8, 10, 27, 0.22);
-  transform: translateY(50%);
+  margin-left: auto;
 }
 
 .prompts-count__label {
@@ -530,15 +528,15 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 12px 20px 16px;
-  min-height: 66px;
-  border-radius: 11px;
+  padding: 14px 18px 48px;
+  min-height: 76px;
+  border-radius: 12px;
   background: rgba(18, 23, 52, 0.82);
   border: 1px solid var(--surface-outline);
   box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
   width: 100%;
-  max-width: 360px;
+  max-width: 340px;
   margin: 0 auto;
 }
 
@@ -578,7 +576,7 @@ body {
   color: #d4e2ff;
 }
 
-.prompt-card__handle[draggable='false'] {
+.prompt-card__handle--disabled {
   cursor: default;
   opacity: 0.6;
 }
@@ -601,7 +599,6 @@ body {
 }
 
 .prompt-card__action {
-  position: absolute;
   border: 1px solid rgba(122, 164, 255, 0.25);
   background: rgba(18, 23, 52, 0.74);
   color: #d4e2ff;
@@ -622,29 +619,34 @@ body {
   color: #ffffff;
 }
 
+.prompt-card__actions {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .prompt-card__action--use {
-  left: 7px;
-  bottom: 6px;
+  order: 0;
 }
 
 .prompt-card__action--copy {
-  right: 7px;
-  bottom: 6px;
+  order: 1;
 }
 
 .prompt-card__action--edit {
-  right: 7px;
-  top: 5px;
+  order: 2;
   width: 28px;
   height: 28px;
 }
 
 .prompt-card__action--delete {
-  left: 50%;
-  bottom: 6px;
+  order: 3;
   width: 28px;
   height: 28px;
-  transform: translateX(-50%);
 }
 
 .prompt-card__action.is-copied {

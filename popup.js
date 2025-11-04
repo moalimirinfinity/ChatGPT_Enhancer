@@ -1024,7 +1024,8 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   const handle = document.createElement('button');
   handle.type = 'button';
   handle.className = 'prompt-card__handle';
-  handle.setAttribute('draggable', String(!disableDrag));
+  handle.draggable = !disableDrag;
+  handle.classList.toggle('prompt-card__handle--disabled', Boolean(disableDrag));
   handle.setAttribute('aria-label', `Reorder prompt "${getPromptDisplayTitle(prompt)}"`);
   const handleIcon = document.createElement('span');
   handleIcon.setAttribute('aria-hidden', 'true');
@@ -1042,13 +1043,16 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   const copyAction = buildPromptActionButton('copy');
   const editAction = buildPromptActionButton('edit');
   const deleteAction = buildPromptActionButton('delete');
+  const actions = document.createElement('div');
+  actions.className = 'prompt-card__actions';
+  actions.appendChild(useAction);
+  actions.appendChild(copyAction);
+  actions.appendChild(editAction);
+  actions.appendChild(deleteAction);
 
   card.appendChild(handle);
   card.appendChild(title);
-  card.appendChild(useAction);
-  card.appendChild(copyAction);
-  card.appendChild(editAction);
-  card.appendChild(deleteAction);
+  card.appendChild(actions);
 
   return card;
 }
