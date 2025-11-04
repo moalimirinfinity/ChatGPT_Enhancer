@@ -310,7 +310,7 @@ function getExtensionAssetUrl(path) {
     try {
       return chrome.runtime.getURL(path);
     } catch (error) {
-      console.warn('[GPT Enhancer] Unable to resolve extension asset URL', error);
+      // console.warn('[GPT Enhancer] Unable to resolve extension asset URL', error);
       return path;
     }
   }
@@ -351,7 +351,7 @@ async function registerExportFonts() {
       await fontFace.load();
       document.fonts.add(fontFace);
     } catch (error) {
-      console.warn('[GPT Enhancer] Unable to register Vazirmatn font', error);
+      // console.warn('[GPT Enhancer] Unable to register Vazirmatn font', error);
     }
   })();
 
@@ -366,7 +366,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   handleExportRequest(message.format || 'pdf')
     .then(() => sendResponse({ ok: true }))
     .catch((error) => {
-      console.error('[GPT Enhancer] Export failed', error);
+      // console.error('[GPT Enhancer] Export failed', error);
       sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
     });
 
@@ -730,14 +730,14 @@ async function ensureExportFontsLoaded() {
   try {
     await document.fonts.load('16px "Vazirmatn"');
   } catch (error) {
-    console.warn('[GPT Enhancer] Unable to load Vazirmatn font', error);
+    // console.warn('[GPT Enhancer] Unable to load Vazirmatn font', error);
   }
 
   if (typeof document.fonts.ready === 'object' && typeof document.fonts.ready.then === 'function') {
     try {
       await document.fonts.ready;
     } catch (error) {
-      console.warn('[GPT Enhancer] Font readiness check failed', error);
+      // console.warn('[GPT Enhancer] Font readiness check failed', error);
     }
   }
 }
@@ -1036,7 +1036,7 @@ async function inlineImages(root) {
           img.setAttribute('src', dataUrl);
           img.removeAttribute('srcset');
         } catch (fallbackError) {
-          console.warn('[GPT Enhancer] Unable to inline image', error, fallbackError);
+          // console.warn('[GPT Enhancer] Unable to inline image', error, fallbackError);
         }
       }
     })
@@ -1154,7 +1154,7 @@ async function convertKatexToImages(root) {
       image.style.setProperty('text-align', 'left', 'important');
       node.replaceWith(image);
     } catch (error) {
-      console.warn('[GPT Enhancer] Failed to rasterize equation', error);
+      // console.warn('[GPT Enhancer] Failed to rasterize equation', error);
     }
   }
 }
@@ -1252,12 +1252,13 @@ async function exportAsPng(stage, root) {
     const estimatedPages = estimatePageCount(height);
     if (pixelArea * pixelRatio * pixelRatio > PNG_EXPORT_PIXEL_LIMIT) {
       const message = `Conversation is too large to export as a single image (estimated ${estimatedPages} pages). Please use PDF or DOCX export instead.`;
-      console.warn('[GPT Enhancer] PNG export aborted: dimensions exceed safe limits.', {
-        width,
-        height,
-        pixelRatio,
-        estimatedPages
-      });
+      // console.warn('[GPT Enhancer] PNG export aborted: dimensions exceed safe limits.', {
+      //   width,
+      //   height,
+      //   pixelRatio,
+      //   estimatedPages
+      // });
+      
       throw createExportError('png-too-large', message, {
         width,
         height,
@@ -1720,7 +1721,7 @@ function wrapHtmlToImageError(error, context) {
     message += ' Large conversations are better suited for PDF or DOCX exports.';
   }
 
-  console.error('[GPT Enhancer] PNG export failed.', { cause: error, context });
+  // console.error('[GPT Enhancer] PNG export failed.', { cause: error, context });
   return createExportError('png-render-failed', message, {
     ...context,
     cause: error
