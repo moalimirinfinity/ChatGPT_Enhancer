@@ -27,6 +27,39 @@ const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
 const PROMPT_TITLE_MAX_LENGTH = 80;
 const PROMPT_COPY_RESET_DELAY = 1600;
+const PROMPT_ACTION_LABELS = {
+  copy: 'Copy prompt',
+  edit: 'Edit prompt',
+  delete: 'Delete prompt'
+};
+const PROMPT_ACTION_ICONS = {
+  copy: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  `,
+  edit: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M16.862 3.487a2.15 2.15 0 0 1 3.041 3.041L9.03 17.401 4.5 18.5 5.599 13.97 16.862 3.487z"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M15.5 5l3.5 3.5"></path>
+    </svg>
+  `,
+  delete: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M10 11v6"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M14 11v6"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 4h6a1 1 0 0 1 1 1v2H8V5a1 1 0 0 1 1-1z"></path>
+    </svg>
+  `
+};
+const PROMPT_COPY_SUCCESS_ICON = `
+  <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"></path>
+  </svg>
+`;
 
 function normalizeThemeAlias(theme) {
   if (typeof theme !== 'string') {
@@ -883,11 +916,7 @@ function renderPrompts(options = {}) {
   promptCopyTimers.forEach((timer, button) => {
     clearTimeout(timer);
     if (button && button instanceof HTMLElement) {
-      button.disabled = false;
-      if (button.dataset.originalLabel) {
-        button.textContent = button.dataset.originalLabel;
-      }
-      button.classList.remove('is-copied');
+      restorePromptActionButton(button);
     }
   });
   promptCopyTimers.clear();
@@ -900,6 +929,10 @@ function renderPrompts(options = {}) {
 
   controls.promptList.replaceChildren(fragment);
   updatePromptsEmptyState();
+
+  if (options.scrollToTop && controls.promptList) {
+    controls.promptList.scrollTop = 0;
+  }
 
   if (options.focusId) {
     window.requestAnimationFrame(() => {
@@ -922,6 +955,9 @@ function buildPromptCard(prompt) {
     card.title = prompt.text;
   }
 
+  const header = document.createElement('div');
+  header.className = 'prompt-card__header';
+
   const handle = document.createElement('button');
   handle.type = 'button';
   handle.className = 'prompt-card__handle';
@@ -935,33 +971,60 @@ function buildPromptCard(prompt) {
   handle.addEventListener('dragend', handlePromptDragEnd);
   handle.addEventListener('keydown', handlePromptHandleKeyDown);
 
-  const content = document.createElement('div');
-  content.className = 'prompt-card__content';
   const title = document.createElement('h3');
   title.className = 'prompt-card__title';
   title.textContent = getPromptDisplayTitle(prompt);
-  content.appendChild(title);
+
+  header.appendChild(handle);
+  header.appendChild(title);
 
   const actions = document.createElement('div');
   actions.className = 'prompt-card__actions';
-  actions.appendChild(buildPromptActionButton('Copy', 'copy'));
-  actions.appendChild(buildPromptActionButton('Edit', 'edit'));
-  actions.appendChild(buildPromptActionButton('Delete', 'delete'));
+  actions.appendChild(buildPromptActionButton('copy'));
+  actions.appendChild(buildPromptActionButton('edit'));
+  actions.appendChild(buildPromptActionButton('delete'));
 
-  card.appendChild(handle);
-  card.appendChild(content);
+  card.appendChild(header);
   card.appendChild(actions);
 
   return card;
 }
 
-function buildPromptActionButton(label, action) {
+function buildPromptActionButton(action) {
+  const label = PROMPT_ACTION_LABELS[action] || action;
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'prompt-card__action';
   button.dataset.action = action;
-  button.textContent = label;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = `${getPromptActionIcon(action)}<span class="visually-hidden">${label}</span>`;
+  button.dataset.originalMarkup = button.innerHTML;
+  button.dataset.originalAriaLabel = label;
   return button;
+}
+
+function getPromptActionIcon(action) {
+  return PROMPT_ACTION_ICONS[action] || '';
+}
+
+function getPromptCopySuccessMarkup() {
+  return PROMPT_COPY_SUCCESS_ICON;
+}
+
+function restorePromptActionButton(button) {
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+  const action = button.dataset.action;
+  const label = button.dataset.originalAriaLabel || PROMPT_ACTION_LABELS[action] || 'Prompt action';
+  const markup =
+    button.dataset.originalMarkup ||
+    `${getPromptActionIcon(action)}<span class="visually-hidden">${label}</span>`;
+  button.innerHTML = markup;
+  button.dataset.originalMarkup = markup;
+  button.setAttribute('aria-label', label);
+  button.disabled = false;
+  button.classList.remove('is-copied');
 }
 
 function updatePromptsEmptyState() {
@@ -1054,7 +1117,11 @@ async function handlePromptFormSubmit(event) {
   }
 
   prompts = nextPrompts;
-  renderPrompts({ focusId });
+  const renderOptions = { focusId };
+  if (!editingPromptId) {
+    renderOptions.scrollToTop = true;
+  }
+  renderPrompts(renderOptions);
 
   try {
     await persistPrompts(nextPrompts);
@@ -1170,18 +1237,22 @@ function showCopyFeedback(button) {
   if (!button) {
     return;
   }
-  const originalLabel = button.dataset.originalLabel || button.textContent || 'Copy';
-  button.dataset.originalLabel = originalLabel;
-  button.textContent = 'Copied!';
-  button.disabled = true;
-  button.classList.add('is-copied');
   if (promptCopyTimers.has(button)) {
     clearTimeout(promptCopyTimers.get(button));
   }
+  if (!button.dataset.originalMarkup) {
+    button.dataset.originalMarkup = button.innerHTML;
+  }
+  if (!button.dataset.originalAriaLabel) {
+    const action = button.dataset.action;
+    button.dataset.originalAriaLabel = PROMPT_ACTION_LABELS[action] || 'Copy prompt';
+  }
+  button.disabled = true;
+  button.classList.add('is-copied');
+  button.setAttribute('aria-label', 'Copied!');
+  button.innerHTML = `${getPromptCopySuccessMarkup()}<span class="visually-hidden">Copied!</span>`;
   const timer = window.setTimeout(() => {
-    button.textContent = button.dataset.originalLabel || 'Copy';
-    button.disabled = false;
-    button.classList.remove('is-copied');
+    restorePromptActionButton(button);
     promptCopyTimers.delete(button);
   }, PROMPT_COPY_RESET_DELAY);
   promptCopyTimers.set(button, timer);
