@@ -288,7 +288,9 @@ body {
 
 
 .panel__section--prompts-intro {
-  padding: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
 }
 
 .prompts-count {
@@ -303,6 +305,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   box-shadow: 0 6px 14px rgba(8, 10, 27, 0.22);
+  flex-shrink: 0;
 }
 
 .prompts-count__label {
@@ -461,6 +464,10 @@ body {
   color: var(--text-subtle);
   font-size: 12px;
   line-height: 1.6;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .prompts-empty__primary,
@@ -509,6 +516,9 @@ body {
   box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
   width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .prompt-card--dragging {
