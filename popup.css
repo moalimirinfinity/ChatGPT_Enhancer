@@ -503,37 +503,51 @@ body {
   display: none;
 }
 
+/* --- REFINED PROMPT CARD STYLES --- */
+
+/* The card itself: matches accordion content bg */
 .prompt-card {
-  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 14px 14px 44px;
-  min-height: 70px;
-  border-radius: 12px;
-  background: rgba(18, 23, 52, 0.82);
-  border: 1px solid var(--surface-outline);
-  box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
+  flex-direction: column;
+  gap: 10px;
   width: 100%;
   max-width: 100%;
   margin: 0;
   box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-outline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.prompt-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-outline-strong);
 }
 
 .prompt-card--dragging {
-  opacity: 0.85;
+  opacity: 0.9;
+  background: var(--surface-hover);
   border-color: rgba(122, 164, 255, 0.65);
   box-shadow:
     0 16px 28px rgba(8, 10, 27, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+/* Header: holds handle and title */
+.prompt-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Drag handle: subtle, on the left */
 .prompt-card__handle {
-  position: absolute;
-  top: 5px;
-  left: 7px;
+  position: static;
+  flex-shrink: 0;
   border: 1px solid transparent;
   background: rgba(12, 16, 38, 0.6);
   color: #a8b8ff;
@@ -569,65 +583,52 @@ body {
   outline-offset: 2px;
 }
 
+/* Title: clear, left-aligned, and flexible */
 .prompt-card__title {
-  position: relative;
+  position: static;
+  flex-grow: 1;
+  padding: 0;
   margin: 0;
-  font-size: 12px;
+  text-align: left;
+  font-size: 13px;
   font-weight: 600;
   color: #eef1ff;
   word-break: break-word;
   line-height: 1.35;
-  max-width: 100%;
-  padding: 0 8px;
 }
 
+/* Actions: centered, with a small top margin */
+.prompt-card__actions {
+  position: static;
+  transform: none;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px; /* Small separator */
+}
+
+/* Action Buttons: styled to match the theme */
 .prompt-card__action {
-  border: 1px solid rgba(122, 164, 255, 0.25);
-  background: rgba(18, 23, 52, 0.74);
-  color: #d4e2ff;
-  border-radius: 9px;
-  width: 30px;
-  height: 30px;
+  border: 1px solid var(--surface-outline);
+  background: var(--surface-1);
+  color: var(--text-subtle);
+  border-radius: 10px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, border 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .prompt-card__action:hover {
-  background: rgba(122, 164, 255, 0.18);
-  border-color: rgba(122, 164, 255, 0.45);
+  background: var(--surface-hover);
+  border-color: var(--surface-outline-strong);
   color: #ffffff;
-}
-
-.prompt-card__actions {
-  position: absolute;
-  left: 50%;
-  bottom: 8px;
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.prompt-card__action--copy {
-  order: 1;
-}
-
-.prompt-card__action--edit {
-  order: 2;
-}
-
-.prompt-card__action--delete {
-  order: 3;
-}
-
-.prompt-card__action.is-copied {
-  background: rgba(122, 164, 255, 0.26);
-  border-color: rgba(122, 164, 255, 0.68);
-  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .prompt-card__action:focus-visible {
@@ -635,12 +636,25 @@ body {
   outline-offset: 2px;
 }
 
+/* Icon inside the button */
 .prompt-card__icon {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
+/* Specific button orders */
+.prompt-card__action--copy {
+  order: 1;
+}
+.prompt-card__action--edit {
+  order: 2;
+}
+.prompt-card__action--delete {
+  order: 3;
+}
+
+/* Delete button: special theme */
 .prompt-card__action[data-action="delete"] {
   border-color: rgba(255, 128, 158, 0.32);
   color: #ff97ae;
@@ -653,9 +667,18 @@ body {
   color: #ffbed0;
 }
 
+/* Copied state feedback */
+.prompt-card__action.is-copied {
+  background: rgba(122, 164, 255, 0.26);
+  border-color: rgba(122, 164, 255, 0.68);
+  color: #ffffff;
+  transform: translateY(0);
+}
+
 .prompt-card__action:disabled {
   cursor: default;
   opacity: 0.85;
+  transform: translateY(0);
 }
 
 .help-panel {
@@ -1465,48 +1488,4 @@ body {
 .font-option:focus-visible {
   outline: 2px solid rgba(118, 140, 255, 0.6);
   outline-offset: 2px;
-}
-
-/* --- Add these styles to popup.css for the new card layout --- */
-
-/* New header for handle and title */
-.prompt-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-/* Refactored card: uses flex column */
-.prompt-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  min-height: auto;
-  text-align: left; /* Keep text left-aligned */
-}
-
-/* Refactored handle: no longer positioned */
-.prompt-card__handle {
-  position: static;
-  flex-shrink: 0;
-}
-
-/* Refactored title: no longer positioned */
-.prompt-card__title {
-  position: static;
-  flex-grow: 1;
-  padding: 0;
-  text-align: left;
-  margin: 0; /* Ensure no default margin */
-}
-
-/* Refactored actions: no longer positioned */
-.prompt-card__actions {
-  position: static;
-  transform: none;
-  display: flex; /* Use flex to center */
-  justify-content: center; /* Center the icons */
-  width: 100%;
 }
