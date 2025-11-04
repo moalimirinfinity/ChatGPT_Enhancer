@@ -563,8 +563,8 @@ body {
   background: rgba(18, 23, 52, 0.74);
   color: #d4e2ff;
   border-radius: 9px;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -587,15 +587,15 @@ body {
 .prompt-card__action--edit {
   right: 7px;
   top: 5px;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
 }
 
 .prompt-card__action--delete {
   right: 7px;
   bottom: 6px;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
 }
 
 .prompt-card__action.is-copied {
@@ -610,8 +610,8 @@ body {
 }
 
 .prompt-card__icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
