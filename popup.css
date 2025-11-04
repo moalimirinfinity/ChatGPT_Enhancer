@@ -316,17 +316,18 @@ body {
   color: var(--text-subtle);
 }
 
-.prompt-list__header {
+.prompt-list__header--centered {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
 .prompt-search {
-  flex: 1;
-  min-width: 120px;
-  margin: 0;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
   padding: 8px 10px;
 }
 
