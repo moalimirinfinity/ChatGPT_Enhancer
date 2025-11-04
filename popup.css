@@ -352,7 +352,7 @@ body {
 .prompt-form__field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
 }
 
@@ -478,7 +478,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   max-height: 240px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -495,9 +495,9 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 16px 24px 22px;
-  min-height: 78px;
-  border-radius: 14px;
+  padding: 12px 20px 16px;
+  min-height: 66px;
+  border-radius: 11px;
   background: rgba(18, 23, 52, 0.82);
   border: 1px solid var(--surface-outline);
   box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
@@ -514,8 +514,8 @@ body {
 
 .prompt-card__handle {
   position: absolute;
-  top: 8px;
-  left: 10px;
+  top: 5px;
+  left: 7px;
   border: 1px solid transparent;
   background: rgba(12, 16, 38, 0.6);
   color: #a8b8ff;
@@ -552,7 +552,7 @@ body {
   font-weight: 600;
   color: #eef1ff;
   word-break: break-word;
-  line-height: 1.4;
+  line-height: 1.35;
   max-width: 100%;
   padding: 0 8px;
 }
@@ -563,8 +563,8 @@ body {
   background: rgba(18, 23, 52, 0.74);
   color: #d4e2ff;
   border-radius: 9px;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -580,22 +580,22 @@ body {
 }
 
 .prompt-card__action--copy {
-  left: 10px;
-  bottom: 8px;
+  left: 7px;
+  bottom: 6px;
 }
 
 .prompt-card__action--edit {
-  right: 10px;
-  top: 8px;
-  width: 24px;
-  height: 24px;
+  right: 7px;
+  top: 5px;
+  width: 26px;
+  height: 26px;
 }
 
 .prompt-card__action--delete {
-  right: 10px;
-  bottom: 8px;
-  width: 24px;
-  height: 24px;
+  right: 7px;
+  bottom: 6px;
+  width: 26px;
+  height: 26px;
 }
 
 .prompt-card__action.is-copied {
@@ -610,8 +610,8 @@ body {
 }
 
 .prompt-card__icon {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
