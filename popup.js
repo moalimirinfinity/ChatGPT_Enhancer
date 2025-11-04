@@ -1313,6 +1313,12 @@ function handlePromptListClick(event) {
       break;
     case 'edit':
       setActivePanelView('prompts');
+
+      // Add this block to open the accordion
+      if (controls.promptFormAccordionHeader && controls.promptFormSection) {
+        setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, true);
+      }
+
       enterPromptEditMode(prompt);
       break;
     case 'delete':
