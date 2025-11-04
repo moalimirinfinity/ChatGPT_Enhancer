@@ -20,6 +20,36 @@
         <h1 class="panel__title">GPT Enhancer</h1>
         <p class="panel__subtitle">Make ChatGPT Great Again</p>
       </header>
+      <nav class="panel-tabs" role="tablist" aria-label="Main views">
+        <button
+          class="panel-tabs__tab is-active"
+          type="button"
+          id="panel-tab-settings"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-view-settings"
+        >
+          Settings
+        </button>
+        <button
+          class="panel-tabs__tab"
+          type="button"
+          id="panel-tab-prompts"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-view-prompts"
+          tabindex="-1"
+        >
+          Prompts
+        </button>
+      </nav>
+      <div class="panel-views">
+        <div
+          id="panel-view-settings"
+          class="panel-view is-active"
+          role="tabpanel"
+          aria-labelledby="panel-tab-settings"
+        >
 
       <section class="panel__section">
         <label class="toggle">
@@ -513,6 +543,85 @@
           @moalimirinfinity
         </a>
       </p>
+        </div>
+        <div
+          id="panel-view-prompts"
+          class="panel-view"
+          role="tabpanel"
+          aria-labelledby="panel-tab-prompts"
+          hidden
+        >
+          <section class="panel__section panel__section--prompts-intro">
+            <div id="prompt-error" class="prompts-error" role="status" aria-live="polite" hidden></div>
+          </section>
+          <section class="panel__section panel__section--accordion">
+            <button
+              class="accordion__header"
+              type="button"
+              id="prompt-form-accordion-header"
+              aria-controls="prompt-form-section"
+              aria-expanded="false"
+              data-target="prompt-form-section"
+            >
+              <span class="panel__section-title">Add New Prompt</span>
+              <span class="accordion__icon" aria-hidden="true">></span>
+            </button>
+            <div id="prompt-form-section" class="accordion__content">
+              <form id="prompt-form" class="prompt-form" novalidate>
+                <div class="prompt-form__field">
+                  <label class="prompt-form__label" for="prompt-name">Title</label>
+                  <input
+                    class="prompt-form__input"
+                    type="text"
+                    id="prompt-name"
+                    name="prompt-name"
+                    placeholder="Optional title"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="prompt-form__field">
+                  <label class="prompt-form__label" for="prompt-text">Prompt</label>
+                  <textarea
+                    class="prompt-form__textarea"
+                    id="prompt-text"
+                    name="prompt-text"
+                    rows="4"
+                    placeholder="Write your prompt"
+                    required
+                  ></textarea>
+                </div>
+                <div class="prompt-form__actions">
+                  <button type="submit" class="prompt-form__submit">Save prompt</button>
+                  <button type="button" class="prompt-form__cancel" id="prompt-cancel-button" hidden>
+                    Cancel edit
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+          <section class="panel__section">
+            <div class="prompt-list__header prompt-list__header--centered">
+              <div class="prompts-count" aria-live="polite">
+                <span id="prompts-count">0</span>
+                <span class="prompts-count__label">prompts</span>
+              </div>
+              <input
+                type="search"
+                id="prompt-search"
+                class="prompt-search prompt-form__input"
+                placeholder="Search..."
+                autocomplete="off"
+                aria-label="Search saved prompts"
+              />
+            </div>
+            <div id="prompts-empty" class="prompts-empty" hidden>
+              <p class="prompts-empty__primary">You have no saved prompts yet.</p>
+              <p class="prompts-empty__secondary">Create your first prompt to see it here.</p>
+            </div>
+            <ul id="prompt-list" class="prompt-list" aria-live="polite"></ul>
+          </section>
+        </div>
+      </div>
       <div class="help-panel" id="help-panel" aria-hidden="true">
         <div class="help-panel__container" role="dialog" aria-labelledby="help-panel-title" aria-modal="true" tabindex="-1">
           <header class="help-panel__header">

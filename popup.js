@@ -24,6 +24,46 @@ const THEME_COMPATIBILITY = {
   skylight: 'light'
 };
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
+const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
+const PROMPT_TITLE_MAX_LENGTH = 80;
+const PROMPT_COPY_RESET_DELAY = 1600;
+const PROMPTS_EMPTY_DEFAULT_PRIMARY = 'You have no saved prompts yet.';
+const PROMPTS_EMPTY_DEFAULT_SECONDARY = 'Create your first prompt to see it here.';
+const PROMPTS_EMPTY_FILTERED_PRIMARY = 'No prompts match your search.';
+const PROMPTS_EMPTY_FILTERED_SECONDARY = 'Try a different keyword or clear the search.';
+const PROMPT_ACTION_LABELS = {
+  copy: 'Copy prompt',
+  edit: 'Edit prompt',
+  delete: 'Delete prompt'
+};
+const PROMPT_ACTION_ICONS = {
+  copy: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  `,
+  edit: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M16.862 3.487a2.15 2.15 0 0 1 3.041 3.041L9.03 17.401 4.5 18.5 5.599 13.97 16.862 3.487z"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M15.5 5l3.5 3.5"></path>
+    </svg>
+  `,
+  delete: `
+    <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M10 11v6"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M14 11v6"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"></path>
+      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 4h6a1 1 0 0 1 1 1v2H8V5a1 1 0 0 1 1-1z"></path>
+    </svg>
+  `
+};
+const PROMPT_COPY_SUCCESS_ICON = `
+  <svg class="prompt-card__icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"></path>
+  </svg>
+`;
 
 function normalizeThemeAlias(theme) {
   if (typeof theme !== 'string') {
@@ -40,6 +80,12 @@ let currentFontTab = FONT_LANGUAGES[0];
 let helpLanguage = 'english';
 let lastFocusedBeforeHelp = null;
 let chatBaseThemeMode = null;
+let activePanelView = 'settings';
+let prompts = [];
+let editingPromptId = null;
+const promptCopyTimers = new Map();
+let promptDragState = null;
+let promptSearchQuery = '';
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -61,6 +107,14 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
   controls.accordionHeaders = Array.from(document.querySelectorAll('.accordion__header'));
+  controls.promptFormAccordionHeader = document.getElementById('prompt-form-accordion-header');
+  controls.promptFormSection = document.getElementById('prompt-form-section');
+  if (
+    controls.promptFormAccordionHeader &&
+    !controls.accordionHeaders.includes(controls.promptFormAccordionHeader)
+  ) {
+    controls.accordionHeaders.push(controls.promptFormAccordionHeader);
+  }
   controls.fontToggle = document.getElementById('toggle-fonts');
   controls.fontControl = document.querySelector('.font-control');
   controls.fontTabs = Array.from(document.querySelectorAll('.font-tab'));
@@ -73,6 +127,29 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.helpCloseBtn = document.getElementById('help-close-btn');
   controls.helpLangButtons = Array.from(document.querySelectorAll('.help-panel__lang-btn'));
   controls.helpSections = Array.from(document.querySelectorAll('.help-panel__section'));
+  controls.tabSettings = document.getElementById('panel-tab-settings');
+  controls.tabPrompts = document.getElementById('panel-tab-prompts');
+  controls.viewSettings = document.getElementById('panel-view-settings');
+  controls.viewPrompts = document.getElementById('panel-view-prompts');
+  controls.promptsCount = document.getElementById('prompts-count');
+  controls.promptsCountLabel = document.querySelector('.prompts-count__label');
+  controls.promptForm = document.getElementById('prompt-form');
+  controls.promptNameInput = document.getElementById('prompt-name');
+  controls.promptTextInput = document.getElementById('prompt-text');
+  controls.promptCancelButton = document.getElementById('prompt-cancel-button');
+  controls.promptSubmitButton = document.querySelector('.prompt-form__submit');
+  controls.promptList = document.getElementById('prompt-list');
+  controls.promptsEmpty = document.getElementById('prompts-empty');
+  controls.promptsEmptyPrimary = document.querySelector('.prompts-empty__primary');
+  controls.promptsEmptySecondary = document.querySelector('.prompts-empty__secondary');
+  controls.promptError = document.getElementById('prompt-error');
+  controls.promptSearch = document.getElementById('prompt-search');
+  if (controls.promptsEmptyPrimary) {
+    controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
+  }
+  if (controls.promptsEmptySecondary) {
+    controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_DEFAULT_SECONDARY;
+  }
 
   if (chrome && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(STORAGE_THEME_MODE_KEY, (stored) => {
@@ -190,6 +267,16 @@ document.addEventListener('DOMContentLoaded', () => {
       setHelpLanguage(lang);
     });
   });
+  if (controls.promptSearch) {
+    controls.promptSearch.addEventListener('input', handlePromptSearch);
+  }
+  if (controls.promptTextInput) {
+    controls.promptTextInput.addEventListener('input', () => autoResizeTextarea(controls.promptTextInput));
+    autoResizeTextarea(controls.promptTextInput);
+  }
+  if (controls.promptFormAccordionHeader && controls.promptFormSection) {
+    setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, false);
+  }
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && isHelpPanelOpen()) {
       event.preventDefault();
@@ -224,12 +311,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const expanded = header.getAttribute('aria-expanded') === 'true';
-      header.setAttribute('aria-expanded', String(!expanded));
-      content.classList.toggle('is-open', !expanded);
+      setAccordionExpanded(header, content, !expanded);
     });
   });
 
   setActiveFontTab(currentFontTab);
+
+  initPanelTabs();
+  initPromptFeature();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
@@ -247,8 +336,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (area !== 'sync') {
       return;
     }
+    if (Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY)) {
+      const { newValue } = changes[PROMPTS_STORAGE_KEY];
+      synchronizePromptsFromStorage(newValue);
+    }
+    const filteredEntries = Object.entries(changes).filter(([key]) => key !== PROMPTS_STORAGE_KEY);
+    if (!filteredEntries.length) {
+      return;
+    }
     const next = { ...currentSettings };
-    Object.entries(changes).forEach(([key, { newValue }]) => {
+    filteredEntries.forEach(([key, { newValue }]) => {
       next[key] = newValue;
     });
     applySettingsToUI(next);
@@ -744,6 +841,895 @@ function normalizeErrorValue(value, seen) {
   }
 
   return result;
+}
+
+function initPanelTabs() {
+  if (!controls.tabSettings || !controls.tabPrompts || !controls.viewSettings || !controls.viewPrompts) {
+    return;
+  }
+
+  controls.tabSettings.addEventListener('click', () => setActivePanelView('settings'));
+  controls.tabPrompts.addEventListener('click', () => setActivePanelView('prompts'));
+
+  setActivePanelView(activePanelView);
+}
+
+function setActivePanelView(view) {
+  if (view !== 'settings' && view !== 'prompts') {
+    return;
+  }
+  const hasChanged = activePanelView !== view;
+  const mapping = {
+    settings: { tab: controls.tabSettings, panel: controls.viewSettings },
+    prompts: { tab: controls.tabPrompts, panel: controls.viewPrompts }
+  };
+
+  Object.entries(mapping).forEach(([key, entry]) => {
+    const isActive = key === view;
+    const tab = entry.tab;
+    const panel = entry.panel;
+    if (tab) {
+      tab.classList.toggle('is-active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.setAttribute('tabindex', isActive ? '0' : '-1');
+    }
+    if (panel) {
+      panel.classList.toggle('is-active', isActive);
+      if (isActive) {
+        panel.removeAttribute('hidden');
+      } else {
+        panel.setAttribute('hidden', 'true');
+      }
+    }
+  });
+
+  activePanelView = view;
+  if (view === 'prompts' && controls.promptNameInput && hasChanged) {
+    controls.promptNameInput.focus();
+  }
+}
+
+function initPromptFeature() {
+  if (controls.promptForm) {
+    controls.promptForm.addEventListener('submit', handlePromptFormSubmit);
+  }
+  if (controls.promptCancelButton) {
+    controls.promptCancelButton.addEventListener('click', () => {
+      exitPromptEditMode();
+      clearPromptError();
+      if (controls.promptTextInput) {
+        controls.promptTextInput.focus();
+      }
+    });
+  }
+  if (controls.promptList) {
+    controls.promptList.addEventListener('click', handlePromptListClick);
+    controls.promptList.addEventListener('dragover', handlePromptDragOver);
+    controls.promptList.addEventListener('drop', handlePromptDrop);
+  }
+
+  exitPromptEditMode();
+  loadPromptsFromStorage();
+}
+
+function loadPromptsFromStorage() {
+  if (!chrome?.storage?.sync) {
+    prompts = [];
+    renderPromptsWithCurrentFilter({ scrollToTop: true });
+    return;
+  }
+
+  chrome.storage.sync.get({ [PROMPTS_STORAGE_KEY]: [] }, (stored) => {
+    if (chrome.runtime.lastError) {
+      console.error('[GPT Enhancer] Failed to load prompts', chrome.runtime.lastError);
+      showPromptError('Unable to load prompts from storage.');
+      prompts = [];
+      renderPromptsWithCurrentFilter({ scrollToTop: true });
+      return;
+    }
+    const storedPrompts = stored ? stored[PROMPTS_STORAGE_KEY] : [];
+    prompts = normalizePromptCollection(storedPrompts);
+    renderPromptsWithCurrentFilter({ scrollToTop: true });
+    clearPromptError();
+  });
+}
+
+function synchronizePromptsFromStorage(value) {
+  prompts = normalizePromptCollection(value);
+  renderPromptsWithCurrentFilter({ scrollToTop: true });
+}
+
+function getFilteredPrompts() {
+  const query = promptSearchQuery;
+  if (!query) {
+    return prompts;
+  }
+  const loweredQuery = query.toLowerCase();
+  return prompts.filter((prompt) => {
+    const title = typeof prompt.title === 'string' ? prompt.title.toLowerCase() : '';
+    const text = typeof prompt.text === 'string' ? prompt.text.toLowerCase() : '';
+    return title.includes(loweredQuery) || text.includes(loweredQuery);
+  });
+}
+
+function renderPrompts(promptsToRender = prompts, options = {}) {
+  if (!controls.promptList) {
+    return;
+  }
+
+  const list = Array.isArray(promptsToRender) ? promptsToRender : [];
+  const isFiltered = Boolean(promptSearchQuery);
+
+  promptCopyTimers.forEach((timer, button) => {
+    clearTimeout(timer);
+    if (button && button instanceof HTMLElement) {
+      restorePromptActionButton(button);
+    }
+  });
+  promptCopyTimers.clear();
+
+  const fragment = document.createDocumentFragment();
+  list.forEach((prompt) => {
+    const card = buildPromptCard(prompt, { disableDrag: isFiltered });
+    fragment.appendChild(card);
+  });
+
+  controls.promptList.replaceChildren(fragment);
+  controls.promptList.setAttribute('data-filtered', String(isFiltered));
+  updatePromptsEmptyState(list);
+
+  if (options.scrollToTop && controls.promptList) {
+    controls.promptList.scrollTop = 0;
+  }
+
+  if (options.focusId) {
+    window.requestAnimationFrame(() => {
+      const handle = controls.promptList?.querySelector(
+        `.prompt-card[data-id="${options.focusId}"] .prompt-card__handle`
+      );
+      if (handle && typeof handle.focus === 'function') {
+        handle.focus();
+      }
+    });
+  }
+}
+
+function renderPromptsWithCurrentFilter(options = {}) {
+  renderPrompts(getFilteredPrompts(), options);
+}
+
+function setAccordionExpanded(header, content, expanded) {
+  if (!header || !content) {
+    return;
+  }
+  header.setAttribute('aria-expanded', String(expanded));
+  content.classList.toggle('is-open', expanded);
+}
+
+function handlePromptSearch(event) {
+  const value = event?.target?.value || '';
+  promptSearchQuery = value.toLowerCase().trim();
+  renderPromptsWithCurrentFilter({ scrollToTop: true });
+  clearPromptError();
+}
+
+function autoResizeTextarea(element) {
+  if (!element) {
+    return;
+  }
+  element.style.height = 'auto';
+  const computed = window.getComputedStyle(element);
+  const minHeight = parseInt(computed.minHeight, 10) || 0;
+  const nextHeight = Math.max(element.scrollHeight + 2, minHeight);
+  element.style.height = `${nextHeight}px`;
+}
+
+function buildPromptCard(prompt, { disableDrag } = {}) {
+  const card = document.createElement('li');
+  card.className = 'prompt-card';
+  card.dataset.id = prompt.id;
+  card.setAttribute('role', 'listitem');
+  if (typeof prompt.text === 'string' && prompt.text) {
+    card.title = prompt.text;
+  }
+
+  const handle = document.createElement('button');
+  handle.type = 'button';
+  handle.className = 'prompt-card__handle';
+  handle.draggable = !disableDrag;
+  handle.classList.toggle('prompt-card__handle--disabled', Boolean(disableDrag));
+  handle.setAttribute('aria-label', `Reorder prompt "${getPromptDisplayTitle(prompt)}"`);
+  const handleIcon = document.createElement('span');
+  handleIcon.setAttribute('aria-hidden', 'true');
+  handleIcon.textContent = '⋮⋮';
+  handle.appendChild(handleIcon);
+  handle.addEventListener('dragstart', handlePromptDragStart);
+  handle.addEventListener('dragend', handlePromptDragEnd);
+  handle.addEventListener('keydown', handlePromptHandleKeyDown);
+
+  const title = document.createElement('h3');
+  title.className = 'prompt-card__title';
+  title.textContent = getPromptDisplayTitle(prompt);
+
+  // Create a header wrapper
+  const header = document.createElement('div');
+  header.className = 'prompt-card__header';
+  header.appendChild(handle);
+  header.appendChild(title);
+
+  const copyAction = buildPromptActionButton('copy');
+  const editAction = buildPromptActionButton('edit');
+  const deleteAction = buildPromptActionButton('delete');
+  const actions = document.createElement('div');
+  actions.className = 'prompt-card__actions';
+  actions.appendChild(copyAction);
+  actions.appendChild(editAction);
+  actions.appendChild(deleteAction);
+
+  // Append header and actions
+  card.appendChild(header);
+  card.appendChild(actions);
+
+  return card;
+}
+
+function buildPromptActionButton(action) {
+  const label = PROMPT_ACTION_LABELS[action] || action;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'prompt-card__action';
+  button.classList.add(`prompt-card__action--${action}`);
+  button.dataset.action = action;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = `${getPromptActionIcon(action)}<span class="visually-hidden">${label}</span>`;
+  button.dataset.originalMarkup = button.innerHTML;
+  button.dataset.originalAriaLabel = label;
+  return button;
+}
+
+function getPromptActionIcon(action) {
+  return PROMPT_ACTION_ICONS[action] || '';
+}
+
+function getPromptCopySuccessMarkup() {
+  return PROMPT_COPY_SUCCESS_ICON;
+}
+
+function restorePromptActionButton(button) {
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+  const action = button.dataset.action;
+  const label = button.dataset.originalAriaLabel || PROMPT_ACTION_LABELS[action] || 'Prompt action';
+  const markup =
+    button.dataset.originalMarkup ||
+    `${getPromptActionIcon(action)}<span class="visually-hidden">${label}</span>`;
+  button.innerHTML = markup;
+  button.dataset.originalMarkup = markup;
+  button.setAttribute('aria-label', label);
+  button.disabled = false;
+  button.classList.remove('is-copied');
+}
+
+function updatePromptsEmptyState(list) {
+  const collection = Array.isArray(list) ? list : [];
+  const hasPrompts = collection.length > 0;
+  if (controls.promptsEmpty) {
+    controls.promptsEmpty.hidden = hasPrompts;
+  }
+  if (controls.promptList) {
+    controls.promptList.setAttribute('data-has-items', String(hasPrompts));
+  }
+  if (!hasPrompts && controls.promptsEmptyPrimary && controls.promptsEmptySecondary) {
+    if (promptSearchQuery) {
+      controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_FILTERED_PRIMARY;
+      controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_FILTERED_SECONDARY;
+    } else {
+      controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
+      controls.promptsEmptySecondary.textContent = PROMPTS_EMPTY_DEFAULT_SECONDARY;
+      if (controls.promptFormAccordionHeader && controls.promptFormSection) {
+        setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, true);
+      }
+    }
+  }
+  updatePromptsCount();
+}
+
+function updatePromptsCount() {
+  if (controls.promptsCount) {
+    controls.promptsCount.textContent = String(prompts.length);
+  }
+  if (controls.promptsCountLabel) {
+    controls.promptsCountLabel.textContent = prompts.length === 1 ? 'prompt' : 'prompts';
+  }
+}
+
+function getPromptDisplayTitle(prompt) {
+  const title = typeof prompt.title === 'string' ? prompt.title.trim() : '';
+  if (title) {
+    return title;
+  }
+  const text = typeof prompt.text === 'string' ? prompt.text.trim() : '';
+  if (!text) {
+    return 'Untitled prompt';
+  }
+  return truncateText(text, PROMPT_TITLE_MAX_LENGTH);
+}
+
+function truncateText(text, maxLength) {
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
+  const sliceLength = Math.max(1, maxLength - 1);
+  return `${text.slice(0, sliceLength).trimEnd()}…`;
+}
+
+async function handlePromptFormSubmit(event) {
+  event.preventDefault();
+  if (!controls.promptTextInput) {
+    return;
+  }
+
+  const title = controls.promptNameInput ? controls.promptNameInput.value.trim() : '';
+  const text = controls.promptTextInput.value.trim();
+  if (!text) {
+    showPromptError('Prompt text cannot be empty.');
+    controls.promptTextInput.focus();
+    return;
+  }
+
+  clearPromptError();
+
+  const now = Date.now();
+  const previousPrompts = prompts.slice();
+  let nextPrompts;
+  let focusId;
+
+  if (editingPromptId) {
+    const index = prompts.findIndex((item) => item.id === editingPromptId);
+    if (index === -1) {
+      showPromptError('Unable to locate the prompt you are editing.');
+      exitPromptEditMode();
+      return;
+    }
+    const updatedPrompt = {
+      ...prompts[index],
+      title,
+      text,
+      updatedAt: now
+    };
+    nextPrompts = prompts.slice();
+    nextPrompts[index] = updatedPrompt;
+    focusId = updatedPrompt.id;
+  } else {
+    const newPrompt = {
+      id: generatePromptId(),
+      title,
+      text,
+      createdAt: now,
+      updatedAt: now
+    };
+    nextPrompts = [newPrompt, ...prompts];
+    focusId = newPrompt.id;
+  }
+
+  prompts = nextPrompts;
+  const renderOptions = { focusId };
+  if (!promptSearchQuery && !editingPromptId) {
+    renderOptions.scrollToTop = true;
+  }
+  renderPromptsWithCurrentFilter(renderOptions);
+
+  try {
+    await persistPrompts(nextPrompts);
+    clearPromptError();
+    exitPromptEditMode();
+    if (controls.promptTextInput) {
+      controls.promptTextInput.focus();
+      autoResizeTextarea(controls.promptTextInput);
+    }
+  } catch (error) {
+    console.error('[GPT Enhancer] Failed to save prompts', error);
+    prompts = previousPrompts;
+    renderPromptsWithCurrentFilter({ focusId: editingPromptId || null });
+    showPromptError('Unable to save your prompt. Please try again.');
+  }
+}
+
+function enterPromptEditMode(prompt) {
+  if (!prompt || !controls.promptForm) {
+    return;
+  }
+  editingPromptId = prompt.id;
+  if (controls.promptForm) {
+    controls.promptForm.classList.add('prompt-form--editing');
+  }
+  if (controls.promptNameInput) {
+    controls.promptNameInput.value = prompt.title || '';
+  }
+  if (controls.promptTextInput) {
+    controls.promptTextInput.value = prompt.text || '';
+    autoResizeTextarea(controls.promptTextInput);
+  }
+  if (controls.promptCancelButton) {
+    controls.promptCancelButton.hidden = false;
+  }
+  if (controls.promptSubmitButton) {
+    controls.promptSubmitButton.textContent = 'Save changes';
+  }
+  if (controls.promptNameInput) {
+    controls.promptNameInput.focus();
+  }
+}
+
+function exitPromptEditMode() {
+  editingPromptId = null;
+  if (controls.promptForm) {
+    controls.promptForm.classList.remove('prompt-form--editing');
+    controls.promptForm.reset();
+  }
+  if (controls.promptNameInput) {
+    controls.promptNameInput.value = '';
+  }
+  if (controls.promptTextInput) {
+    controls.promptTextInput.value = '';
+    autoResizeTextarea(controls.promptTextInput);
+  }
+  if (controls.promptCancelButton) {
+    controls.promptCancelButton.hidden = true;
+  }
+  if (controls.promptSubmitButton) {
+    controls.promptSubmitButton.textContent = 'Save prompt';
+  }
+}
+
+function handlePromptListClick(event) {
+  const target = event.target instanceof Element ? event.target.closest('.prompt-card__action') : null;
+  if (!target) {
+    return;
+  }
+  const card = target.closest('.prompt-card');
+  if (!card) {
+    return;
+  }
+  const promptId = card.dataset.id;
+  if (!promptId) {
+    return;
+  }
+  const prompt = prompts.find((item) => item.id === promptId);
+  if (!prompt) {
+    showPromptError('Selected prompt could not be found.');
+    return;
+  }
+
+  switch (target.dataset.action) {
+    case 'copy':
+      copyPromptToClipboard(prompt, target);
+      break;
+    case 'edit':
+      setActivePanelView('prompts');
+
+      // Add this block to open the accordion
+      if (controls.promptFormAccordionHeader && controls.promptFormSection) {
+        setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, true);
+      }
+
+      enterPromptEditMode(prompt);
+      break;
+    case 'delete':
+      confirmPromptDeletion(promptId);
+      break;
+    default:
+      break;
+  }
+}
+
+function copyPromptToClipboard(prompt, button) {
+  if (!prompt || typeof prompt.text !== 'string' || !prompt.text.trim()) {
+    showPromptError('This prompt is empty and cannot be copied.');
+    return;
+  }
+  try {
+    writeTextToClipboard(prompt.text);
+    showCopyFeedback(button);
+    clearPromptError();
+  } catch (error) {
+    console.error('[GPT Enhancer] Failed to copy prompt', error);
+    showPromptError('Unable to copy prompt to clipboard.');
+  }
+}
+
+function showCopyFeedback(button) {
+  if (!button) {
+    return;
+  }
+  if (promptCopyTimers.has(button)) {
+    clearTimeout(promptCopyTimers.get(button));
+  }
+  if (!button.dataset.originalMarkup) {
+    button.dataset.originalMarkup = button.innerHTML;
+  }
+  if (!button.dataset.originalAriaLabel) {
+    const action = button.dataset.action;
+    button.dataset.originalAriaLabel = PROMPT_ACTION_LABELS[action] || 'Copy prompt';
+  }
+  button.disabled = true;
+  button.classList.add('is-copied');
+  button.setAttribute('aria-label', 'Copied!');
+  button.innerHTML = `${getPromptCopySuccessMarkup()}<span class="visually-hidden">Copied!</span>`;
+  const timer = window.setTimeout(() => {
+    restorePromptActionButton(button);
+    promptCopyTimers.delete(button);
+  }, PROMPT_COPY_RESET_DELAY);
+  promptCopyTimers.set(button, timer);
+}
+
+function writeTextToClipboard(text) {
+  if (!text) {
+    return Promise.resolve();
+  }
+  if (navigator?.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (!successful) {
+        reject(new Error('execCommand failed'));
+        return;
+      }
+      resolve();
+    } catch (error) {
+      document.body.removeChild(textarea);
+      reject(error);
+    }
+  });
+}
+
+function showPromptError(message) {
+  if (!controls.promptError) {
+    return;
+  }
+  controls.promptError.textContent = message;
+  controls.promptError.hidden = false;
+}
+
+function clearPromptError() {
+  if (!controls.promptError) {
+    return;
+  }
+  controls.promptError.hidden = true;
+  controls.promptError.textContent = '';
+}
+
+function persistPrompts(nextPrompts) {
+  if (!chrome?.storage?.sync) {
+    return Promise.resolve();
+  }
+  const payload = nextPrompts.map((prompt) => ({
+    id: prompt.id,
+    title: typeof prompt.title === 'string' ? prompt.title : '',
+    text: typeof prompt.text === 'string' ? prompt.text : '',
+    createdAt: Number.isFinite(prompt.createdAt) ? prompt.createdAt : Date.now(),
+    updatedAt: Number.isFinite(prompt.updatedAt) ? prompt.updatedAt : Date.now()
+  }));
+
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.set({ [PROMPTS_STORAGE_KEY]: payload }, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function normalizePromptCollection(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seenIds = new Set();
+  const normalized = [];
+
+  value.forEach((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return;
+    }
+    const text = typeof entry.text === 'string' ? entry.text.trim() : '';
+    if (!text) {
+      return;
+    }
+    let id = typeof entry.id === 'string' && entry.id ? entry.id : generatePromptId();
+    while (seenIds.has(id)) {
+      id = generatePromptId();
+    }
+    seenIds.add(id);
+    const title = typeof entry.title === 'string' ? entry.title.trim() : '';
+    const createdAt = Number.isFinite(entry.createdAt) ? entry.createdAt : Date.now();
+    const updatedAt = Number.isFinite(entry.updatedAt) ? entry.updatedAt : createdAt;
+    normalized.push({
+      id,
+      title,
+      text,
+      createdAt,
+      updatedAt
+    });
+  });
+
+  return normalized;
+}
+
+function generatePromptId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `prompt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function handlePromptDragStart(event) {
+  if (promptSearchQuery) {
+    showPromptError('Clear the search to reorder prompts.');
+    event.preventDefault();
+    return;
+  }
+  const handle = event.currentTarget;
+  if (!(handle instanceof HTMLElement)) {
+    return;
+  }
+  const card = handle.closest('.prompt-card');
+  if (!card) {
+    event.preventDefault();
+    return;
+  }
+  const promptId = card.dataset.id;
+  if (!promptId) {
+    event.preventDefault();
+    return;
+  }
+  promptDragState = {
+    id: promptId,
+    card,
+    reordered: false
+  };
+  card.classList.add('prompt-card--dragging');
+  if (event.dataTransfer) {
+    try {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', promptId);
+      event.dataTransfer.setDragImage(card, card.offsetWidth / 2, card.offsetHeight / 2);
+    } catch (error) {
+      // Ignore drag image issues.
+    }
+  }
+}
+
+function handlePromptDragEnd() {
+  if (!promptDragState) {
+    return;
+  }
+  const { card, reordered, id } = promptDragState;
+  if (card) {
+    card.classList.remove('prompt-card--dragging');
+  }
+  promptDragState = null;
+  if (!reordered) {
+    renderPromptsWithCurrentFilter({ focusId: id });
+  }
+}
+
+function handlePromptDragOver(event) {
+  if (promptSearchQuery) {
+    event.preventDefault();
+    return;
+  }
+  if (!promptDragState || !controls.promptList) {
+    return;
+  }
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const draggingCard = promptDragState.card;
+  if (!draggingCard) {
+    return;
+  }
+  const targetCard = event.target instanceof Element ? event.target.closest('.prompt-card') : null;
+  if (!targetCard || targetCard === draggingCard) {
+    if (!targetCard) {
+      controls.promptList.appendChild(draggingCard);
+    }
+    return;
+  }
+  const targetRect = targetCard.getBoundingClientRect();
+  const shouldInsertAfter = event.clientY > targetRect.top + targetRect.height / 2;
+  if (shouldInsertAfter) {
+    if (targetCard.nextSibling !== draggingCard) {
+      controls.promptList.insertBefore(draggingCard, targetCard.nextSibling);
+    }
+  } else if (targetCard !== draggingCard.nextSibling) {
+    controls.promptList.insertBefore(draggingCard, targetCard);
+  }
+}
+
+function handlePromptDrop(event) {
+  if (promptSearchQuery) {
+    event.preventDefault();
+    return;
+  }
+  if (!promptDragState) {
+    return;
+  }
+  event.preventDefault();
+  applyPromptOrderFromDom({ focusId: promptDragState.id });
+}
+
+function applyPromptOrderFromDom(options = {}) {
+  if (promptSearchQuery) {
+    renderPromptsWithCurrentFilter();
+    showPromptError('Clear the search to reorder prompts.');
+    return;
+  }
+  if (!controls.promptList) {
+    return;
+  }
+  const orderedCards = Array.from(controls.promptList.querySelectorAll('.prompt-card'));
+  if (!orderedCards.length) {
+    prompts = [];
+    renderPromptsWithCurrentFilter();
+    persistPrompts([]);
+    if (promptDragState) {
+      promptDragState.reordered = true;
+    }
+    return;
+  }
+
+  const orderedIds = orderedCards.map((card) => card.dataset.id).filter(Boolean);
+  if (!orderedIds.length) {
+    renderPromptsWithCurrentFilter();
+    if (promptDragState) {
+      promptDragState.reordered = true;
+    }
+    return;
+  }
+
+  const currentMap = new Map(prompts.map((prompt) => [prompt.id, prompt]));
+  const next = [];
+  let changed = false;
+
+  orderedIds.forEach((id, index) => {
+    const prompt = currentMap.get(id);
+    if (!prompt) {
+      return;
+    }
+    next.push(prompt);
+    if (!changed && prompts[index] !== prompt) {
+      changed = true;
+    }
+  });
+
+  if (next.length !== prompts.length || !changed) {
+    renderPromptsWithCurrentFilter({ focusId: options.focusId || (promptDragState ? promptDragState.id : null) });
+    if (promptDragState) {
+      promptDragState.reordered = true;
+    }
+    return;
+  }
+
+  const previousPrompts = prompts.slice();
+  prompts = next;
+  renderPromptsWithCurrentFilter({ focusId: options.focusId || (promptDragState ? promptDragState.id : null) });
+  if (promptDragState) {
+    promptDragState.reordered = true;
+  }
+
+  persistPrompts(next)
+    .then(() => {
+      clearPromptError();
+    })
+    .catch((error) => {
+      console.error('[GPT Enhancer] Failed to persist reordered prompts', error);
+      prompts = previousPrompts;
+      renderPromptsWithCurrentFilter({ focusId: options.focusId || null });
+      showPromptError('Unable to save the new prompt order. Please try again.');
+    });
+}
+
+function handlePromptHandleKeyDown(event) {
+  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+    return;
+  }
+  if (promptSearchQuery) {
+    showPromptError('Clear the search to reorder prompts.');
+    return;
+  }
+  event.preventDefault();
+  const handle = event.currentTarget;
+  if (!(handle instanceof HTMLElement)) {
+    return;
+  }
+  const card = handle.closest('.prompt-card');
+  if (!card) {
+    return;
+  }
+  const promptId = card.dataset.id;
+  if (!promptId) {
+    return;
+  }
+  const delta = event.key === 'ArrowUp' ? -1 : 1;
+  movePromptByKeyboard(promptId, delta);
+}
+
+function movePromptByKeyboard(promptId, delta) {
+  if (!delta) {
+    return;
+  }
+  if (promptSearchQuery) {
+    showPromptError('Clear the search to reorder prompts.');
+    return;
+  }
+  const index = prompts.findIndex((prompt) => prompt.id === promptId);
+  if (index === -1) {
+    return;
+  }
+  const targetIndex = index + delta;
+  if (targetIndex < 0 || targetIndex >= prompts.length) {
+    return;
+  }
+  const previousPrompts = prompts.slice();
+  const next = prompts.slice();
+  const [moved] = next.splice(index, 1);
+  next.splice(targetIndex, 0, moved);
+  prompts = next;
+  renderPromptsWithCurrentFilter({ focusId: promptId });
+  persistPrompts(next)
+    .then(() => {
+      clearPromptError();
+    })
+    .catch((error) => {
+      console.error('[GPT Enhancer] Failed to reorder prompts via keyboard', error);
+      prompts = previousPrompts;
+      renderPromptsWithCurrentFilter({ focusId: promptId });
+      showPromptError('Unable to reorder prompts. Please try again.');
+    });
+}
+
+function confirmPromptDeletion(promptId) {
+  const prompt = prompts.find((item) => item.id === promptId);
+  if (!prompt) {
+    showPromptError('Prompt not found.');
+    return;
+  }
+  const shouldDelete = window.confirm('Delete this prompt? This action cannot be undone.');
+  if (!shouldDelete) {
+    return;
+  }
+  const previousPrompts = prompts.slice();
+  const next = prompts.filter((item) => item.id !== promptId);
+  prompts = next;
+  renderPromptsWithCurrentFilter();
+  if (editingPromptId === promptId) {
+    exitPromptEditMode();
+  }
+  persistPrompts(next)
+    .then(() => {
+      clearPromptError();
+    })
+    .catch((error) => {
+      console.error('[GPT Enhancer] Failed to delete prompt', error);
+      prompts = previousPrompts;
+      renderPromptsWithCurrentFilter();
+      showPromptError('Unable to delete the prompt. Please try again.');
+    });
 }
 
 function openHelpPanel() {
