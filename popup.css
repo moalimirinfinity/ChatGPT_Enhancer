@@ -287,14 +287,24 @@ body {
 }
 
 .panel__section--prompts-intro {
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
 }
 
 .prompts-header {
+  position: relative;
+  width: 100%;
   display: flex;
+  justify-content: center;
+  padding: 0 64px 16px 64px;
+}
+
+.prompts-header__texts {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 6px;
 }
 
 .prompts-title {
@@ -304,16 +314,20 @@ body {
 }
 
 .prompts-count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--surface-outline);
-  background: rgba(118, 140, 255, 0.12);
+  background: rgba(118, 140, 255, 0.18);
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
+  box-shadow: 0 6px 14px rgba(8, 10, 27, 0.22);
 }
 
 .prompts-count__label {
@@ -327,8 +341,9 @@ body {
 .prompts-hint {
   margin: 0;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--text-subtle);
+  max-width: 100%;
 }
 
 .prompts-error {
@@ -340,6 +355,7 @@ body {
   color: #ff97ae;
   font-size: 12px;
   line-height: 1.5;
+  text-align: center;
 }
 
 .prompt-form {
@@ -483,6 +499,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 6px;
+  align-items: center;
 }
 
 .prompt-list[data-has-items="false"] {
