@@ -552,26 +552,6 @@
           hidden
         >
           <section class="panel__section panel__section--prompts-intro">
-            <div class="prompts-header">
-              <div class="prompts-header__texts">
-                <h2 class="prompts-title">Saved prompts</h2>
-                <p class="prompts-hint">
-                  Organise Your Prompts.
-                </p>
-              </div>
-              <span class="prompts-count" aria-live="polite">
-                <span id="prompts-count">0</span>
-                <span class="prompts-count__label">prompts</span>
-              </span>
-            </div>
-            <input
-              type="search"
-              id="prompt-search"
-              class="prompt-search prompt-form__input"
-              placeholder="Search prompts..."
-              autocomplete="off"
-              aria-label="Search saved prompts"
-            />
             <div id="prompt-error" class="prompts-error" role="status" aria-live="polite" hidden></div>
           </section>
           <section class="panel__section panel__section--accordion">
@@ -620,6 +600,20 @@
             </div>
           </section>
           <section class="panel__section">
+            <div class="prompt-list__header">
+              <div class="prompts-count" aria-live="polite">
+                <span id="prompts-count">0</span>
+                <span class="prompts-count__label">prompts</span>
+              </div>
+              <input
+                type="search"
+                id="prompt-search"
+                class="prompt-search prompt-form__input"
+                placeholder="Search..."
+                autocomplete="off"
+                aria-label="Search saved prompts"
+              />
+            </div>
             <div id="prompts-empty" class="prompts-empty">
               <p class="prompts-empty__primary">You have no saved prompts yet.</p>
               <p class="prompts-empty__secondary">Create your first prompt to see it here.</p>

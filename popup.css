@@ -288,39 +288,10 @@ body {
 
 
 .panel__section--prompts-intro {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: stretch;
-  text-align: center;
-}
-
-.prompts-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-bottom: 6px;
-  gap: 6px;
-  width: 100%;
-  max-width: 320px;
-  margin: 0 auto;
-}
-
-.prompts-header__texts {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.prompts-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  padding: 12px;
 }
 
 .prompts-count {
-  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -332,8 +303,6 @@ body {
   font-size: 12px;
   font-weight: 600;
   box-shadow: 0 6px 14px rgba(8, 10, 27, 0.22);
-  margin-top: 6px;
-  width: fit-content;
 }
 
 .prompts-count__label {
@@ -344,19 +313,18 @@ body {
   color: var(--text-subtle);
 }
 
-.prompts-hint {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-subtle);
-  max-width: 100%;
+.prompt-list__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .prompt-search {
-  width: 100%;
-  max-width: 320px;
-  margin: 0 auto 10px;
-  display: block;
+  flex: 1;
+  min-width: 120px;
+  margin: 0;
+  padding: 8px 10px;
 }
 
 .prompts-error {
@@ -493,8 +461,6 @@ body {
   color: var(--text-subtle);
   font-size: 12px;
   line-height: 1.6;
-  max-width: 320px;
-  margin: 0 auto;
 }
 
 .prompts-empty__primary,
@@ -521,7 +487,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 6px;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
 }
 
@@ -543,8 +509,6 @@ body {
   box-shadow: 0 10px 20px rgba(5, 6, 18, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
   width: 100%;
-  max-width: 320px;
-  margin: 0 auto;
 }
 
 .prompt-card--dragging {
