@@ -1747,9 +1747,9 @@ async function renderNodeToPngSafely(node, options) {
         .join('\n');
       const suffix =
         suppressedLogs.length > 3 ? `\n  • (${suppressedLogs.length - 3} more similar message${suppressedLogs.length - 3 === 1 ? '' : 's'})` : '';
-      console.warn(
-        `[GPT Enhancer] PNG export skipped ${suppressedLogs.length} remote asset${suppressedLogs.length === 1 ? '' : 's'} that could not be embedded.\n${exampleLines}${suffix}`
-      );
+      // console.warn(
+      //   `[GPT Enhancer] PNG export skipped ${suppressedLogs.length} remote asset${suppressedLogs.length === 1 ? '' : 's'} that could not be embedded.\n${exampleLines}${suffix}`
+      // );
     }
     return { dataUrl, warnings: suppressedLogs };
   } catch (error) {
