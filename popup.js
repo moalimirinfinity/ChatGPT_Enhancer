@@ -955,9 +955,6 @@ function buildPromptCard(prompt) {
     card.title = prompt.text;
   }
 
-  const header = document.createElement('div');
-  header.className = 'prompt-card__header';
-
   const handle = document.createElement('button');
   handle.type = 'button';
   handle.className = 'prompt-card__handle';
@@ -975,17 +972,15 @@ function buildPromptCard(prompt) {
   title.className = 'prompt-card__title';
   title.textContent = getPromptDisplayTitle(prompt);
 
-  header.appendChild(handle);
-  header.appendChild(title);
+  const copyAction = buildPromptActionButton('copy');
+  const editAction = buildPromptActionButton('edit');
+  const deleteAction = buildPromptActionButton('delete');
 
-  const actions = document.createElement('div');
-  actions.className = 'prompt-card__actions';
-  actions.appendChild(buildPromptActionButton('copy'));
-  actions.appendChild(buildPromptActionButton('edit'));
-  actions.appendChild(buildPromptActionButton('delete'));
-
-  card.appendChild(header);
-  card.appendChild(actions);
+  card.appendChild(handle);
+  card.appendChild(title);
+  card.appendChild(copyAction);
+  card.appendChild(editAction);
+  card.appendChild(deleteAction);
 
   return card;
 }
@@ -995,6 +990,7 @@ function buildPromptActionButton(action) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'prompt-card__action';
+  button.classList.add(`prompt-card__action--${action}`);
   button.dataset.action = action;
   button.setAttribute('aria-label', label);
   button.innerHTML = `${getPromptActionIcon(action)}<span class="visually-hidden">${label}</span>`;

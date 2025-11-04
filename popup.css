@@ -490,10 +490,13 @@ body {
 }
 
 .prompt-card {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 14px 12px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 26px 40px 34px;
+  min-height: 104px;
   border-radius: 14px;
   background: rgba(18, 23, 52, 0.82);
   border: 1px solid var(--surface-outline);
@@ -509,13 +512,10 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.prompt-card__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
 .prompt-card__handle {
+  position: absolute;
+  top: 12px;
+  left: 14px;
   border: 1px solid transparent;
   background: rgba(12, 16, 38, 0.6);
   color: #a8b8ff;
@@ -528,7 +528,6 @@ body {
   justify-content: center;
   cursor: grab;
   transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
-  flex: 0 0 auto;
 }
 
 .prompt-card__handle:active {
@@ -547,26 +546,19 @@ body {
 }
 
 .prompt-card__title {
+  position: relative;
   margin: 0;
   font-size: 13px;
   font-weight: 600;
   color: #eef1ff;
   word-break: break-word;
   line-height: 1.4;
-  flex: 1 1 auto;
-}
-
-.prompt-card__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: nowrap;
-  padding-left: 44px;
+  max-width: 100%;
+  padding: 0 8px;
 }
 
 .prompt-card__action {
+  position: absolute;
   border: 1px solid rgba(122, 164, 255, 0.25);
   background: rgba(18, 23, 52, 0.74);
   color: #d4e2ff;
@@ -587,6 +579,25 @@ body {
   color: #ffffff;
 }
 
+.prompt-card__action--copy {
+  left: 16px;
+  bottom: 12px;
+}
+
+.prompt-card__action--edit {
+  right: 16px;
+  top: 12px;
+  width: 32px;
+  height: 32px;
+}
+
+.prompt-card__action--delete {
+  right: 16px;
+  bottom: 12px;
+  width: 32px;
+  height: 32px;
+}
+
 .prompt-card__action.is-copied {
   background: rgba(122, 164, 255, 0.26);
   border-color: rgba(122, 164, 255, 0.68);
@@ -599,8 +610,8 @@ body {
 }
 
 .prompt-card__icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
