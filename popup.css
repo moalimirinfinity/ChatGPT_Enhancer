@@ -1334,10 +1334,11 @@ body {
 }
 
 .support-chip {
+  flex-shrink: 0;
   border: none;
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 12px;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
   letter-spacing: 0.05em;
   font-weight: 600;
   cursor: pointer;
