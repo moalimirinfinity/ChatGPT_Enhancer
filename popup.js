@@ -904,6 +904,7 @@ function initPromptFeature() {
   }
   if (controls.promptList) {
     controls.promptList.addEventListener('click', handlePromptListClick);
+    controls.promptList.addEventListener('click', handlePromptCardClick);
     controls.promptList.addEventListener('dragover', handlePromptDragOver);
     controls.promptList.addEventListener('drop', handlePromptDrop);
   }
@@ -1029,10 +1030,15 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   card.className = 'prompt-card';
   card.dataset.id = prompt.id;
   card.setAttribute('role', 'listitem');
-  if (typeof prompt.text === 'string' && prompt.text) {
-    card.title = prompt.text;
-  }
-
+  
+  // NEW: Add mouseleave listener to the card itself to flip back
+  card.addEventListener('mouseleave', () => {
+    card.classList.remove('is-active');
+  });
+  // --- NEW: Create the front face (wrapper) ---
+  const front = document.createElement('div');
+  front.className = 'prompt-card__front';
+  // --- Build existing front content (handle, title, actions) ---
   const handle = document.createElement('button');
   handle.type = 'button';
   handle.className = 'prompt-card__handle';
@@ -1046,17 +1052,13 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   handle.addEventListener('dragstart', handlePromptDragStart);
   handle.addEventListener('dragend', handlePromptDragEnd);
   handle.addEventListener('keydown', handlePromptHandleKeyDown);
-
   const title = document.createElement('h3');
   title.className = 'prompt-card__title';
   title.textContent = getPromptDisplayTitle(prompt);
-
-  // Create a header wrapper
   const header = document.createElement('div');
   header.className = 'prompt-card__header';
   header.appendChild(handle);
   header.appendChild(title);
-
   const copyAction = buildPromptActionButton('copy');
   const editAction = buildPromptActionButton('edit');
   const deleteAction = buildPromptActionButton('delete');
@@ -1065,11 +1067,28 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   actions.appendChild(copyAction);
   actions.appendChild(editAction);
   actions.appendChild(deleteAction);
-
-  // Append header and actions
-  card.appendChild(header);
-  card.appendChild(actions);
-
+  // Append header and actions to the FRONT face
+  front.appendChild(header);
+  front.appendChild(actions);
+  // --- NEW: Build the back face ---
+  const back = document.createElement('div');
+  back.className = 'prompt-card__back';
+  const backTitle = document.createElement('h4');
+  backTitle.className = 'prompt-card__back-title';
+  backTitle.textContent = 'Prompt Preview';
+  
+  const backText = document.createElement('p');
+  backText.className = 'prompt-card__text';
+  backText.textContent = prompt.text || 'This prompt is empty.';
+  // Append title and text to the BACK face
+  back.appendChild(backTitle);
+  back.appendChild(backText);
+  // --- Assemble the card ---
+  // Append front and back faces to the main card
+  card.appendChild(front);
+  card.appendChild(back);
+  // Keep the original title attribute for accessibility on the front
+  front.title = `Prompt: "${getPromptDisplayTitle(prompt)}"`;
   return card;
 }
 
@@ -1288,9 +1307,15 @@ function handlePromptListClick(event) {
   if (!target) {
     return;
   }
+  
   const card = target.closest('.prompt-card');
   if (!card) {
     return;
+  }
+  // NEW: Reset the card view *before* processing the action
+  // This ensures the UI is clean if the user edits/deletes from the preview.
+  if (card.classList.contains('is-active')) {
+    card.classList.remove('is-active');
   }
   const promptId = card.dataset.id;
   if (!promptId) {
@@ -1301,19 +1326,16 @@ function handlePromptListClick(event) {
     showPromptError('Selected prompt could not be found.');
     return;
   }
-
   switch (target.dataset.action) {
     case 'copy':
       copyPromptToClipboard(prompt, target);
       break;
     case 'edit':
       setActivePanelView('prompts');
-
       // Add this block to open the accordion
       if (controls.promptFormAccordionHeader && controls.promptFormSection) {
         setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, true);
       }
-
       enterPromptEditMode(prompt);
       break;
     case 'delete':
@@ -1321,6 +1343,23 @@ function handlePromptListClick(event) {
       break;
     default:
       break;
+  }
+}
+
+function handlePromptCardClick(event) {
+  // IMPORTANT: Check if the click was on an interactive element.
+  // If so, do nothing and let 'handlePromptListClick' take over.
+  if (
+    event.target.closest('.prompt-card__action') || // Ignore action buttons
+    event.target.closest('.prompt-card__handle')    // Ignore drag handle
+  ) {
+    return;
+  }
+  // If the click was not on a button, find the card
+  const card = event.target.closest('.prompt-card');
+  if (card) {
+    // Toggle the 'is-active' class to trigger the CSS animation
+    card.classList.toggle('is-active');
   }
 }
 

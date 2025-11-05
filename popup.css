@@ -520,6 +520,8 @@ body {
   border: 1px solid var(--surface-outline);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: background 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .prompt-card:hover {
@@ -534,6 +536,7 @@ body {
   box-shadow:
     0 16px 28px rgba(8, 10, 27, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  z-index: 10;
 }
 
 /* Header: holds handle and title */
@@ -1493,4 +1496,96 @@ body {
 .font-option:focus-visible {
   outline: 2px solid rgba(118, 140, 255, 0.6);
   outline-offset: 2px;
+}
+
+/* --- PROMPT CARD SLIDE STYLES --- */
+
+/* 1. Make the .prompt-card a container that hides
+     overflowing content. We keep its original styles
+     (background, border, padding, etc.) but add
+     position: relative and overflow: hidden.
+*/
+.prompt-card {
+  /* ... keep all existing .prompt-card styles ... */
+  position: relative;
+  overflow: hidden;
+  /* Make sure existing padding and gap are preserved */
+}
+
+/* 2. Create the "front" face. This will be a wrapper
+     for your *existing* card content (header + actions).
+     It slides up (translateY(-100%)) when active.
+*/
+.prompt-card__front {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* This should match the gap from your original .prompt-card */
+  width: 100%;
+  transition: transform 0.4s ease-in-out;
+  transform: translateY(0);
+}
+
+/* 3. Create the "back" face (the preview).
+     It's positioned absolutely, 'off-screen' at the bottom
+     (translateY(100%)). It will slide into view (translateY(0)).
+*/
+.prompt-card__back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  
+  /* Style to match the card */
+  background: var(--surface-2); /* Ensures it hides content behind it */
+  padding: 12px 14px;
+  
+  /* Layout for preview text */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  
+  transition: transform 0.4s ease-in-out;
+  transform: translateY(100%); /* Start hidden at the bottom */
+}
+
+/* 4. The "active" state slides both faces. */
+.prompt-card.is-active .prompt-card__front {
+  transform: translateY(-100%); /* Slide front up */
+}
+
+.prompt-card.is-active .prompt-card__back {
+  transform: translateY(0); /* Slide back in */
+}
+
+/* 5. Title for the back of the card */
+.prompt-card__back-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0; /* Don't let this shrink */
+}
+
+/* 6. Style the prompt text content on the back.
+     flex-grow and overflow-y: auto allow it to
+     fill the space and scroll if the text is long.
+*/
+.prompt-card__text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  word-break: break-word;
+  flex-grow: 1; /* Fill available space */
+  overflow-y: auto; /* Allow scrolling for long prompts */
+}
+
+/* 7. Ensure dragging style is on top */
+.prompt-card--dragging {
+  /* ... existing styles ... */
+  z-index: 10;
 }
