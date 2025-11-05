@@ -783,11 +783,11 @@ function buildHandledExportError({ response, runtimeError }) {
 }
 
 function reportExportError(message, context) {
-  console.error('[GPT Enhancer] Export failed:', message);
+  // console.error('[GPT Enhancer] Export failed:', message);
   if (context) {
     const normalized = normalizeErrorContext(context);
     if (normalized !== undefined) {
-      console.error('[GPT Enhancer] Export details:', normalized);
+      // console.error('[GPT Enhancer] Export details:', normalized);
     }
   }
 }
@@ -942,7 +942,7 @@ function loadPromptsFromStorage() {
 
   chrome.storage.sync.get({ [PROMPTS_STORAGE_KEY]: [] }, (stored) => {
     if (chrome.runtime.lastError) {
-      console.error('[GPT Enhancer] Failed to load prompts', chrome.runtime.lastError);
+      // console.error('[GPT Enhancer] Failed to load prompts', chrome.runtime.lastError);
       showPromptError('Unable to load prompts from storage.');
       prompts = [];
       renderPromptsWithCurrentFilter({ scrollToTop: true });
@@ -1287,7 +1287,7 @@ async function handlePromptFormSubmit(event) {
   } catch (error) {
     // --- MODIFICATION START ---
     // 1. Fix the console.error log
-    console.error('[GPT Enhancer] Failed to save prompts:', error.message || error);
+    // console.error(chrome.runtime.lastError);
     // 2. Revert the optimistic UI update
     prompts = previousPrompts;
     renderPromptsWithCurrentFilter({ focusId: editingPromptId || null });
@@ -1424,7 +1424,7 @@ function copyPromptToClipboard(prompt, button) {
     showCopyFeedback(button);
     clearPromptError();
   } catch (error) {
-    console.error('[GPT Enhancer] Failed to copy prompt', error);
+    // console.error('[GPT Enhancer] Failed to copy prompt', error);
     showPromptError('Unable to copy prompt to clipboard.');
   }
 }
@@ -1727,7 +1727,7 @@ function applyPromptOrderFromDom(options = {}) {
       clearPromptError();
     })
     .catch((error) => {
-      console.error('[GPT Enhancer] Failed to persist reordered prompts', error);
+      // console.error('[GPT Enhancer] Failed to persist reordered prompts', error);
       prompts = previousPrompts;
       renderPromptsWithCurrentFilter({ focusId: options.focusId || null });
       showPromptError('Unable to save the new prompt order. Please try again.');
@@ -1786,7 +1786,7 @@ function movePromptByKeyboard(promptId, delta) {
       clearPromptError();
     })
     .catch((error) => {
-      console.error('[GPT Enhancer] Failed to reorder prompts via keyboard', error);
+      // console.error('[GPT Enhancer] Failed to reorder prompts via keyboard', error);
       prompts = previousPrompts;
       renderPromptsWithCurrentFilter({ focusId: promptId });
       showPromptError('Unable to reorder prompts. Please try again.');
@@ -1815,7 +1815,7 @@ function confirmPromptDeletion(promptId) {
       clearPromptError();
     })
     .catch((error) => {
-      console.error('[GPT Enhancer] Failed to delete prompt', error);
+      // console.error('[GPT Enhancer] Failed to delete prompt', error);
       prompts = previousPrompts;
       renderPromptsWithCurrentFilter();
       showPromptError('Unable to delete the prompt. Please try again.');

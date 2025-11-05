@@ -1267,15 +1267,13 @@ async function exportAsPng(stage, root) {
       });
     }
 
-    if (pixelRatio < basePixelRatio) {
-      console.warn('[GPT Enhancer] PNG export resolution reduced to avoid browser memory limits.', {
-        width,
-        height,
-        requestedPixelRatio: basePixelRatio,
-        appliedPixelRatio: pixelRatio,
-        estimatedPages
-      });
-    }
+    // console.warn('[GPT Enhancer] PNG export resolution reduced to avoid browser memory limits.', {
+    //   width,
+    //   height,
+    //   requestedPixelRatio: basePixelRatio,
+    //   appliedPixelRatio: pixelRatio,
+    //   estimatedPages
+    // });
 
     let renderOutcome;
     try {
