@@ -26,6 +26,7 @@ const THEME_COMPATIBILITY = {
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
 const PROMPT_TITLE_MAX_LENGTH = 80;
+const PROMPT_TEXT_MAX_LENGTH = 8000; // NEW CONSTANT
 const PROMPT_COPY_RESET_DELAY = 1600;
 const PROMPTS_EMPTY_DEFAULT_PRIMARY = 'You have no saved prompts yet.';
 const PROMPTS_EMPTY_DEFAULT_SECONDARY = 'Create your first prompt to see it here.';
@@ -136,6 +137,21 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptForm = document.getElementById('prompt-form');
   controls.promptNameInput = document.getElementById('prompt-name');
   controls.promptTextInput = document.getElementById('prompt-text');
+  // NEW: Create and insert the character counter
+  if (controls.promptTextInput && controls.promptTextInput.parentElement) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'prompt-form__meta';
+    
+    controls.promptCharCount = document.createElement('span');
+    controls.promptCharCount.id = 'prompt-char-count';
+    controls.promptCharCount.className = 'prompt-form__char-count';
+    
+    metaDiv.appendChild(controls.promptCharCount);
+
+    // MODIFICATION: Insert *after* the parent .prompt-form__field, not inside it.
+    // This makes it a sibling to the field and the action buttons.
+    controls.promptTextInput.parentElement.after(metaDiv);
+  }
   controls.promptCancelButton = document.getElementById('prompt-cancel-button');
   controls.promptSubmitButton = document.querySelector('.prompt-form__submit');
   controls.promptList = document.getElementById('prompt-list');
@@ -271,8 +287,12 @@ document.addEventListener('DOMContentLoaded', () => {
     controls.promptSearch.addEventListener('input', handlePromptSearch);
   }
   if (controls.promptTextInput) {
-    controls.promptTextInput.addEventListener('input', () => autoResizeTextarea(controls.promptTextInput));
-    autoResizeTextarea(controls.promptTextInput);
+    const updateInputState = () => {
+      autoResizeTextarea(controls.promptTextInput);
+      updatePromptCharCount(); // NEW function call
+    };
+    controls.promptTextInput.addEventListener('input', updateInputState);
+    updateInputState(); // Call it once on load
   }
   if (controls.promptFormAccordionHeader && controls.promptFormSection) {
     setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, false);
@@ -1025,6 +1045,22 @@ function autoResizeTextarea(element) {
   element.style.height = `${nextHeight}px`;
 }
 
+function updatePromptCharCount() {
+  if (!controls.promptTextInput || !controls.promptCharCount) {
+    return;
+  }
+  const len = controls.promptTextInput.value.length;
+  controls.promptCharCount.textContent = `${len} / ${PROMPT_TEXT_MAX_LENGTH}`;
+  
+  const isOverLimit = len > PROMPT_TEXT_MAX_LENGTH;
+  controls.promptCharCount.classList.toggle('is-over-limit', isOverLimit);
+  controls.promptTextInput.classList.toggle('is-over-limit', isOverLimit);
+  
+  if (controls.promptSubmitButton) {
+    controls.promptSubmitButton.disabled = isOverLimit;
+  }
+}
+
 function buildPromptCard(prompt, { disableDrag } = {}) {
   const card = document.createElement('li');
   card.className = 'prompt-card';
@@ -1188,7 +1224,6 @@ async function handlePromptFormSubmit(event) {
   if (!controls.promptTextInput) {
     return;
   }
-
   const title = controls.promptNameInput ? controls.promptNameInput.value.trim() : '';
   const text = controls.promptTextInput.value.trim();
   if (!text) {
@@ -1196,14 +1231,18 @@ async function handlePromptFormSubmit(event) {
     controls.promptTextInput.focus();
     return;
   }
-
+  // --- NEW PROACTIVE CHECK ---
+  if (text.length > PROMPT_TEXT_MAX_LENGTH) {
+    showPromptError(`Error: Prompt is too long. Please shorten it to ${PROMPT_TEXT_MAX_LENGTH} characters or less.`);
+    controls.promptTextInput.focus();
+    return;
+  }
+  // --- END NEW CHECK ---
   clearPromptError();
-
   const now = Date.now();
   const previousPrompts = prompts.slice();
   let nextPrompts;
   let focusId;
-
   if (editingPromptId) {
     const index = prompts.findIndex((item) => item.id === editingPromptId);
     if (index === -1) {
@@ -1224,21 +1263,19 @@ async function handlePromptFormSubmit(event) {
     const newPrompt = {
       id: generatePromptId(),
       title,
-      text,
+            text,
       createdAt: now,
       updatedAt: now
     };
     nextPrompts = [newPrompt, ...prompts];
     focusId = newPrompt.id;
   }
-
   prompts = nextPrompts;
   const renderOptions = { focusId };
   if (!promptSearchQuery && !editingPromptId) {
     renderOptions.scrollToTop = true;
   }
   renderPromptsWithCurrentFilter(renderOptions);
-
   try {
     await persistPrompts(nextPrompts);
     clearPromptError();
@@ -1248,10 +1285,22 @@ async function handlePromptFormSubmit(event) {
       autoResizeTextarea(controls.promptTextInput);
     }
   } catch (error) {
-    console.error('[GPT Enhancer] Failed to save prompts', error);
+    // --- MODIFICATION START ---
+    // 1. Fix the console.error log
+    console.error('[GPT Enhancer] Failed to save prompts:', error.message || error);
+    // 2. Revert the optimistic UI update
     prompts = previousPrompts;
     renderPromptsWithCurrentFilter({ focusId: editingPromptId || null });
-    showPromptError('Unable to save your prompt. Please try again.');
+    // 3. Show a specific, user-friendly error message
+    let userMessage = 'Unable to save your prompt. Please try again.';
+    if (error && error.message && error.message.toLowerCase().includes('quota')) {
+      // This is the error for TOTAL storage being full
+      userMessage = 'Error: Storage quota exceeded. You have too many saved prompts. Please remove some older prompts to save this new one.';
+    }
+    
+    showPromptError(userMessage);
+    
+    // --- MODIFICATION END ---
   }
 }
 
@@ -1299,7 +1348,9 @@ function exitPromptEditMode() {
   }
   if (controls.promptSubmitButton) {
     controls.promptSubmitButton.textContent = 'Save prompt';
+    controls.promptSubmitButton.disabled = false; // NEW: Re-enable button
   }
+  updatePromptCharCount(); // NEW: Reset counter UI
 }
 
 function handlePromptListClick(event) {

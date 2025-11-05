@@ -1589,3 +1589,46 @@ body {
   /* ... existing styles ... */
   z-index: 10;
 }
+
+/* --- PROMPT FORM META STYLES --- */
+.prompt-form__meta {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 4px;
+
+  /* The form's "gap" is 12px.
+    This pulls the counter UP by 4px,
+    leaving an 8px gap below the textarea.
+    This is "lower" (a bigger gap) than the previous 4px gap.
+  */
+  margin-top: -4px;
+
+  /* The form "gap" now handles spacing to the buttons, so no margin-bottom is needed */
+}
+.prompt-form__char-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  transition: color 0.2s ease;
+}
+/* Error state for counter and textarea */
+.prompt-form__char-count.is-over-limit {
+  /* Use existing error color */
+  color: #ff97ae; 
+}
+.prompt-form__textarea.is-over-limit {
+  /* Use existing error color */
+  border-color: rgba(255, 128, 158, 0.6); 
+}
+.prompt-form__textarea.is-over-limit:focus {
+  border-color: rgba(255, 128, 158, 0.8);
+  box-shadow: 0 0 0 3px rgba(226, 64, 102, 0.22);
+}
+/* Disabled state for submit button */
+.prompt-form__submit:disabled {
+  background: #5a5f85; 
+  color: rgba(11, 14, 36, 0.6);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
