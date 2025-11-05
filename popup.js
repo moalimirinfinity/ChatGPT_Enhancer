@@ -26,6 +26,7 @@ const THEME_COMPATIBILITY = {
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
 const PROMPT_TITLE_MAX_LENGTH = 80;
+const PROMPT_TEXT_MAX_LENGTH = 8000; // NEW CONSTANT
 const PROMPT_COPY_RESET_DELAY = 1600;
 const PROMPTS_EMPTY_DEFAULT_PRIMARY = 'You have no saved prompts yet.';
 const PROMPTS_EMPTY_DEFAULT_SECONDARY = 'Create your first prompt to see it here.';
@@ -136,6 +137,21 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptForm = document.getElementById('prompt-form');
   controls.promptNameInput = document.getElementById('prompt-name');
   controls.promptTextInput = document.getElementById('prompt-text');
+  // NEW: Create and insert the character counter
+  if (controls.promptTextInput && controls.promptTextInput.parentElement) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'prompt-form__meta';
+    
+    controls.promptCharCount = document.createElement('span');
+    controls.promptCharCount.id = 'prompt-char-count';
+    controls.promptCharCount.className = 'prompt-form__char-count';
+    
+    metaDiv.appendChild(controls.promptCharCount);
+
+    // MODIFICATION: Insert *after* the parent .prompt-form__field, not inside it.
+    // This makes it a sibling to the field and the action buttons.
+    controls.promptTextInput.parentElement.after(metaDiv);
+  }
   controls.promptCancelButton = document.getElementById('prompt-cancel-button');
   controls.promptSubmitButton = document.querySelector('.prompt-form__submit');
   controls.promptList = document.getElementById('prompt-list');
@@ -271,8 +287,12 @@ document.addEventListener('DOMContentLoaded', () => {
     controls.promptSearch.addEventListener('input', handlePromptSearch);
   }
   if (controls.promptTextInput) {
-    controls.promptTextInput.addEventListener('input', () => autoResizeTextarea(controls.promptTextInput));
-    autoResizeTextarea(controls.promptTextInput);
+    const updateInputState = () => {
+      autoResizeTextarea(controls.promptTextInput);
+      updatePromptCharCount(); // NEW function call
+    };
+    controls.promptTextInput.addEventListener('input', updateInputState);
+    updateInputState(); // Call it once on load
   }
   if (controls.promptFormAccordionHeader && controls.promptFormSection) {
     setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, false);
@@ -763,11 +783,11 @@ function buildHandledExportError({ response, runtimeError }) {
 }
 
 function reportExportError(message, context) {
-  console.error('[GPT Enhancer] Export failed:', message);
+  // console.error('[GPT Enhancer] Export failed:', message);
   if (context) {
     const normalized = normalizeErrorContext(context);
     if (normalized !== undefined) {
-      console.error('[GPT Enhancer] Export details:', normalized);
+      // console.error('[GPT Enhancer] Export details:', normalized);
     }
   }
 }
@@ -904,6 +924,7 @@ function initPromptFeature() {
   }
   if (controls.promptList) {
     controls.promptList.addEventListener('click', handlePromptListClick);
+    controls.promptList.addEventListener('click', handlePromptCardClick);
     controls.promptList.addEventListener('dragover', handlePromptDragOver);
     controls.promptList.addEventListener('drop', handlePromptDrop);
   }
@@ -921,7 +942,7 @@ function loadPromptsFromStorage() {
 
   chrome.storage.sync.get({ [PROMPTS_STORAGE_KEY]: [] }, (stored) => {
     if (chrome.runtime.lastError) {
-      console.error('[GPT Enhancer] Failed to load prompts', chrome.runtime.lastError);
+      // console.error('[GPT Enhancer] Failed to load prompts', chrome.runtime.lastError);
       showPromptError('Unable to load prompts from storage.');
       prompts = [];
       renderPromptsWithCurrentFilter({ scrollToTop: true });
@@ -1024,15 +1045,36 @@ function autoResizeTextarea(element) {
   element.style.height = `${nextHeight}px`;
 }
 
+function updatePromptCharCount() {
+  if (!controls.promptTextInput || !controls.promptCharCount) {
+    return;
+  }
+  const len = controls.promptTextInput.value.length;
+  controls.promptCharCount.textContent = `${len} / ${PROMPT_TEXT_MAX_LENGTH}`;
+  
+  const isOverLimit = len > PROMPT_TEXT_MAX_LENGTH;
+  controls.promptCharCount.classList.toggle('is-over-limit', isOverLimit);
+  controls.promptTextInput.classList.toggle('is-over-limit', isOverLimit);
+  
+  if (controls.promptSubmitButton) {
+    controls.promptSubmitButton.disabled = isOverLimit;
+  }
+}
+
 function buildPromptCard(prompt, { disableDrag } = {}) {
   const card = document.createElement('li');
   card.className = 'prompt-card';
   card.dataset.id = prompt.id;
   card.setAttribute('role', 'listitem');
-  if (typeof prompt.text === 'string' && prompt.text) {
-    card.title = prompt.text;
-  }
-
+  
+  // NEW: Add mouseleave listener to the card itself to flip back
+  card.addEventListener('mouseleave', () => {
+    card.classList.remove('is-active');
+  });
+  // --- NEW: Create the front face (wrapper) ---
+  const front = document.createElement('div');
+  front.className = 'prompt-card__front';
+  // --- Build existing front content (handle, title, actions) ---
   const handle = document.createElement('button');
   handle.type = 'button';
   handle.className = 'prompt-card__handle';
@@ -1046,17 +1088,13 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   handle.addEventListener('dragstart', handlePromptDragStart);
   handle.addEventListener('dragend', handlePromptDragEnd);
   handle.addEventListener('keydown', handlePromptHandleKeyDown);
-
   const title = document.createElement('h3');
   title.className = 'prompt-card__title';
   title.textContent = getPromptDisplayTitle(prompt);
-
-  // Create a header wrapper
   const header = document.createElement('div');
   header.className = 'prompt-card__header';
   header.appendChild(handle);
   header.appendChild(title);
-
   const copyAction = buildPromptActionButton('copy');
   const editAction = buildPromptActionButton('edit');
   const deleteAction = buildPromptActionButton('delete');
@@ -1065,11 +1103,28 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   actions.appendChild(copyAction);
   actions.appendChild(editAction);
   actions.appendChild(deleteAction);
-
-  // Append header and actions
-  card.appendChild(header);
-  card.appendChild(actions);
-
+  // Append header and actions to the FRONT face
+  front.appendChild(header);
+  front.appendChild(actions);
+  // --- NEW: Build the back face ---
+  const back = document.createElement('div');
+  back.className = 'prompt-card__back';
+  const backTitle = document.createElement('h4');
+  backTitle.className = 'prompt-card__back-title';
+  backTitle.textContent = 'Prompt Preview';
+  
+  const backText = document.createElement('p');
+  backText.className = 'prompt-card__text';
+  backText.textContent = prompt.text || 'This prompt is empty.';
+  // Append title and text to the BACK face
+  back.appendChild(backTitle);
+  back.appendChild(backText);
+  // --- Assemble the card ---
+  // Append front and back faces to the main card
+  card.appendChild(front);
+  card.appendChild(back);
+  // Keep the original title attribute for accessibility on the front
+  front.title = `Prompt: "${getPromptDisplayTitle(prompt)}"`;
   return card;
 }
 
@@ -1169,7 +1224,6 @@ async function handlePromptFormSubmit(event) {
   if (!controls.promptTextInput) {
     return;
   }
-
   const title = controls.promptNameInput ? controls.promptNameInput.value.trim() : '';
   const text = controls.promptTextInput.value.trim();
   if (!text) {
@@ -1177,14 +1231,18 @@ async function handlePromptFormSubmit(event) {
     controls.promptTextInput.focus();
     return;
   }
-
+  // --- NEW PROACTIVE CHECK ---
+  if (text.length > PROMPT_TEXT_MAX_LENGTH) {
+    showPromptError(`Error: Prompt is too long. Please shorten it to ${PROMPT_TEXT_MAX_LENGTH} characters or less.`);
+    controls.promptTextInput.focus();
+    return;
+  }
+  // --- END NEW CHECK ---
   clearPromptError();
-
   const now = Date.now();
   const previousPrompts = prompts.slice();
   let nextPrompts;
   let focusId;
-
   if (editingPromptId) {
     const index = prompts.findIndex((item) => item.id === editingPromptId);
     if (index === -1) {
@@ -1205,21 +1263,19 @@ async function handlePromptFormSubmit(event) {
     const newPrompt = {
       id: generatePromptId(),
       title,
-      text,
+            text,
       createdAt: now,
       updatedAt: now
     };
     nextPrompts = [newPrompt, ...prompts];
     focusId = newPrompt.id;
   }
-
   prompts = nextPrompts;
   const renderOptions = { focusId };
   if (!promptSearchQuery && !editingPromptId) {
     renderOptions.scrollToTop = true;
   }
   renderPromptsWithCurrentFilter(renderOptions);
-
   try {
     await persistPrompts(nextPrompts);
     clearPromptError();
@@ -1229,10 +1285,22 @@ async function handlePromptFormSubmit(event) {
       autoResizeTextarea(controls.promptTextInput);
     }
   } catch (error) {
-    console.error('[GPT Enhancer] Failed to save prompts', error);
+    // --- MODIFICATION START ---
+    // 1. Fix the console.error log
+    // console.error(chrome.runtime.lastError);
+    // 2. Revert the optimistic UI update
     prompts = previousPrompts;
     renderPromptsWithCurrentFilter({ focusId: editingPromptId || null });
-    showPromptError('Unable to save your prompt. Please try again.');
+    // 3. Show a specific, user-friendly error message
+    let userMessage = 'Unable to save your prompt. Please try again.';
+    if (error && error.message && error.message.toLowerCase().includes('quota')) {
+      // This is the error for TOTAL storage being full
+      userMessage = 'Error: Storage quota exceeded. You have too many saved prompts. Please remove some older prompts to save this new one.';
+    }
+    
+    showPromptError(userMessage);
+    
+    // --- MODIFICATION END ---
   }
 }
 
@@ -1280,7 +1348,9 @@ function exitPromptEditMode() {
   }
   if (controls.promptSubmitButton) {
     controls.promptSubmitButton.textContent = 'Save prompt';
+    controls.promptSubmitButton.disabled = false; // NEW: Re-enable button
   }
+  updatePromptCharCount(); // NEW: Reset counter UI
 }
 
 function handlePromptListClick(event) {
@@ -1288,9 +1358,15 @@ function handlePromptListClick(event) {
   if (!target) {
     return;
   }
+  
   const card = target.closest('.prompt-card');
   if (!card) {
     return;
+  }
+  // NEW: Reset the card view *before* processing the action
+  // This ensures the UI is clean if the user edits/deletes from the preview.
+  if (card.classList.contains('is-active')) {
+    card.classList.remove('is-active');
   }
   const promptId = card.dataset.id;
   if (!promptId) {
@@ -1301,19 +1377,16 @@ function handlePromptListClick(event) {
     showPromptError('Selected prompt could not be found.');
     return;
   }
-
   switch (target.dataset.action) {
     case 'copy':
       copyPromptToClipboard(prompt, target);
       break;
     case 'edit':
       setActivePanelView('prompts');
-
       // Add this block to open the accordion
       if (controls.promptFormAccordionHeader && controls.promptFormSection) {
         setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, true);
       }
-
       enterPromptEditMode(prompt);
       break;
     case 'delete':
@@ -1321,6 +1394,23 @@ function handlePromptListClick(event) {
       break;
     default:
       break;
+  }
+}
+
+function handlePromptCardClick(event) {
+  // IMPORTANT: Check if the click was on an interactive element.
+  // If so, do nothing and let 'handlePromptListClick' take over.
+  if (
+    event.target.closest('.prompt-card__action') || // Ignore action buttons
+    event.target.closest('.prompt-card__handle')    // Ignore drag handle
+  ) {
+    return;
+  }
+  // If the click was not on a button, find the card
+  const card = event.target.closest('.prompt-card');
+  if (card) {
+    // Toggle the 'is-active' class to trigger the CSS animation
+    card.classList.toggle('is-active');
   }
 }
 
@@ -1334,7 +1424,7 @@ function copyPromptToClipboard(prompt, button) {
     showCopyFeedback(button);
     clearPromptError();
   } catch (error) {
-    console.error('[GPT Enhancer] Failed to copy prompt', error);
+    // console.error('[GPT Enhancer] Failed to copy prompt', error);
     showPromptError('Unable to copy prompt to clipboard.');
   }
 }
@@ -1637,7 +1727,7 @@ function applyPromptOrderFromDom(options = {}) {
       clearPromptError();
     })
     .catch((error) => {
-      console.error('[GPT Enhancer] Failed to persist reordered prompts', error);
+      // console.error('[GPT Enhancer] Failed to persist reordered prompts', error);
       prompts = previousPrompts;
       renderPromptsWithCurrentFilter({ focusId: options.focusId || null });
       showPromptError('Unable to save the new prompt order. Please try again.');
@@ -1696,7 +1786,7 @@ function movePromptByKeyboard(promptId, delta) {
       clearPromptError();
     })
     .catch((error) => {
-      console.error('[GPT Enhancer] Failed to reorder prompts via keyboard', error);
+      // console.error('[GPT Enhancer] Failed to reorder prompts via keyboard', error);
       prompts = previousPrompts;
       renderPromptsWithCurrentFilter({ focusId: promptId });
       showPromptError('Unable to reorder prompts. Please try again.');
@@ -1725,7 +1815,7 @@ function confirmPromptDeletion(promptId) {
       clearPromptError();
     })
     .catch((error) => {
-      console.error('[GPT Enhancer] Failed to delete prompt', error);
+      // console.error('[GPT Enhancer] Failed to delete prompt', error);
       prompts = previousPrompts;
       renderPromptsWithCurrentFilter();
       showPromptError('Unable to delete the prompt. Please try again.');

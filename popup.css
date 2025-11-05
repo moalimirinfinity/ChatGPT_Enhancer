@@ -520,6 +520,8 @@ body {
   border: 1px solid var(--surface-outline);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: background 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .prompt-card:hover {
@@ -534,19 +536,24 @@ body {
   box-shadow:
     0 16px 28px rgba(8, 10, 27, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  z-index: 10;
 }
 
 /* Header: holds handle and title */
 .prompt-card__header {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
 }
 
 /* Drag handle: subtle, on the left */
 .prompt-card__handle {
-  position: static;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
   flex-shrink: 0;
   border: 1px solid transparent;
   background: rgba(12, 16, 38, 0.6);
@@ -587,9 +594,9 @@ body {
 .prompt-card__title {
   position: static;
   flex-grow: 1;
-  padding: 0;
+  padding: 0 36px;
   margin: 0;
-  text-align: left;
+  text-align: center;
   font-size: 13px;
   font-weight: 600;
   color: #eef1ff;
@@ -1489,4 +1496,139 @@ body {
 .font-option:focus-visible {
   outline: 2px solid rgba(118, 140, 255, 0.6);
   outline-offset: 2px;
+}
+
+/* --- PROMPT CARD SLIDE STYLES --- */
+
+/* 1. Make the .prompt-card a container that hides
+     overflowing content. We keep its original styles
+     (background, border, padding, etc.) but add
+     position: relative and overflow: hidden.
+*/
+.prompt-card {
+  /* ... keep all existing .prompt-card styles ... */
+  position: relative;
+  overflow: hidden;
+  /* Make sure existing padding and gap are preserved */
+}
+
+/* 2. Create the "front" face. This will be a wrapper
+     for your *existing* card content (header + actions).
+     It slides up (translateY(-100%)) when active.
+*/
+.prompt-card__front {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* This should match the gap from your original .prompt-card */
+  width: 100%;
+  transition: transform 0.4s ease-in-out;
+  transform: translateY(0);
+}
+
+/* 3. Create the "back" face (the preview).
+     It's positioned absolutely, 'off-screen' at the bottom
+     (translateY(100%)). It will slide into view (translateY(0)).
+*/
+.prompt-card__back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  
+  /* Style to match the card */
+  background: var(--surface-2); /* Ensures it hides content behind it */
+  padding: 12px 14px;
+  
+  /* Layout for preview text */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  
+  transition: transform 0.4s ease-in-out;
+  transform: translateY(100%); /* Start hidden at the bottom */
+}
+
+/* 4. The "active" state slides both faces. */
+.prompt-card.is-active .prompt-card__front {
+  transform: translateY(-100%); /* Slide front up */
+}
+
+.prompt-card.is-active .prompt-card__back {
+  transform: translateY(0); /* Slide back in */
+}
+
+/* 5. Title for the back of the card */
+.prompt-card__back-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0; /* Don't let this shrink */
+}
+
+/* 6. Style the prompt text content on the back.
+     flex-grow and overflow-y: auto allow it to
+     fill the space and scroll if the text is long.
+*/
+.prompt-card__text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  word-break: break-word;
+  flex-grow: 1; /* Fill available space */
+  overflow-y: auto; /* Allow scrolling for long prompts */
+}
+
+/* 7. Ensure dragging style is on top */
+.prompt-card--dragging {
+  /* ... existing styles ... */
+  z-index: 10;
+}
+
+/* --- PROMPT FORM META STYLES --- */
+.prompt-form__meta {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 4px;
+
+  /* The form's "gap" is 12px.
+    This pulls the counter UP by 4px,
+    leaving an 8px gap below the textarea.
+    This is "lower" (a bigger gap) than the previous 4px gap.
+  */
+  margin-top: -4px;
+
+  /* The form "gap" now handles spacing to the buttons, so no margin-bottom is needed */
+}
+.prompt-form__char-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  transition: color 0.2s ease;
+}
+/* Error state for counter and textarea */
+.prompt-form__char-count.is-over-limit {
+  /* Use existing error color */
+  color: #ff97ae; 
+}
+.prompt-form__textarea.is-over-limit {
+  /* Use existing error color */
+  border-color: rgba(255, 128, 158, 0.6); 
+}
+.prompt-form__textarea.is-over-limit:focus {
+  border-color: rgba(255, 128, 158, 0.8);
+  box-shadow: 0 0 0 3px rgba(226, 64, 102, 0.22);
+}
+/* Disabled state for submit button */
+.prompt-form__submit:disabled {
+  background: #5a5f85; 
+  color: rgba(11, 14, 36, 0.6);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }

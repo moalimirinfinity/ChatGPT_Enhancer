@@ -227,9 +227,9 @@ function applyTheme(theme, environmentThemeMode) {
     const key = `${requested}:${requiredMode}:${mode || 'unknown'}`;
     if (lastThemeBlockNotice !== key) {
       lastThemeBlockNotice = key;
-      console.info(
-        `[GPT Enhancer] Skipping theme "${requested}" because ChatGPT is currently in ${mode || 'unknown'} mode.`
-      );
+      // console.info(
+      //   `[GPT Enhancer] Skipping theme "${requested}" because ChatGPT is currently in ${mode || 'unknown'} mode.`
+      // );
     }
     appliedThemeClass = null;
     return;
@@ -954,7 +954,7 @@ async function handleEquationClick(event) {
     markEquationCopied(katexElement);
     showToast('Equation copied', katexElement.getBoundingClientRect());
   } catch (error) {
-    console.error('Failed to copy equation', error);
+    // console.error('Failed to copy equation', error);
     showToast('Unable to copy equation');
   }
 }
