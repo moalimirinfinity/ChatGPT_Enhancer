@@ -538,15 +538,19 @@ body {
 
 /* Header: holds handle and title */
 .prompt-card__header {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
 }
 
 /* Drag handle: subtle, on the left */
 .prompt-card__handle {
-  position: static;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
   flex-shrink: 0;
   border: 1px solid transparent;
   background: rgba(12, 16, 38, 0.6);
@@ -587,9 +591,9 @@ body {
 .prompt-card__title {
   position: static;
   flex-grow: 1;
-  padding: 0;
+  padding: 0 36px;
   margin: 0;
-  text-align: left;
+  text-align: center;
   font-size: 13px;
   font-weight: 600;
   color: #eef1ff;
