@@ -130,6 +130,17 @@ let pendingFontSync = false;
 let fontObserverReconnectTimer = null;
 const FONT_SYNC_INTERVAL_MS = 5000;
 let fontSyncIntervalId = null;
+const LANGUAGE_HINT_DEFAULT = 'english';
+const LANGUAGE_HINT_MESSAGE_TYPE = 'GPT_ENHANCER_DETECT_LANGUAGE';
+const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
+const LANGUAGE_DETECTION_MAX_CHARS = 800;
+const LANGUAGE_DETECTION_CACHE_INTERVAL = 2000;
+let lastLanguageHintCache = {
+  value: LANGUAGE_HINT_DEFAULT,
+  signature: '',
+  timestamp: 0,
+  sampleLength: 0
+};
 
 function fontControlEnabledInSettings(settings) {
   return Boolean(settings && settings.enableFix && settings.fontsEnabled);
@@ -697,6 +708,71 @@ function applyFontsToMessage(element, englishFont, persianFont) {
   }
 }
 
+function collectLanguageSample(limitMessages, limitChars) {
+  const container = document.querySelector('main') || document.body;
+  if (!container) {
+    return '';
+  }
+  const nodes = container.querySelectorAll(MESSAGE_SELECTOR);
+  if (!nodes || !nodes.length) {
+    return '';
+  }
+  const maxMessages = Math.max(1, Math.min(Number.isFinite(limitMessages) ? Math.floor(limitMessages) : 0, 20));
+  const maxChars = Math.max(32, Math.min(Number.isFinite(limitChars) ? Math.floor(limitChars) : 0, 4000));
+  let collected = '';
+  let inspected = 0;
+  for (const node of nodes) {
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+    const raw = node.textContent;
+    if (!raw) {
+      continue;
+    }
+    const normalized = raw.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      continue;
+    }
+    const remaining = maxChars - collected.length;
+    if (remaining <= 0) {
+      break;
+    }
+    collected += normalized.slice(0, remaining);
+    inspected += 1;
+    if (collected.length >= maxChars || inspected >= maxMessages) {
+      break;
+    }
+  }
+  return collected;
+}
+
+function detectConversationLanguageHint(maxMessages, maxChars) {
+  const sample = collectLanguageSample(maxMessages, maxChars);
+  const signature = sample.slice(0, 64);
+  const now = Date.now();
+  if (
+    signature === lastLanguageHintCache.signature &&
+    now - lastLanguageHintCache.timestamp < LANGUAGE_DETECTION_CACHE_INTERVAL
+  ) {
+    return {
+      language: lastLanguageHintCache.value,
+      sampledCharacters: lastLanguageHintCache.sampleLength
+    };
+  }
+  const hasPersian = Boolean(sample) && PERSIAN_CHAR_REGEX.test(sample);
+  const language = hasPersian ? 'persian' : LANGUAGE_HINT_DEFAULT;
+  lastLanguageHintCache = {
+    value: language,
+    signature,
+    timestamp: now,
+    sampleLength: sample.length
+  };
+  return {
+    language,
+    sampledCharacters: sample.length
+  };
+}
+
 function classesInSync(settings) {
   if (!root) {
     return true;
@@ -1015,6 +1091,26 @@ try {
   }
 } catch (error) {
   // Ignore matchMedia issues.
+}
+
+if (chrome?.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!message || typeof message.type !== 'string') {
+      return;
+    }
+    if (message.type === LANGUAGE_HINT_MESSAGE_TYPE) {
+      const maxMessages =
+        typeof message.maxMessages === 'number' ? message.maxMessages : LANGUAGE_DETECTION_MAX_MESSAGES;
+      const maxChars =
+        typeof message.maxChars === 'number' ? message.maxChars : LANGUAGE_DETECTION_MAX_CHARS;
+      const result = detectConversationLanguageHint(maxMessages, maxChars);
+      sendResponse({
+        ok: true,
+        language: result.language,
+        sampledCharacters: result.sampledCharacters
+      });
+    }
+  });
 }
 
 // chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

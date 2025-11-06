@@ -16,6 +16,10 @@ const FONT_DEFAULTS = {
   persian: 'vazirmatn'
 };
 const FONT_LANGUAGES = ['english', 'persian'];
+const LANGUAGE_HINT_DEFAULT = 'english';
+const LANGUAGE_HINT_MESSAGE = 'GPT_ENHANCER_DETECT_LANGUAGE';
+const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
+const LANGUAGE_DETECTION_MAX_CHARS = 800;
 const THEME_COMPATIBILITY = {
   midnight: 'dark',
   aurora: 'dark',
@@ -65,6 +69,7 @@ const PROMPT_COPY_SUCCESS_ICON = `
     <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"></path>
   </svg>
 `;
+const CHAT_URL_PREFIXES = ['https://chat.openai.com/', 'https://chatgpt.com/'];
 
 function normalizeThemeAlias(theme) {
   if (typeof theme !== 'string') {
@@ -87,6 +92,9 @@ let editingPromptId = null;
 const promptCopyTimers = new Map();
 let promptDragState = null;
 let promptSearchQuery = '';
+let conversationLanguageHint = LANGUAGE_HINT_DEFAULT;
+let hasUserSetFontTab = false;
+let hasUserSetHelpLanguage = false;
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -185,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   chrome.storage.sync.get(DEFAULT_SETTINGS, (stored) => {
     applySettingsToUI({ ...DEFAULT_SETTINGS, ...stored });
+    requestConversationLanguageHint();
   });
 
   Object.entries({
@@ -229,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!lang || lang === currentFontTab) {
         return;
       }
+      hasUserSetFontTab = true;
       setActiveFontTab(lang);
     });
   });
@@ -280,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!lang || lang === helpLanguage) {
         return;
       }
+      hasUserSetHelpLanguage = true;
       setHelpLanguage(lang);
     });
   });
@@ -639,6 +650,64 @@ function setFontControlsDisabled(disabled) {
   });
 }
 
+function requestConversationLanguageHint() {
+  if (!chrome?.tabs?.query) {
+    applyConversationPersonalization(LANGUAGE_HINT_DEFAULT);
+    return;
+  }
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const queryError = chrome.runtime.lastError;
+    if (queryError) {
+      applyConversationPersonalization(LANGUAGE_HINT_DEFAULT);
+      return;
+    }
+    if (!tabs || !tabs.length) {
+      applyConversationPersonalization(LANGUAGE_HINT_DEFAULT);
+      return;
+    }
+    const [activeTab] = tabs;
+    if (!activeTab || !isChatGPTUrl(activeTab.url || '')) {
+      applyConversationPersonalization(LANGUAGE_HINT_DEFAULT);
+      return;
+    }
+    chrome.tabs.sendMessage(
+      activeTab.id,
+      {
+        type: LANGUAGE_HINT_MESSAGE,
+        maxMessages: LANGUAGE_DETECTION_MAX_MESSAGES,
+        maxChars: LANGUAGE_DETECTION_MAX_CHARS
+      },
+      (response) => {
+        const messageError = chrome.runtime.lastError;
+        if (messageError) {
+          applyConversationPersonalization(LANGUAGE_HINT_DEFAULT);
+          return;
+        }
+        if (!response || !response.ok || typeof response.language !== 'string') {
+          applyConversationPersonalization(LANGUAGE_HINT_DEFAULT);
+          return;
+        }
+        applyConversationPersonalization(response.language);
+      }
+    );
+  });
+}
+
+function applyConversationPersonalization(language) {
+  const normalized = normalizeLanguageHint(language);
+  conversationLanguageHint = normalized;
+  if (!hasUserSetFontTab && normalized !== currentFontTab) {
+    setActiveFontTab(normalized);
+  }
+  if (!hasUserSetHelpLanguage && normalized !== helpLanguage) {
+    setHelpLanguage(normalized);
+  }
+}
+
+function normalizeLanguageHint(language) {
+  return language === 'persian' ? 'persian' : LANGUAGE_HINT_DEFAULT;
+}
+
 function handleDonate() {
   controls.donateBtn.disabled = true;
   controls.donateBtn.textContent = DONATE_LABEL_BUSY;
@@ -737,7 +806,10 @@ function getSelectedExportFormat() {
 }
 
 function isChatGPTUrl(url) {
-  return url.startsWith('https://chat.openai.com') || url.startsWith('https://chatgpt.com');
+  if (typeof url !== 'string') {
+    return false;
+  }
+  return CHAT_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
 }
 
 function buildExportErrorMessage(response, runtimeError) {
