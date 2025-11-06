@@ -1138,12 +1138,16 @@ async function convertKatexToImages(root) {
         continue;
       }
 
-      const dataUrl = await window.htmlToImage.toPng(node, {
+      const { dataUrl } = await renderNodeToPngSafely(node, {
         quality: 1,
         pixelRatio: 2,
         cacheBust: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        skipFonts: true
       });
+      if (!dataUrl) {
+        throw new Error('Equation rasterization did not return a data URL.');
+      }
       const image = document.createElement('img');
       image.src = dataUrl;
       image.alt = latex ? `TeX: ${latex}` : 'Equation';
