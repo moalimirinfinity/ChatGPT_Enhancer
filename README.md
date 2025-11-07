@@ -11,6 +11,7 @@ A browser extension that polishes the ChatGPT interface. It fixes mixed RTL/LTR 
 - **Prompt library** – create, edit, and reorder reusable prompts from the popup, and copy them into ChatGPT in one click.
 - **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, Image or Markdown via the pop-up.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
+- **Prompt-Library** – you could save all your prompts and use them later
 
 
 
