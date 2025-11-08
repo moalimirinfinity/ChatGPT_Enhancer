@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "GPT Enhancer",
+  "name": "GPT Enhancer for ChatGPT",
   "version": "1.1.0",
   "description": "Enhance ChatGPT with themes, fonts, KaTeX copy, prompt library, and chat export — lightweight and private.",
   "permissions": ["storage", "tabs", "clipboardWrite"],
