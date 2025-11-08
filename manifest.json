@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GPT Enhancer",
   "version": "1.1.0",
-  "description": "ChatGPT Enhancer fine-tunes your ChatGPT interface—fonts that fit your language, themes that match your mood, and export options that save your work in seconds.",
+  "description": "Enhance ChatGPT with themes, fonts, KaTeX copy, prompt library, and chat export — lightweight and private.",
   "permissions": ["storage", "tabs", "clipboardWrite"],
   "action": {
     "default_popup": "popup.html",
