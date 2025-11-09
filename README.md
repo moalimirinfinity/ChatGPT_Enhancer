@@ -2,6 +2,9 @@
 
 A browser extension that polishes the ChatGPT interface. It fixes mixed RTL/LTR layout issues, adds curated font control, includes custom themes, improves KaTeX handling, and lets you export conversations in multiple formats—all from a friendly popup.
 
+<img width="351" height="599" alt="image" src="https://github.com/user-attachments/assets/0800aeb7-156b-40b7-a9d3-24bd18161278" />
+
+
 ## Features
 
 - **Directional fixes** – stabilises KaTeX blocks, code snippets, and tables so mixed-language chats stay readable.
