@@ -17,9 +17,3 @@ A browser extension that polishes the ChatGPT interface. It fixes mixed RTL/LTR 
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
 - **Prompt-Library** – you could save all your prompts and use them later
 
-
-
-## License
-
-This project is licensed under the [CC BY-NC 4.0 License](https://creativecommons.org/licenses/by-nc/4.0/).  
-You may copy and adapt it for non-commercial use with attribution.
