@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
   fixTables: true,
   copyKatex: true,
   tableOfContents: false,
+  tableOfContentsCollapsed: false,
   tableOfContentsPosition: null,
   exportFormat: 'pdf',
   theme: 'original',
@@ -164,6 +165,7 @@ let tocAnchorCounter = 0;
 const tocHighlightTimers = new Map();
 let tocDragHandle = null;
 let tocDragState = null;
+let tocCollapseButton = null;
 const LANGUAGE_HINT_DEFAULT = 'english';
 const LANGUAGE_HINT_MESSAGE_TYPE = 'GPT_ENHANCER_DETECT_LANGUAGE';
 const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
@@ -608,6 +610,7 @@ function syncTableOfContentsState() {
   ensureTableOfContentsPanel();
   applyTableOfContentsPlacement();
   applyTableOfContentsThemeTokens();
+  setTableOfContentsCollapsed(Boolean(currentSettings.tableOfContentsCollapsed), false);
   connectTableOfContentsObserver();
   scheduleTableOfContentsUpdate();
 }
@@ -627,12 +630,25 @@ function ensureTableOfContentsPanel() {
 
   const header = document.createElement('div');
   header.className = 'chatgpt-toc-header';
-  header.textContent = 'Table of contents';
   header.title = 'Drag to reposition the panel';
+
+  const heading = document.createElement('span');
+  heading.className = 'chatgpt-toc-heading';
+  heading.textContent = 'Table of contents';
+
+  tocCollapseButton = document.createElement('button');
+  tocCollapseButton.type = 'button';
+  tocCollapseButton.className = 'chatgpt-toc-collapse';
+  tocCollapseButton.setAttribute('aria-label', 'Collapse outline');
+  tocCollapseButton.setAttribute('aria-pressed', 'false');
+  tocCollapseButton.textContent = '–';
+  tocCollapseButton.addEventListener('click', toggleTableOfContentsCollapsed);
 
   tocListElement = document.createElement('ol');
   tocListElement.className = 'chatgpt-toc-list';
 
+  header.appendChild(heading);
+  header.appendChild(tocCollapseButton);
   tocPanel.appendChild(header);
   tocPanel.appendChild(tocListElement);
   tocPanel.addEventListener('click', handleTableOfContentsClick);
@@ -652,6 +668,10 @@ function teardownTableOfContentsPanel() {
   }
   tocPanel = null;
   tocListElement = null;
+  if (tocCollapseButton) {
+    tocCollapseButton.removeEventListener('click', toggleTableOfContentsCollapsed);
+  }
+  tocCollapseButton = null;
   tocHighlightTimers.forEach((timer, element) => {
     clearTimeout(timer);
     if (element && element.classList) {
@@ -781,6 +801,39 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function toggleTableOfContentsCollapsed() {
+  if (!tocPanel) {
+    return;
+  }
+  const next = !tocPanel.classList.contains('is-collapsed');
+  setTableOfContentsCollapsed(next, true);
+}
+
+function setTableOfContentsCollapsed(collapsed, persist) {
+  if (!tocPanel) {
+    return;
+  }
+  tocPanel.classList.toggle('is-collapsed', collapsed);
+  if (tocListElement) {
+    tocListElement.hidden = collapsed;
+  }
+  if (tocCollapseButton) {
+    tocCollapseButton.setAttribute('aria-pressed', String(collapsed));
+    tocCollapseButton.textContent = collapsed ? '+' : '–';
+    tocCollapseButton.setAttribute('aria-label', collapsed ? 'Expand outline' : 'Collapse outline');
+  }
+  if (persist) {
+    currentSettings.tableOfContentsCollapsed = collapsed;
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ tableOfContentsCollapsed: collapsed }, () => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          // console.error(chrome.runtime.lastError);
+        }
+      });
+    }
+  }
+}
+
 function applyTableOfContentsThemeTokens() {
   if (!tocPanel) {
     return;
@@ -834,6 +887,9 @@ function disableTableOfContentsDragging() {
 
 function handleTocPointerDown(event) {
   if (!tocPanel) {
+    return;
+  }
+  if (tocCollapseButton && event.target instanceof Node && tocCollapseButton.contains(event.target)) {
     return;
   }
   if (event.button !== 0 && event.pointerType !== 'touch') {
