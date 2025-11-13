@@ -4,6 +4,9 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
+  tableOfContents: false,
+  tableOfContentsCollapsed: false,
+  tableOfContentsPosition: null,
   exportFormat: 'pdf',
   theme: 'original',
   fontsEnabled: false,
@@ -112,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fixCode = document.getElementById('toggle-code');
   controls.fixTables = document.getElementById('toggle-tables');
   controls.copyKatex = document.getElementById('toggle-copy');
+  controls.tableOfContents = document.getElementById('toggle-toc');
   controls.refreshBtn = document.getElementById('refresh-btn');
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
@@ -201,8 +205,12 @@ document.addEventListener('DOMContentLoaded', () => {
     fixKatex: controls.fixKatex,
     fixCode: controls.fixCode,
     fixTables: controls.fixTables,
-    copyKatex: controls.copyKatex
+    copyKatex: controls.copyKatex,
+    tableOfContents: controls.tableOfContents
   }).forEach(([key, input]) => {
+    if (!input) {
+      return;
+    }
     input.addEventListener('change', () => {
       if (isBusy) {
         return;
@@ -408,6 +416,9 @@ function applySettingsToUI(settings) {
   controls.fixCode.checked = settings.fixCode;
   controls.fixTables.checked = settings.fixTables;
   controls.copyKatex.checked = settings.copyKatex;
+  if (controls.tableOfContents) {
+    controls.tableOfContents.checked = settings.tableOfContents;
+  }
   if (controls.fontToggle) {
     const fontsEnabled = settings.enableFix && settings.fontsEnabled;
     controls.fontToggle.checked = fontsEnabled;
@@ -423,7 +434,16 @@ function applySettingsToUI(settings) {
   isBusy = false;
 
   const dependentsDisabled = !settings.enableFix;
-  [controls.fixKatex, controls.fixCode, controls.fixTables, controls.copyKatex].forEach((input) => {
+  [
+    controls.fixKatex,
+    controls.fixCode,
+    controls.fixTables,
+    controls.copyKatex,
+    controls.tableOfContents
+  ].forEach((input) => {
+    if (!input) {
+      return;
+    }
     input.disabled = dependentsDisabled;
     const toggle = input.closest('.toggle');
     if (toggle) {
