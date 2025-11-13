@@ -4,6 +4,8 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
+  tableOfContents: false,
+  tableOfContentsPosition: null,
   exportFormat: 'pdf',
   theme: 'original',
   fontsEnabled: false,
@@ -130,6 +132,38 @@ let pendingFontSync = false;
 let fontObserverReconnectTimer = null;
 const FONT_SYNC_INTERVAL_MS = 5000;
 let fontSyncIntervalId = null;
+const TOC_PANEL_ID = 'chatgpt-enhancer-toc-panel';
+const TOC_ENTRY_ATTR = 'data-chatgpt-toc-target';
+const TOC_ANCHOR_ATTR = 'data-chatgpt-toc-id';
+const TOC_UPDATE_DEBOUNCE_MS = 200;
+const TOC_HIGHLIGHT_DURATION_MS = 1600;
+const TOC_MAX_TITLE_LENGTH = 120;
+const TOC_MAX_TITLE_WORDS = 12;
+const TOC_PANEL_MIN_GAP = 12;
+const TOC_THEME_TOKEN_PRESETS = {
+  light: {
+    '--chatgpt-theme-panel': 'rgba(255, 255, 255, 0.96)',
+    '--chatgpt-theme-border': 'rgba(17, 24, 39, 0.12)',
+    '--chatgpt-theme-text': '#111222',
+    '--chatgpt-theme-text-muted': 'rgba(17, 18, 34, 0.62)',
+    '--chatgpt-theme-accent': '#1c46d6'
+  },
+  dark: {
+    '--chatgpt-theme-panel': 'rgba(24, 28, 44, 0.92)',
+    '--chatgpt-theme-border': 'rgba(255, 255, 255, 0.18)',
+    '--chatgpt-theme-text': '#f5f6fb',
+    '--chatgpt-theme-text-muted': 'rgba(229, 231, 235, 0.64)',
+    '--chatgpt-theme-accent': '#7aa2ff'
+  }
+};
+let tocPanel = null;
+let tocListElement = null;
+let tocObserver = null;
+let tocUpdateTimer = null;
+let tocAnchorCounter = 0;
+const tocHighlightTimers = new Map();
+let tocDragHandle = null;
+let tocDragState = null;
 const LANGUAGE_HINT_DEFAULT = 'english';
 const LANGUAGE_HINT_MESSAGE_TYPE = 'GPT_ENHANCER_DETECT_LANGUAGE';
 const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
@@ -224,6 +258,7 @@ function applySettings(settings) {
     removeTheme();
   }
   applyFontControl(settings);
+  syncTableOfContentsState();
   scheduleClassResetFlag();
 }
 
@@ -243,6 +278,7 @@ function applyTheme(theme, environmentThemeMode) {
       // );
     }
     appliedThemeClass = null;
+    applyTableOfContentsThemeTokens();
     return;
   }
   const themeClass = resolveThemeClass(applicableTheme);
@@ -254,6 +290,7 @@ function applyTheme(theme, environmentThemeMode) {
     appliedThemeClass = null;
     lastThemeBlockNotice = null;
   }
+  applyTableOfContentsThemeTokens();
 }
 
 function removeTheme() {
@@ -263,6 +300,7 @@ function removeTheme() {
   resetThemeClasses();
   lastThemeBlockNotice = null;
 }
+
 
 function resetThemeClasses() {
   if (!root) {
@@ -554,6 +592,533 @@ function stopFontSyncInterval() {
     clearInterval(fontSyncIntervalId);
     fontSyncIntervalId = null;
   }
+}
+
+function tableOfContentsIsActive() {
+  return Boolean(currentSettings.enableFix && currentSettings.tableOfContents);
+}
+
+function syncTableOfContentsState() {
+  if (!tableOfContentsIsActive()) {
+    teardownTableOfContentsPanel();
+    disconnectTableOfContentsObserver();
+    cancelTableOfContentsUpdate();
+    return;
+  }
+  ensureTableOfContentsPanel();
+  applyTableOfContentsPlacement();
+  applyTableOfContentsThemeTokens();
+  connectTableOfContentsObserver();
+  scheduleTableOfContentsUpdate();
+}
+
+function ensureTableOfContentsPanel() {
+  if (!document || !document.body) {
+    return;
+  }
+  if (tocPanel && tocPanel.isConnected) {
+    return;
+  }
+  tocPanel = document.createElement('aside');
+  tocPanel.id = TOC_PANEL_ID;
+  tocPanel.className = 'chatgpt-toc-panel';
+  tocPanel.setAttribute('role', 'complementary');
+  tocPanel.setAttribute('aria-label', 'Conversation outline');
+
+  const header = document.createElement('div');
+  header.className = 'chatgpt-toc-header';
+  header.textContent = 'Table of contents';
+  header.title = 'Drag to reposition the panel';
+
+  tocListElement = document.createElement('ol');
+  tocListElement.className = 'chatgpt-toc-list';
+
+  tocPanel.appendChild(header);
+  tocPanel.appendChild(tocListElement);
+  tocPanel.addEventListener('click', handleTableOfContentsClick);
+  document.body.appendChild(tocPanel);
+  enableTableOfContentsDragging();
+  applyTableOfContentsThemeTokens();
+}
+
+function teardownTableOfContentsPanel() {
+  disableTableOfContentsDragging();
+  if (tocPanel) {
+    tocPanel.removeEventListener('click', handleTableOfContentsClick);
+    if (tocPanel.parentNode) {
+      tocPanel.parentNode.removeChild(tocPanel);
+    }
+    clearTableOfContentsThemeTokens();
+  }
+  tocPanel = null;
+  tocListElement = null;
+  tocHighlightTimers.forEach((timer, element) => {
+    clearTimeout(timer);
+    if (element && element.classList) {
+      element.classList.remove('chatgpt-toc-highlight');
+    }
+  });
+  tocHighlightTimers.clear();
+}
+
+function connectTableOfContentsObserver() {
+  if (!tableOfContentsIsActive()) {
+    return;
+  }
+  const container = document.querySelector('main') || document.body || document.documentElement;
+  if (!container) {
+    return;
+  }
+  if (!tocObserver) {
+    tocObserver = new MutationObserver(handleTableOfContentsMutations);
+  }
+  tocObserver.disconnect();
+  tocObserver.observe(container, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+}
+
+function disconnectTableOfContentsObserver() {
+  if (tocObserver) {
+    tocObserver.disconnect();
+  }
+}
+
+function handleTableOfContentsMutations(mutations) {
+  if (!tableOfContentsIsActive()) {
+    return;
+  }
+  const shouldUpdate = mutations.some((mutation) => {
+    if (mutation.type === 'childList') {
+      return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
+    }
+    return mutation.type === 'characterData';
+  });
+  if (shouldUpdate) {
+    scheduleTableOfContentsUpdate();
+  }
+}
+
+function scheduleTableOfContentsUpdate() {
+  if (!tableOfContentsIsActive()) {
+    return;
+  }
+  if (tocUpdateTimer) {
+    clearTimeout(tocUpdateTimer);
+  }
+  tocUpdateTimer = setTimeout(() => {
+    tocUpdateTimer = null;
+    rebuildTableOfContents();
+  }, TOC_UPDATE_DEBOUNCE_MS);
+}
+
+function cancelTableOfContentsUpdate() {
+  if (tocUpdateTimer) {
+    clearTimeout(tocUpdateTimer);
+    tocUpdateTimer = null;
+  }
+}
+
+function applyTableOfContentsPlacement() {
+  if (!tocPanel) {
+    return;
+  }
+  const normalized = normalizeTableOfContentsPosition(currentSettings.tableOfContentsPosition);
+  if (normalized) {
+    setTocPanelCustomPosition(normalized);
+  } else {
+    resetTocPanelPosition();
+  }
+}
+
+function normalizeTableOfContentsPosition(position) {
+  if (!position || typeof position !== 'object' || !tocPanel) {
+    return null;
+  }
+  const top = Number(position.top);
+  const left = Number(position.left);
+  if (!Number.isFinite(top) || !Number.isFinite(left)) {
+    return null;
+  }
+  const rect = tocPanel.getBoundingClientRect();
+  const maxLeft = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - rect.width - TOC_PANEL_MIN_GAP);
+  const maxTop = Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - rect.height - TOC_PANEL_MIN_GAP);
+  return {
+    top: clamp(top, TOC_PANEL_MIN_GAP, maxTop),
+    left: clamp(left, TOC_PANEL_MIN_GAP, maxLeft)
+  };
+}
+
+function setTocPanelCustomPosition(position) {
+  if (!tocPanel) {
+    return;
+  }
+  tocPanel.style.top = `${Math.round(position.top)}px`;
+  tocPanel.style.left = `${Math.round(position.left)}px`;
+  tocPanel.style.right = 'auto';
+  tocPanel.style.bottom = 'auto';
+}
+
+function resetTocPanelPosition() {
+  if (!tocPanel) {
+    return;
+  }
+  tocPanel.style.top = '';
+  tocPanel.style.left = '';
+  tocPanel.style.right = '';
+  tocPanel.style.bottom = '';
+}
+
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  if (max < min) {
+    return min;
+  }
+  return Math.min(Math.max(value, min), max);
+}
+
+function applyTableOfContentsThemeTokens() {
+  if (!tocPanel) {
+    return;
+  }
+  if (isCustomThemeActive()) {
+    clearTableOfContentsThemeTokens();
+    return;
+  }
+  const mode = getChatGPTThemeMode();
+  const tokens = mode === 'dark' ? TOC_THEME_TOKEN_PRESETS.dark : TOC_THEME_TOKEN_PRESETS.light;
+  Object.entries(tokens).forEach(([name, value]) => {
+    tocPanel.style.setProperty(name, value);
+  });
+}
+
+function clearTableOfContentsThemeTokens() {
+  if (!tocPanel) {
+    return;
+  }
+  Object.keys(TOC_THEME_TOKEN_PRESETS.dark).forEach((name) => {
+    tocPanel.style.removeProperty(name);
+  });
+}
+
+function isCustomThemeActive() {
+  if (!root) {
+    return false;
+  }
+  return CUSTOM_THEME_CLASSES.some((className) => root.classList.contains(className));
+}
+
+function enableTableOfContentsDragging() {
+  if (!tocPanel || tocDragHandle) {
+    return;
+  }
+  const handle = tocPanel.querySelector('.chatgpt-toc-header');
+  if (!handle) {
+    return;
+  }
+  tocDragHandle = handle;
+  handle.addEventListener('pointerdown', handleTocPointerDown);
+}
+
+function disableTableOfContentsDragging() {
+  if (tocDragHandle) {
+    tocDragHandle.removeEventListener('pointerdown', handleTocPointerDown);
+    tocDragHandle = null;
+  }
+  cancelTocDragging();
+}
+
+function handleTocPointerDown(event) {
+  if (!tocPanel) {
+    return;
+  }
+  if (event.button !== 0 && event.pointerType !== 'touch') {
+    return;
+  }
+  event.preventDefault();
+  const rect = tocPanel.getBoundingClientRect();
+  tocDragState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    offsetX: rect.left,
+    offsetY: rect.top,
+    width: rect.width,
+    height: rect.height,
+    lastLeft: rect.left,
+    lastTop: rect.top
+  };
+  tocPanel.classList.add('is-dragging');
+  document.addEventListener('pointermove', handleTocPointerMove);
+  document.addEventListener('pointerup', handleTocPointerUpOrCancel);
+  document.addEventListener('pointercancel', handleTocPointerUpOrCancel);
+}
+
+function handleTocPointerMove(event) {
+  if (!tocDragState) {
+    return;
+  }
+  if (typeof tocDragState.pointerId === 'number' && event.pointerId !== tocDragState.pointerId) {
+    return;
+  }
+  const deltaX = event.clientX - tocDragState.startX;
+  const deltaY = event.clientY - tocDragState.startY;
+  const left = clamp(
+    tocDragState.offsetX + deltaX,
+    TOC_PANEL_MIN_GAP,
+    Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - tocDragState.width - TOC_PANEL_MIN_GAP)
+  );
+  const top = clamp(
+    tocDragState.offsetY + deltaY,
+    TOC_PANEL_MIN_GAP,
+    Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - tocDragState.height - TOC_PANEL_MIN_GAP)
+  );
+  tocDragState.lastLeft = left;
+  tocDragState.lastTop = top;
+  setTocPanelCustomPosition({ top, left });
+  currentSettings.tableOfContentsPosition = { top, left };
+}
+
+function handleTocPointerUpOrCancel(event) {
+  if (!tocDragState) {
+    return;
+  }
+  if (typeof tocDragState.pointerId === 'number' && event.pointerId !== tocDragState.pointerId) {
+    return;
+  }
+  const finalPosition = tocDragState.lastTop != null && tocDragState.lastLeft != null
+    ? { top: tocDragState.lastTop, left: tocDragState.lastLeft }
+    : null;
+  cancelTocDragging();
+  if (finalPosition) {
+    saveTableOfContentsPosition(finalPosition);
+  }
+}
+
+function cancelTocDragging() {
+  if (!tocDragState) {
+    return;
+  }
+  document.removeEventListener('pointermove', handleTocPointerMove);
+  document.removeEventListener('pointerup', handleTocPointerUpOrCancel);
+  document.removeEventListener('pointercancel', handleTocPointerUpOrCancel);
+  if (tocPanel) {
+    tocPanel.classList.remove('is-dragging');
+  }
+  tocDragState = null;
+}
+
+function saveTableOfContentsPosition(position) {
+  currentSettings.tableOfContentsPosition = position;
+  if (!chrome || !chrome.storage || !chrome.storage.sync) {
+    return;
+  }
+  chrome.storage.sync.set({ tableOfContentsPosition: position }, () => {
+    if (chrome.runtime && chrome.runtime.lastError) {
+      // console.error(chrome.runtime.lastError);
+    }
+  });
+}
+
+function rebuildTableOfContents() {
+  if (!tableOfContentsIsActive() || !tocListElement) {
+    return;
+  }
+  const assistantMessages = collectAssistantMessages();
+  tocListElement.innerHTML = '';
+  if (!assistantMessages.length) {
+    const empty = document.createElement('li');
+    empty.className = 'chatgpt-toc-empty';
+    empty.textContent = 'No assistant replies yet.';
+    tocListElement.appendChild(empty);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  assistantMessages.forEach((message, index) => {
+    const anchorId = ensureMessageAnchorId(message);
+    if (!anchorId) {
+      return;
+    }
+    const title = deriveTocTitle(message, index);
+    const item = document.createElement('li');
+    item.className = 'chatgpt-toc-item';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chatgpt-toc-entry';
+    button.dataset.tocTarget = anchorId;
+    button.textContent = title;
+    item.appendChild(button);
+    fragment.appendChild(item);
+  });
+  tocListElement.appendChild(fragment);
+}
+
+function collectAssistantMessages() {
+  const nodes = document.querySelectorAll(MESSAGE_SELECTOR);
+  if (!nodes || !nodes.length) {
+    return [];
+  }
+  return Array.from(nodes).filter((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return false;
+    }
+    const role = node.getAttribute('data-message-author-role') || (node.dataset ? node.dataset.messageAuthorRole : null);
+    return role === 'assistant';
+  });
+}
+
+function deriveTocTitle(message, index) {
+  const heading = pluckHeadingText(message);
+  if (heading) {
+    return heading;
+  }
+  const snippet = extractMessageSnippet(message);
+  if (snippet) {
+    return snippet;
+  }
+  return `Response ${index + 1}`;
+}
+
+function pluckHeadingText(message) {
+  if (!(message instanceof HTMLElement)) {
+    return '';
+  }
+  const markdown = message.querySelector('.markdown');
+  if (!markdown) {
+    return '';
+  }
+  const heading = markdown.querySelector('h1, h2, h3, h4, h5, h6');
+  if (!heading || !heading.textContent) {
+    return '';
+  }
+  return formatTocTitle(heading.textContent);
+}
+
+function extractMessageSnippet(message) {
+  if (!(message instanceof HTMLElement)) {
+    return '';
+  }
+  const markdown = message.querySelector('.markdown');
+  const target = markdown || message;
+  const raw = target && target.textContent ? target.textContent : '';
+  if (!raw) {
+    return '';
+  }
+  const firstLine = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => Boolean(line));
+  if (!firstLine) {
+    return '';
+  }
+  return formatTocTitle(firstLine);
+}
+
+function formatTocTitle(text) {
+  if (!text) {
+    return '';
+  }
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '';
+  }
+  let candidate = normalized;
+  const clauseMatch = candidate.match(/^[^.!?]+/);
+  if (clauseMatch && clauseMatch[0].length >= 24) {
+    candidate = clauseMatch[0];
+  }
+  const words = candidate.split(' ').filter(Boolean);
+  if (words.length > TOC_MAX_TITLE_WORDS) {
+    candidate = words.slice(0, TOC_MAX_TITLE_WORDS).join(' ');
+  }
+  if (candidate.length > TOC_MAX_TITLE_LENGTH) {
+    candidate = candidate.slice(0, TOC_MAX_TITLE_LENGTH - 1).trim();
+  }
+  if (candidate.length < normalized.length) {
+    candidate = candidate.replace(/[.,;:!?-]+$/, '').trim();
+    if (candidate && !candidate.endsWith('...')) {
+      candidate = `${candidate}...`;
+    }
+  }
+  return candidate || normalized.slice(0, TOC_MAX_TITLE_LENGTH);
+}
+
+function ensureMessageAnchorId(message) {
+  if (!(message instanceof HTMLElement)) {
+    return '';
+  }
+  const existing = message.getAttribute(TOC_ANCHOR_ATTR);
+  if (existing) {
+    return existing;
+  }
+  tocAnchorCounter += 1;
+  const identifier = `chatgpt-toc-${Date.now().toString(36)}-${tocAnchorCounter}`;
+  message.setAttribute(TOC_ANCHOR_ATTR, identifier);
+  return identifier;
+}
+
+function handleTableOfContentsClick(event) {
+  const target = event.target instanceof HTMLElement ? event.target.closest('.chatgpt-toc-entry') : null;
+  if (!target) {
+    return;
+  }
+  const anchorId = target.dataset ? target.dataset.tocTarget : null;
+  if (!anchorId) {
+    return;
+  }
+  const selector = `[${TOC_ANCHOR_ATTR}="${escapeCssAttributeValue(anchorId)}"]`;
+  const message = document.querySelector(selector);
+  if (!message) {
+    return;
+  }
+  event.preventDefault();
+  scrollMessageIntoView(message);
+  highlightMessage(message);
+}
+
+function escapeCssAttributeValue(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\\]\[]/g, '\\$&');
+}
+
+function scrollMessageIntoView(element) {
+  try {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  } catch (error) {
+    element.scrollIntoView(true);
+  }
+}
+
+function highlightMessage(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  const existingTimer = tocHighlightTimers.get(element);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+  element.classList.add('chatgpt-toc-highlight');
+  const timer = setTimeout(() => {
+    element.classList.remove('chatgpt-toc-highlight');
+    tocHighlightTimers.delete(element);
+  }, TOC_HIGHLIGHT_DURATION_MS);
+  tocHighlightTimers.set(element, timer);
+}
+
+function handleTableOfContentsResize() {
+  if (!tableOfContentsIsActive() || !tocPanel) {
+    return;
+  }
+  if (!currentSettings.tableOfContentsPosition) {
+    return;
+  }
+  applyTableOfContentsPlacement();
 }
 
 function setGlobalFontVariables(font) {
@@ -1091,6 +1656,10 @@ try {
   }
 } catch (error) {
   // Ignore matchMedia issues.
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', handleTableOfContentsResize);
 }
 
 if (chrome?.runtime?.onMessage) {
