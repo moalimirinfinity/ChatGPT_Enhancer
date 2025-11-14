@@ -205,11 +205,60 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
   padding: 6px 0 0;
 }
 
-.chatgpt-toc-highlight {
-  box-shadow: 0 0 0 2px rgba(33, 87, 255, 0.35), 0 12px 32px rgba(5, 7, 20, 0.2);
+.chatgpt-toc-highlight-active {
+  position: relative;
   border-radius: 18px;
-  transition: box-shadow 0.3s ease, background-color 0.3s ease;
-  background-image: linear-gradient(135deg, rgba(33, 87, 255, 0.1), rgba(255, 255, 255, 0));
+  transition: background-color 0.3s ease;
+  --toc-highlight-color: var(--chatgpt-theme-accent, #1c46d6);
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--toc-highlight-color) 20%, transparent),
+    transparent
+  );
+}
+
+.chatgpt-toc-highlight-active::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid color-mix(in srgb, var(--toc-highlight-color) 60%, transparent);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--toc-highlight-color) 32%, rgba(5, 7, 20, 0.25));
+  pointer-events: none;
+  animation: chatgpt-toc-highlight-pulse 1.6s ease forwards;
+}
+
+@keyframes chatgpt-toc-highlight-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  60% {
+    opacity: 0.85;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatgpt-toc-highlight-active::after {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
+@supports not (color: color-mix(in srgb, red 50%, white)) {
+  .chatgpt-toc-highlight-active {
+    background-image: linear-gradient(135deg, rgba(33, 87, 255, 0.12), rgba(255, 255, 255, 0));
+  }
+
+  .chatgpt-toc-highlight-active::after {
+    border: 2px solid rgba(33, 87, 255, 0.45);
+    box-shadow: 0 8px 26px rgba(5, 7, 20, 0.28);
+  }
 }
 
 .chatgpt-toc-panel.is-dragging {

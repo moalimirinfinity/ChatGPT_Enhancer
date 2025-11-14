@@ -118,6 +118,8 @@ const FONT_IMPORT_CSS = `
 `;
 
 const PERSIAN_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const TOC_RTL_CHAR_REGEX =
+  /[\u0590-\u08FF\u200F\u202B\uFB1D-\uFDFD\uFE70-\uFEFC\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
 const MESSAGE_SELECTOR = [
   '[data-testid="conversation-turn"]',
   '[data-testid^="conversation-turn-"]',
@@ -139,7 +141,7 @@ const TOC_ANCHOR_ATTR = 'data-chatgpt-toc-id';
 const TOC_UPDATE_DEBOUNCE_MS = 200;
 const TOC_HIGHLIGHT_DURATION_MS = 1600;
 const TOC_MAX_TITLE_LENGTH = 120;
-const TOC_MAX_TITLE_WORDS = 12;
+const TOC_MAX_TITLE_WORDS = 10;
 const TOC_PANEL_MIN_GAP = 12;
 const TOC_THEME_TOKEN_PRESETS = {
   light: {
@@ -675,7 +677,8 @@ function teardownTableOfContentsPanel() {
   tocHighlightTimers.forEach((timer, element) => {
     clearTimeout(timer);
     if (element && element.classList) {
-      element.classList.remove('chatgpt-toc-highlight');
+      element.classList.remove('chatgpt-toc-highlight-active');
+      element.removeAttribute('data-chatgpt-toc-highlighted');
     }
   });
   tocHighlightTimers.clear();
@@ -1159,9 +1162,14 @@ function highlightMessage(element) {
   if (existingTimer) {
     clearTimeout(existingTimer);
   }
-  element.classList.add('chatgpt-toc-highlight');
+  element.classList.remove('chatgpt-toc-highlight-active');
+  // Force reflow so animation can restart
+  void element.offsetWidth;
+  element.classList.add('chatgpt-toc-highlight-active');
+  element.setAttribute('data-chatgpt-toc-highlighted', 'true');
   const timer = setTimeout(() => {
-    element.classList.remove('chatgpt-toc-highlight');
+    element.classList.remove('chatgpt-toc-highlight-active');
+    element.removeAttribute('data-chatgpt-toc-highlighted');
     tocHighlightTimers.delete(element);
   }, TOC_HIGHLIGHT_DURATION_MS);
   tocHighlightTimers.set(element, timer);
