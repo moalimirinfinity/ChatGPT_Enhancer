@@ -192,6 +192,12 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+.chatgpt-toc-panel .chatgpt-toc-entry {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 .chatgpt-toc-entry:hover,
 .chatgpt-toc-entry:focus-visible {
   background: rgba(33, 87, 255, 0.12);

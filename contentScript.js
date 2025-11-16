@@ -140,6 +140,7 @@ const TOC_ENTRY_ATTR = 'data-chatgpt-toc-target';
 const TOC_ANCHOR_ATTR = 'data-chatgpt-toc-id';
 const TOC_UPDATE_DEBOUNCE_MS = 200;
 const TOC_HIGHLIGHT_DURATION_MS = 1600;
+const TOC_ORIGINAL_HIGHLIGHT_COLOR = '#9ca3af';
 const TOC_MAX_TITLE_LENGTH = 120;
 const TOC_MAX_TITLE_WORDS = 10;
 const TOC_PANEL_MIN_GAP = 12;
@@ -1137,6 +1138,9 @@ function handleTableOfContentsClick(event) {
   event.preventDefault();
   scrollMessageIntoView(message);
   highlightMessage(message);
+  if (event.detail && typeof target.blur === 'function') {
+    target.blur();
+  }
 }
 
 function escapeCssAttributeValue(value) {
@@ -1154,6 +1158,13 @@ function scrollMessageIntoView(element) {
   }
 }
 
+function resolveTableOfContentsHighlightColor() {
+  if (!root) {
+    return null;
+  }
+  return isCustomThemeActive() ? null : TOC_ORIGINAL_HIGHLIGHT_COLOR;
+}
+
 function highlightMessage(element) {
   if (!(element instanceof HTMLElement)) {
     return;
@@ -1163,13 +1174,19 @@ function highlightMessage(element) {
     clearTimeout(existingTimer);
   }
   element.classList.remove('chatgpt-toc-highlight-active');
+  element.style.removeProperty('--toc-highlight-color');
   // Force reflow so animation can restart
   void element.offsetWidth;
+  const highlightColor = resolveTableOfContentsHighlightColor();
+  if (highlightColor) {
+    element.style.setProperty('--toc-highlight-color', highlightColor);
+  }
   element.classList.add('chatgpt-toc-highlight-active');
   element.setAttribute('data-chatgpt-toc-highlighted', 'true');
   const timer = setTimeout(() => {
     element.classList.remove('chatgpt-toc-highlight-active');
     element.removeAttribute('data-chatgpt-toc-highlighted');
+    element.style.removeProperty('--toc-highlight-color');
     tocHighlightTimers.delete(element);
   }, TOC_HIGHLIGHT_DURATION_MS);
   tocHighlightTimers.set(element, timer);
