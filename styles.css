@@ -198,11 +198,18 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
   border: none !important;
 }
 
-.chatgpt-toc-entry:hover,
-.chatgpt-toc-entry:focus-visible {
-  background: rgba(33, 87, 255, 0.12);
-  color: var(--chatgpt-theme-accent, #1c46d6);
+.chatgpt-toc-panel .chatgpt-toc-entry:hover,
+.chatgpt-toc-panel .chatgpt-toc-entry:focus-visible {
+  background: color-mix(in srgb, var(--chatgpt-theme-accent, #1c46d6) 18%, transparent) !important;
+  color: var(--chatgpt-theme-accent, #1c46d6) !important;
   outline: none;
+}
+
+@supports not (color: color-mix(in srgb, red 50%, white)) {
+  .chatgpt-toc-panel .chatgpt-toc-entry:hover,
+  .chatgpt-toc-panel .chatgpt-toc-entry:focus-visible {
+    background: rgba(33, 87, 255, 0.12) !important;
+  }
 }
 
 .chatgpt-toc-empty {

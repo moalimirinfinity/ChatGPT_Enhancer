@@ -160,15 +160,6 @@ const TOC_THEME_TOKEN_PRESETS = {
     '--chatgpt-theme-accent': '#7aa2ff'
   }
 };
-let tocPanel = null;
-let tocListElement = null;
-let tocObserver = null;
-let tocUpdateTimer = null;
-let tocAnchorCounter = 0;
-const tocHighlightTimers = new Map();
-let tocDragHandle = null;
-let tocDragState = null;
-let tocCollapseButton = null;
 const LANGUAGE_HINT_DEFAULT = 'english';
 const LANGUAGE_HINT_MESSAGE_TYPE = 'GPT_ENHANCER_DETECT_LANGUAGE';
 const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
@@ -263,7 +254,7 @@ function applySettings(settings) {
     removeTheme();
   }
   applyFontControl(settings);
-  syncTableOfContentsState();
+  tableOfContents.sync(settings);
   scheduleClassResetFlag();
 }
 
@@ -283,7 +274,7 @@ function applyTheme(theme, environmentThemeMode) {
       // );
     }
     appliedThemeClass = null;
-    applyTableOfContentsThemeTokens();
+    tableOfContents.applyThemeTokens();
     return;
   }
   const themeClass = resolveThemeClass(applicableTheme);
@@ -295,7 +286,7 @@ function applyTheme(theme, environmentThemeMode) {
     appliedThemeClass = null;
     lastThemeBlockNotice = null;
   }
-  applyTableOfContentsThemeTokens();
+  tableOfContents.applyThemeTokens();
 }
 
 function removeTheme() {
@@ -599,608 +590,649 @@ function stopFontSyncInterval() {
   }
 }
 
-function tableOfContentsIsActive() {
-  return Boolean(currentSettings.enableFix && currentSettings.tableOfContents);
-}
-
-function syncTableOfContentsState() {
-  if (!tableOfContentsIsActive()) {
-    teardownTableOfContentsPanel();
-    disconnectTableOfContentsObserver();
-    cancelTableOfContentsUpdate();
-    return;
-  }
-  ensureTableOfContentsPanel();
-  applyTableOfContentsPlacement();
-  applyTableOfContentsThemeTokens();
-  setTableOfContentsCollapsed(Boolean(currentSettings.tableOfContentsCollapsed), false);
-  connectTableOfContentsObserver();
-  scheduleTableOfContentsUpdate();
-}
-
-function ensureTableOfContentsPanel() {
-  if (!document || !document.body) {
-    return;
-  }
-  if (tocPanel && tocPanel.isConnected) {
-    return;
-  }
-  tocPanel = document.createElement('aside');
-  tocPanel.id = TOC_PANEL_ID;
-  tocPanel.className = 'chatgpt-toc-panel';
-  tocPanel.setAttribute('role', 'complementary');
-  tocPanel.setAttribute('aria-label', 'Conversation outline');
-
-  const header = document.createElement('div');
-  header.className = 'chatgpt-toc-header';
-  header.title = 'Drag to reposition the panel';
-
-  const heading = document.createElement('span');
-  heading.className = 'chatgpt-toc-heading';
-  heading.textContent = 'Table of contents';
-
-  tocCollapseButton = document.createElement('button');
-  tocCollapseButton.type = 'button';
-  tocCollapseButton.className = 'chatgpt-toc-collapse';
-  tocCollapseButton.setAttribute('aria-label', 'Collapse outline');
-  tocCollapseButton.setAttribute('aria-pressed', 'false');
-  tocCollapseButton.textContent = '–';
-  tocCollapseButton.addEventListener('click', toggleTableOfContentsCollapsed);
-
-  tocListElement = document.createElement('ol');
-  tocListElement.className = 'chatgpt-toc-list';
-
-  header.appendChild(heading);
-  header.appendChild(tocCollapseButton);
-  tocPanel.appendChild(header);
-  tocPanel.appendChild(tocListElement);
-  tocPanel.addEventListener('click', handleTableOfContentsClick);
-  document.body.appendChild(tocPanel);
-  enableTableOfContentsDragging();
-  applyTableOfContentsThemeTokens();
-}
-
-function teardownTableOfContentsPanel() {
-  disableTableOfContentsDragging();
-  if (tocPanel) {
-    tocPanel.removeEventListener('click', handleTableOfContentsClick);
-    if (tocPanel.parentNode) {
-      tocPanel.parentNode.removeChild(tocPanel);
-    }
-    clearTableOfContentsThemeTokens();
-  }
-  tocPanel = null;
-  tocListElement = null;
-  if (tocCollapseButton) {
-    tocCollapseButton.removeEventListener('click', toggleTableOfContentsCollapsed);
-  }
-  tocCollapseButton = null;
-  tocHighlightTimers.forEach((timer, element) => {
-    clearTimeout(timer);
-    if (element && element.classList) {
-      element.classList.remove('chatgpt-toc-highlight-active');
-      element.removeAttribute('data-chatgpt-toc-highlighted');
-    }
-  });
-  tocHighlightTimers.clear();
-}
-
-function connectTableOfContentsObserver() {
-  if (!tableOfContentsIsActive()) {
-    return;
-  }
-  const container = document.querySelector('main') || document.body || document.documentElement;
-  if (!container) {
-    return;
-  }
-  if (!tocObserver) {
-    tocObserver = new MutationObserver(handleTableOfContentsMutations);
-  }
-  tocObserver.disconnect();
-  tocObserver.observe(container, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-}
-
-function disconnectTableOfContentsObserver() {
-  if (tocObserver) {
-    tocObserver.disconnect();
-  }
-}
-
-function handleTableOfContentsMutations(mutations) {
-  if (!tableOfContentsIsActive()) {
-    return;
-  }
-  const shouldUpdate = mutations.some((mutation) => {
-    if (mutation.type === 'childList') {
-      return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-    }
-    return mutation.type === 'characterData';
-  });
-  if (shouldUpdate) {
-    scheduleTableOfContentsUpdate();
-  }
-}
-
-function scheduleTableOfContentsUpdate() {
-  if (!tableOfContentsIsActive()) {
-    return;
-  }
-  if (tocUpdateTimer) {
-    clearTimeout(tocUpdateTimer);
-  }
-  tocUpdateTimer = setTimeout(() => {
-    tocUpdateTimer = null;
-    rebuildTableOfContents();
-  }, TOC_UPDATE_DEBOUNCE_MS);
-}
-
-function cancelTableOfContentsUpdate() {
-  if (tocUpdateTimer) {
-    clearTimeout(tocUpdateTimer);
-    tocUpdateTimer = null;
-  }
-}
-
-function applyTableOfContentsPlacement() {
-  if (!tocPanel) {
-    return;
-  }
-  const normalized = normalizeTableOfContentsPosition(currentSettings.tableOfContentsPosition);
-  if (normalized) {
-    setTocPanelCustomPosition(normalized);
-  } else {
-    resetTocPanelPosition();
-  }
-}
-
-function normalizeTableOfContentsPosition(position) {
-  if (!position || typeof position !== 'object' || !tocPanel) {
-    return null;
-  }
-  const top = Number(position.top);
-  const left = Number(position.left);
-  if (!Number.isFinite(top) || !Number.isFinite(left)) {
-    return null;
-  }
-  const rect = tocPanel.getBoundingClientRect();
-  const maxLeft = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - rect.width - TOC_PANEL_MIN_GAP);
-  const maxTop = Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - rect.height - TOC_PANEL_MIN_GAP);
-  return {
-    top: clamp(top, TOC_PANEL_MIN_GAP, maxTop),
-    left: clamp(left, TOC_PANEL_MIN_GAP, maxLeft)
+const tableOfContents = (() => {
+  const state = {
+    panel: null,
+    list: null,
+    observer: null,
+    updateTimer: null,
+    anchorCounter: 0,
+    dragHandle: null,
+    dragState: null,
+    collapseButton: null,
+    highlightTimers: new Map()
   };
-}
 
-function setTocPanelCustomPosition(position) {
-  if (!tocPanel) {
-    return;
+  function isActive(settings = currentSettings) {
+    return Boolean(settings?.enableFix && settings.tableOfContents);
   }
-  tocPanel.style.top = `${Math.round(position.top)}px`;
-  tocPanel.style.left = `${Math.round(position.left)}px`;
-  tocPanel.style.right = 'auto';
-  tocPanel.style.bottom = 'auto';
-}
 
-function resetTocPanelPosition() {
-  if (!tocPanel) {
-    return;
+  function sync(settings = currentSettings) {
+    if (!isActive(settings)) {
+      teardown();
+      disconnectObserver();
+      cancelUpdate();
+      return;
+    }
+    ensurePanel();
+    applyPlacement(settings);
+    applyThemeTokens();
+    setCollapsed(Boolean(settings.tableOfContentsCollapsed), false);
+    connectObserver();
+    scheduleUpdate();
   }
-  tocPanel.style.top = '';
-  tocPanel.style.left = '';
-  tocPanel.style.right = '';
-  tocPanel.style.bottom = '';
-}
 
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  if (max < min) {
-    return min;
-  }
-  return Math.min(Math.max(value, min), max);
-}
+  function ensurePanel() {
+    if (!document || !document.body) {
+      return;
+    }
+    if (state.panel && state.panel.isConnected) {
+      return;
+    }
+    const panel = document.createElement('aside');
+    panel.id = TOC_PANEL_ID;
+    panel.className = 'chatgpt-toc-panel';
+    panel.setAttribute('role', 'complementary');
+    panel.setAttribute('aria-label', 'Conversation outline');
 
-function toggleTableOfContentsCollapsed() {
-  if (!tocPanel) {
-    return;
-  }
-  const next = !tocPanel.classList.contains('is-collapsed');
-  setTableOfContentsCollapsed(next, true);
-}
+    const header = document.createElement('div');
+    header.className = 'chatgpt-toc-header';
+    header.title = 'Drag to reposition the panel';
 
-function setTableOfContentsCollapsed(collapsed, persist) {
-  if (!tocPanel) {
-    return;
+    const heading = document.createElement('span');
+    heading.className = 'chatgpt-toc-heading';
+    heading.textContent = 'Table of contents';
+
+    const collapseButton = document.createElement('button');
+    collapseButton.type = 'button';
+    collapseButton.className = 'chatgpt-toc-collapse';
+    collapseButton.setAttribute('aria-label', 'Collapse outline');
+    collapseButton.setAttribute('aria-pressed', 'false');
+    collapseButton.textContent = '–';
+    collapseButton.addEventListener('click', toggleCollapsed);
+
+    const list = document.createElement('ol');
+    list.className = 'chatgpt-toc-list';
+
+    header.appendChild(heading);
+    header.appendChild(collapseButton);
+    panel.appendChild(header);
+    panel.appendChild(list);
+    panel.addEventListener('click', handleClick);
+    document.body.appendChild(panel);
+    state.panel = panel;
+    state.list = list;
+    state.collapseButton = collapseButton;
+    state.anchorCounter = 0;
+    enableDragging();
+    applyThemeTokens();
   }
-  tocPanel.classList.toggle('is-collapsed', collapsed);
-  if (tocListElement) {
-    tocListElement.hidden = collapsed;
+
+  function teardown() {
+    disableDragging();
+    if (state.panel) {
+      state.panel.removeEventListener('click', handleClick);
+      if (state.panel.parentNode) {
+        state.panel.parentNode.removeChild(state.panel);
+      }
+      clearThemeTokens();
+    }
+    if (state.collapseButton) {
+      state.collapseButton.removeEventListener('click', toggleCollapsed);
+    }
+    state.panel = null;
+    state.list = null;
+    state.collapseButton = null;
+    state.anchorCounter = 0;
+    state.highlightTimers.forEach((timer, element) => {
+      clearTimeout(timer);
+      if (element && element.classList) {
+        element.classList.remove('chatgpt-toc-highlight-active');
+        element.removeAttribute('data-chatgpt-toc-highlighted');
+      }
+    });
+    state.highlightTimers.clear();
   }
-  if (tocCollapseButton) {
-    tocCollapseButton.setAttribute('aria-pressed', String(collapsed));
-    tocCollapseButton.textContent = collapsed ? '+' : '–';
-    tocCollapseButton.setAttribute('aria-label', collapsed ? 'Expand outline' : 'Collapse outline');
+
+  function connectObserver() {
+    if (!isActive()) {
+      return;
+    }
+    const container = document.querySelector('main') || document.body || document.documentElement;
+    if (!container) {
+      return;
+    }
+    if (!state.observer) {
+      state.observer = new MutationObserver(handleMutations);
+    }
+    state.observer.disconnect();
+    state.observer.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
   }
-  if (persist) {
-    currentSettings.tableOfContentsCollapsed = collapsed;
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ tableOfContentsCollapsed: collapsed }, () => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          // console.error(chrome.runtime.lastError);
-        }
-      });
+
+  function disconnectObserver() {
+    if (state.observer) {
+      state.observer.disconnect();
     }
   }
-}
 
-function applyTableOfContentsThemeTokens() {
-  if (!tocPanel) {
-    return;
-  }
-  if (isCustomThemeActive()) {
-    clearTableOfContentsThemeTokens();
-    return;
-  }
-  const mode = getChatGPTThemeMode();
-  const tokens = mode === 'dark' ? TOC_THEME_TOKEN_PRESETS.dark : TOC_THEME_TOKEN_PRESETS.light;
-  Object.entries(tokens).forEach(([name, value]) => {
-    tocPanel.style.setProperty(name, value);
-  });
-}
-
-function clearTableOfContentsThemeTokens() {
-  if (!tocPanel) {
-    return;
-  }
-  Object.keys(TOC_THEME_TOKEN_PRESETS.dark).forEach((name) => {
-    tocPanel.style.removeProperty(name);
-  });
-}
-
-function isCustomThemeActive() {
-  if (!root) {
-    return false;
-  }
-  return CUSTOM_THEME_CLASSES.some((className) => root.classList.contains(className));
-}
-
-function enableTableOfContentsDragging() {
-  if (!tocPanel || tocDragHandle) {
-    return;
-  }
-  const handle = tocPanel.querySelector('.chatgpt-toc-header');
-  if (!handle) {
-    return;
-  }
-  tocDragHandle = handle;
-  handle.addEventListener('pointerdown', handleTocPointerDown);
-}
-
-function disableTableOfContentsDragging() {
-  if (tocDragHandle) {
-    tocDragHandle.removeEventListener('pointerdown', handleTocPointerDown);
-    tocDragHandle = null;
-  }
-  cancelTocDragging();
-}
-
-function handleTocPointerDown(event) {
-  if (!tocPanel) {
-    return;
-  }
-  if (tocCollapseButton && event.target instanceof Node && tocCollapseButton.contains(event.target)) {
-    return;
-  }
-  if (event.button !== 0 && event.pointerType !== 'touch') {
-    return;
-  }
-  event.preventDefault();
-  const rect = tocPanel.getBoundingClientRect();
-  tocDragState = {
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    offsetX: rect.left,
-    offsetY: rect.top,
-    width: rect.width,
-    height: rect.height,
-    lastLeft: rect.left,
-    lastTop: rect.top
-  };
-  tocPanel.classList.add('is-dragging');
-  document.addEventListener('pointermove', handleTocPointerMove);
-  document.addEventListener('pointerup', handleTocPointerUpOrCancel);
-  document.addEventListener('pointercancel', handleTocPointerUpOrCancel);
-}
-
-function handleTocPointerMove(event) {
-  if (!tocDragState) {
-    return;
-  }
-  if (typeof tocDragState.pointerId === 'number' && event.pointerId !== tocDragState.pointerId) {
-    return;
-  }
-  const deltaX = event.clientX - tocDragState.startX;
-  const deltaY = event.clientY - tocDragState.startY;
-  const left = clamp(
-    tocDragState.offsetX + deltaX,
-    TOC_PANEL_MIN_GAP,
-    Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - tocDragState.width - TOC_PANEL_MIN_GAP)
-  );
-  const top = clamp(
-    tocDragState.offsetY + deltaY,
-    TOC_PANEL_MIN_GAP,
-    Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - tocDragState.height - TOC_PANEL_MIN_GAP)
-  );
-  tocDragState.lastLeft = left;
-  tocDragState.lastTop = top;
-  setTocPanelCustomPosition({ top, left });
-  currentSettings.tableOfContentsPosition = { top, left };
-}
-
-function handleTocPointerUpOrCancel(event) {
-  if (!tocDragState) {
-    return;
-  }
-  if (typeof tocDragState.pointerId === 'number' && event.pointerId !== tocDragState.pointerId) {
-    return;
-  }
-  const finalPosition = tocDragState.lastTop != null && tocDragState.lastLeft != null
-    ? { top: tocDragState.lastTop, left: tocDragState.lastLeft }
-    : null;
-  cancelTocDragging();
-  if (finalPosition) {
-    saveTableOfContentsPosition(finalPosition);
-  }
-}
-
-function cancelTocDragging() {
-  if (!tocDragState) {
-    return;
-  }
-  document.removeEventListener('pointermove', handleTocPointerMove);
-  document.removeEventListener('pointerup', handleTocPointerUpOrCancel);
-  document.removeEventListener('pointercancel', handleTocPointerUpOrCancel);
-  if (tocPanel) {
-    tocPanel.classList.remove('is-dragging');
-  }
-  tocDragState = null;
-}
-
-function saveTableOfContentsPosition(position) {
-  currentSettings.tableOfContentsPosition = position;
-  if (!chrome || !chrome.storage || !chrome.storage.sync) {
-    return;
-  }
-  chrome.storage.sync.set({ tableOfContentsPosition: position }, () => {
-    if (chrome.runtime && chrome.runtime.lastError) {
-      // console.error(chrome.runtime.lastError);
+  function handleMutations(mutations) {
+    if (!isActive()) {
+      return;
     }
-  });
-}
+    const shouldUpdate = mutations.some((mutation) => {
+      if (mutation.type === 'childList') {
+        return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
+      }
+      return mutation.type === 'characterData';
+    });
+    if (shouldUpdate) {
+      scheduleUpdate();
+    }
+  }
 
-function rebuildTableOfContents() {
-  if (!tableOfContentsIsActive() || !tocListElement) {
-    return;
+  function scheduleUpdate() {
+    if (!isActive()) {
+      return;
+    }
+    if (state.updateTimer) {
+      clearTimeout(state.updateTimer);
+    }
+    state.updateTimer = setTimeout(() => {
+      state.updateTimer = null;
+      rebuildList();
+    }, TOC_UPDATE_DEBOUNCE_MS);
   }
-  const assistantMessages = collectAssistantMessages();
-  tocListElement.innerHTML = '';
-  if (!assistantMessages.length) {
-    const empty = document.createElement('li');
-    empty.className = 'chatgpt-toc-empty';
-    empty.textContent = 'No assistant replies yet.';
-    tocListElement.appendChild(empty);
-    return;
+
+  function cancelUpdate() {
+    if (state.updateTimer) {
+      clearTimeout(state.updateTimer);
+      state.updateTimer = null;
+    }
   }
-  const fragment = document.createDocumentFragment();
-  assistantMessages.forEach((message, index) => {
-    const anchorId = ensureMessageAnchorId(message);
+
+  function applyPlacement(settings = currentSettings) {
+    if (!state.panel) {
+      return;
+    }
+    const normalized = normalizePosition(settings.tableOfContentsPosition);
+    if (normalized) {
+      setCustomPosition(normalized);
+    } else {
+      resetPosition();
+    }
+  }
+
+  function normalizePosition(position) {
+    if (!position || typeof position !== 'object' || !state.panel) {
+      return null;
+    }
+    const top = Number(position.top);
+    let left = Number(position.left);
+    const savedRightGap = Number(position.rightGap);
+    if (!Number.isFinite(top)) {
+      return null;
+    }
+    const rect = state.panel.getBoundingClientRect();
+    if (Number.isFinite(savedRightGap)) {
+      const candidateLeft = window.innerWidth - rect.width - savedRightGap;
+      if (Number.isFinite(candidateLeft)) {
+        left = candidateLeft;
+      }
+    }
+    if (!Number.isFinite(left)) {
+      return null;
+    }
+    const maxLeft = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - rect.width - TOC_PANEL_MIN_GAP);
+    const maxTop = Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - rect.height - TOC_PANEL_MIN_GAP);
+    return {
+      top: clamp(top, TOC_PANEL_MIN_GAP, maxTop),
+      left: clamp(left, TOC_PANEL_MIN_GAP, maxLeft)
+    };
+  }
+
+  function setCustomPosition(position) {
+    if (!state.panel) {
+      return;
+    }
+    state.panel.style.top = `${Math.round(position.top)}px`;
+    state.panel.style.left = `${Math.round(position.left)}px`;
+    state.panel.style.right = 'auto';
+    state.panel.style.bottom = 'auto';
+  }
+
+  function resetPosition() {
+    if (!state.panel) {
+      return;
+    }
+    state.panel.style.top = '';
+    state.panel.style.left = '';
+    state.panel.style.right = '';
+    state.panel.style.bottom = '';
+  }
+
+  function clamp(value, min, max) {
+    if (!Number.isFinite(value)) {
+      return min;
+    }
+    if (max < min) {
+      return min;
+    }
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function toggleCollapsed() {
+    if (!state.panel) {
+      return;
+    }
+    const next = !state.panel.classList.contains('is-collapsed');
+    setCollapsed(next, true);
+  }
+
+  function setCollapsed(collapsed, persist) {
+    if (!state.panel) {
+      return;
+    }
+    state.panel.classList.toggle('is-collapsed', collapsed);
+    if (state.list) {
+      state.list.hidden = collapsed;
+    }
+    if (state.collapseButton) {
+      state.collapseButton.setAttribute('aria-pressed', String(collapsed));
+      state.collapseButton.textContent = collapsed ? '+' : '–';
+      state.collapseButton.setAttribute('aria-label', collapsed ? 'Expand outline' : 'Collapse outline');
+    }
+    if (persist) {
+      currentSettings.tableOfContentsCollapsed = collapsed;
+      if (chrome?.storage?.sync) {
+        chrome.storage.sync.set({ tableOfContentsCollapsed: collapsed }, () => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            // console.error(chrome.runtime.lastError);
+          }
+        });
+      }
+    }
+  }
+
+  function applyThemeTokens() {
+    if (!state.panel) {
+      return;
+    }
+    if (isCustomThemeActive()) {
+      clearThemeTokens();
+      return;
+    }
+    const mode = getChatGPTThemeMode();
+    const tokens = mode === 'dark' ? TOC_THEME_TOKEN_PRESETS.dark : TOC_THEME_TOKEN_PRESETS.light;
+    Object.entries(tokens).forEach(([name, value]) => {
+      state.panel.style.setProperty(name, value);
+    });
+  }
+
+  function clearThemeTokens() {
+    if (!state.panel) {
+      return;
+    }
+    Object.keys(TOC_THEME_TOKEN_PRESETS.dark).forEach((name) => {
+      state.panel.style.removeProperty(name);
+    });
+  }
+
+  function isCustomThemeActive() {
+    if (!root) {
+      return false;
+    }
+    return CUSTOM_THEME_CLASSES.some((className) => root.classList.contains(className));
+  }
+
+  function enableDragging() {
+    if (!state.panel || state.dragHandle) {
+      return;
+    }
+    const handle = state.panel.querySelector('.chatgpt-toc-header');
+    if (!handle) {
+      return;
+    }
+    state.dragHandle = handle;
+    handle.addEventListener('pointerdown', handlePointerDown);
+  }
+
+  function disableDragging() {
+    if (state.dragHandle) {
+      state.dragHandle.removeEventListener('pointerdown', handlePointerDown);
+    }
+    state.dragHandle = null;
+    cancelDragging();
+  }
+
+  function handlePointerDown(event) {
+    if (!state.panel) {
+      return;
+    }
+    if (state.collapseButton && event.target instanceof Node && state.collapseButton.contains(event.target)) {
+      return;
+    }
+    if (event.button !== 0 && event.pointerType !== 'touch') {
+      return;
+    }
+    event.preventDefault();
+    const rect = state.panel.getBoundingClientRect();
+    state.dragState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: rect.left,
+      offsetY: rect.top,
+      width: rect.width,
+      height: rect.height,
+      lastLeft: rect.left,
+      lastTop: rect.top
+    };
+    state.panel.classList.add('is-dragging');
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUpOrCancel);
+    document.addEventListener('pointercancel', handlePointerUpOrCancel);
+  }
+
+  function handlePointerMove(event) {
+    if (!state.dragState) {
+      return;
+    }
+    if (typeof state.dragState.pointerId === 'number' && event.pointerId !== state.dragState.pointerId) {
+      return;
+    }
+    const deltaX = event.clientX - state.dragState.startX;
+    const deltaY = event.clientY - state.dragState.startY;
+    const left = clamp(
+      state.dragState.offsetX + deltaX,
+      TOC_PANEL_MIN_GAP,
+      Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - state.dragState.width - TOC_PANEL_MIN_GAP)
+    );
+    const top = clamp(
+      state.dragState.offsetY + deltaY,
+      TOC_PANEL_MIN_GAP,
+      Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - state.dragState.height - TOC_PANEL_MIN_GAP)
+    );
+    state.dragState.lastLeft = left;
+    state.dragState.lastTop = top;
+    const rightGap = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - state.dragState.width - left);
+    setCustomPosition({ top, left });
+    currentSettings.tableOfContentsPosition = { top, left, rightGap };
+  }
+
+  function handlePointerUpOrCancel(event) {
+    if (!state.dragState) {
+      return;
+    }
+    if (typeof state.dragState.pointerId === 'number' && event.pointerId !== state.dragState.pointerId) {
+      return;
+    }
+    const finalPosition = state.dragState.lastTop != null && state.dragState.lastLeft != null
+      ? { top: state.dragState.lastTop, left: state.dragState.lastLeft }
+      : null;
+    cancelDragging();
+    if (finalPosition) {
+      const rightGap =
+        state.dragState && Number.isFinite(state.dragState.width)
+          ? Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - state.dragState.width - finalPosition.left)
+          : null;
+      const position = rightGap != null ? { ...finalPosition, rightGap } : finalPosition;
+      savePosition(position);
+    }
+  }
+
+  function cancelDragging() {
+    if (!state.dragState) {
+      return;
+    }
+    document.removeEventListener('pointermove', handlePointerMove);
+    document.removeEventListener('pointerup', handlePointerUpOrCancel);
+    document.removeEventListener('pointercancel', handlePointerUpOrCancel);
+    if (state.panel) {
+      state.panel.classList.remove('is-dragging');
+    }
+    state.dragState = null;
+  }
+
+  function savePosition(position) {
+    currentSettings.tableOfContentsPosition = position;
+    if (!chrome || !chrome.storage || !chrome.storage.sync) {
+      return;
+    }
+    chrome.storage.sync.set({ tableOfContentsPosition: position }, () => {
+      if (chrome.runtime && chrome.runtime.lastError) {
+        // console.error(chrome.runtime.lastError);
+      }
+    });
+  }
+
+  function rebuildList() {
+    if (!isActive() || !state.list) {
+      return;
+    }
+    const assistantMessages = collectAssistantMessages();
+    state.list.innerHTML = '';
+    if (!assistantMessages.length) {
+      const empty = document.createElement('li');
+      empty.className = 'chatgpt-toc-empty';
+      empty.textContent = 'No assistant replies yet.';
+      state.list.appendChild(empty);
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    assistantMessages.forEach((message, index) => {
+      const anchorId = ensureMessageAnchorId(message);
+      if (!anchorId) {
+        return;
+      }
+      const title = deriveTitle(message, index);
+      const item = document.createElement('li');
+      item.className = 'chatgpt-toc-item';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chatgpt-toc-entry';
+      button.dataset.tocTarget = anchorId;
+      button.textContent = title;
+      item.appendChild(button);
+      fragment.appendChild(item);
+    });
+    state.list.appendChild(fragment);
+  }
+
+  function collectAssistantMessages() {
+    const nodes = document.querySelectorAll(MESSAGE_SELECTOR);
+    if (!nodes || !nodes.length) {
+      return [];
+    }
+    return Array.from(nodes).filter((node) => {
+      if (!(node instanceof HTMLElement)) {
+        return false;
+      }
+      const role = node.getAttribute('data-message-author-role') || (node.dataset ? node.dataset.messageAuthorRole : null);
+      return role === 'assistant';
+    });
+  }
+
+  function deriveTitle(message, index) {
+    const heading = pluckHeading(message);
+    if (heading) {
+      return heading;
+    }
+    const snippet = extractSnippet(message);
+    if (snippet) {
+      return snippet;
+    }
+    return `Response ${index + 1}`;
+  }
+
+  function pluckHeading(message) {
+    if (!(message instanceof HTMLElement)) {
+      return '';
+    }
+    const markdown = message.querySelector('.markdown');
+    if (!markdown) {
+      return '';
+    }
+    const heading = markdown.querySelector('h1, h2, h3, h4, h5, h6');
+    if (!heading || !heading.textContent) {
+      return '';
+    }
+    return formatTitle(heading.textContent);
+  }
+
+  function extractSnippet(message) {
+    if (!(message instanceof HTMLElement)) {
+      return '';
+    }
+    const markdown = message.querySelector('.markdown');
+    const target = markdown || message;
+    const raw = target && target.textContent ? target.textContent : '';
+    if (!raw) {
+      return '';
+    }
+    const firstLine = raw
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => Boolean(line));
+    if (!firstLine) {
+      return '';
+    }
+    return formatTitle(firstLine);
+  }
+
+  function formatTitle(text) {
+    if (!text) {
+      return '';
+    }
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return '';
+    }
+    let candidate = normalized;
+    const clauseMatch = candidate.match(/^[^.!?]+/);
+    if (clauseMatch && clauseMatch[0].length >= 24) {
+      candidate = clauseMatch[0];
+    }
+    const words = candidate.split(' ').filter(Boolean);
+    if (words.length > TOC_MAX_TITLE_WORDS) {
+      candidate = words.slice(0, TOC_MAX_TITLE_WORDS).join(' ');
+    }
+    if (candidate.length > TOC_MAX_TITLE_LENGTH) {
+      candidate = candidate.slice(0, TOC_MAX_TITLE_LENGTH - 1).trim();
+    }
+    if (candidate.length < normalized.length) {
+      candidate = candidate.replace(/[.,;:!?-]+$/, '').trim();
+      if (candidate && !candidate.endsWith('...')) {
+        candidate = `${candidate}...`;
+      }
+    }
+    return candidate || normalized.slice(0, TOC_MAX_TITLE_LENGTH);
+  }
+
+  function ensureMessageAnchorId(message) {
+    if (!(message instanceof HTMLElement)) {
+      return '';
+    }
+    const existing = message.getAttribute(TOC_ANCHOR_ATTR);
+    if (existing) {
+      return existing;
+    }
+    state.anchorCounter += 1;
+    const identifier = `chatgpt-toc-${Date.now().toString(36)}-${state.anchorCounter}`;
+    message.setAttribute(TOC_ANCHOR_ATTR, identifier);
+    return identifier;
+  }
+
+  function handleClick(event) {
+    const target = event.target instanceof HTMLElement ? event.target.closest('.chatgpt-toc-entry') : null;
+    if (!target) {
+      return;
+    }
+    const anchorId = target.dataset ? target.dataset.tocTarget : null;
     if (!anchorId) {
       return;
     }
-    const title = deriveTocTitle(message, index);
-    const item = document.createElement('li');
-    item.className = 'chatgpt-toc-item';
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'chatgpt-toc-entry';
-    button.dataset.tocTarget = anchorId;
-    button.textContent = title;
-    item.appendChild(button);
-    fragment.appendChild(item);
-  });
-  tocListElement.appendChild(fragment);
-}
-
-function collectAssistantMessages() {
-  const nodes = document.querySelectorAll(MESSAGE_SELECTOR);
-  if (!nodes || !nodes.length) {
-    return [];
-  }
-  return Array.from(nodes).filter((node) => {
-    if (!(node instanceof HTMLElement)) {
-      return false;
+    const selector = `[${TOC_ANCHOR_ATTR}="${escapeAttribute(anchorId)}"]`;
+    const message = document.querySelector(selector);
+    if (!message) {
+      return;
     }
-    const role = node.getAttribute('data-message-author-role') || (node.dataset ? node.dataset.messageAuthorRole : null);
-    return role === 'assistant';
-  });
-}
-
-function deriveTocTitle(message, index) {
-  const heading = pluckHeadingText(message);
-  if (heading) {
-    return heading;
-  }
-  const snippet = extractMessageSnippet(message);
-  if (snippet) {
-    return snippet;
-  }
-  return `Response ${index + 1}`;
-}
-
-function pluckHeadingText(message) {
-  if (!(message instanceof HTMLElement)) {
-    return '';
-  }
-  const markdown = message.querySelector('.markdown');
-  if (!markdown) {
-    return '';
-  }
-  const heading = markdown.querySelector('h1, h2, h3, h4, h5, h6');
-  if (!heading || !heading.textContent) {
-    return '';
-  }
-  return formatTocTitle(heading.textContent);
-}
-
-function extractMessageSnippet(message) {
-  if (!(message instanceof HTMLElement)) {
-    return '';
-  }
-  const markdown = message.querySelector('.markdown');
-  const target = markdown || message;
-  const raw = target && target.textContent ? target.textContent : '';
-  if (!raw) {
-    return '';
-  }
-  const firstLine = raw
-    .split('\n')
-    .map((line) => line.trim())
-    .find((line) => Boolean(line));
-  if (!firstLine) {
-    return '';
-  }
-  return formatTocTitle(firstLine);
-}
-
-function formatTocTitle(text) {
-  if (!text) {
-    return '';
-  }
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (!normalized) {
-    return '';
-  }
-  let candidate = normalized;
-  const clauseMatch = candidate.match(/^[^.!?]+/);
-  if (clauseMatch && clauseMatch[0].length >= 24) {
-    candidate = clauseMatch[0];
-  }
-  const words = candidate.split(' ').filter(Boolean);
-  if (words.length > TOC_MAX_TITLE_WORDS) {
-    candidate = words.slice(0, TOC_MAX_TITLE_WORDS).join(' ');
-  }
-  if (candidate.length > TOC_MAX_TITLE_LENGTH) {
-    candidate = candidate.slice(0, TOC_MAX_TITLE_LENGTH - 1).trim();
-  }
-  if (candidate.length < normalized.length) {
-    candidate = candidate.replace(/[.,;:!?-]+$/, '').trim();
-    if (candidate && !candidate.endsWith('...')) {
-      candidate = `${candidate}...`;
+    event.preventDefault();
+    scrollIntoView(message);
+    highlight(message);
+    if (event.detail && typeof target.blur === 'function') {
+      target.blur();
     }
   }
-  return candidate || normalized.slice(0, TOC_MAX_TITLE_LENGTH);
-}
 
-function ensureMessageAnchorId(message) {
-  if (!(message instanceof HTMLElement)) {
-    return '';
+  function escapeAttribute(value) {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+    return value.replace(/["\\\]\[]/g, '\\$&');
   }
-  const existing = message.getAttribute(TOC_ANCHOR_ATTR);
-  if (existing) {
-    return existing;
-  }
-  tocAnchorCounter += 1;
-  const identifier = `chatgpt-toc-${Date.now().toString(36)}-${tocAnchorCounter}`;
-  message.setAttribute(TOC_ANCHOR_ATTR, identifier);
-  return identifier;
-}
 
-function handleTableOfContentsClick(event) {
-  const target = event.target instanceof HTMLElement ? event.target.closest('.chatgpt-toc-entry') : null;
-  if (!target) {
-    return;
+  function scrollIntoView(element) {
+    try {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    } catch (error) {
+      element.scrollIntoView(true);
+    }
   }
-  const anchorId = target.dataset ? target.dataset.tocTarget : null;
-  if (!anchorId) {
-    return;
-  }
-  const selector = `[${TOC_ANCHOR_ATTR}="${escapeCssAttributeValue(anchorId)}"]`;
-  const message = document.querySelector(selector);
-  if (!message) {
-    return;
-  }
-  event.preventDefault();
-  scrollMessageIntoView(message);
-  highlightMessage(message);
-  if (event.detail && typeof target.blur === 'function') {
-    target.blur();
-  }
-}
 
-function escapeCssAttributeValue(value) {
-  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
-    return CSS.escape(value);
+  function resolveHighlightColor() {
+    if (!root) {
+      return null;
+    }
+    return isCustomThemeActive() ? null : TOC_ORIGINAL_HIGHLIGHT_COLOR;
   }
-  return value.replace(/["\\\]\[]/g, '\\$&');
-}
 
-function scrollMessageIntoView(element) {
-  try {
-    element.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-  } catch (error) {
-    element.scrollIntoView(true);
-  }
-}
-
-function resolveTableOfContentsHighlightColor() {
-  if (!root) {
-    return null;
-  }
-  return isCustomThemeActive() ? null : TOC_ORIGINAL_HIGHLIGHT_COLOR;
-}
-
-function highlightMessage(element) {
-  if (!(element instanceof HTMLElement)) {
-    return;
-  }
-  const existingTimer = tocHighlightTimers.get(element);
-  if (existingTimer) {
-    clearTimeout(existingTimer);
-  }
-  element.classList.remove('chatgpt-toc-highlight-active');
-  element.style.removeProperty('--toc-highlight-color');
-  // Force reflow so animation can restart
-  void element.offsetWidth;
-  const highlightColor = resolveTableOfContentsHighlightColor();
-  if (highlightColor) {
-    element.style.setProperty('--toc-highlight-color', highlightColor);
-  }
-  element.classList.add('chatgpt-toc-highlight-active');
-  element.setAttribute('data-chatgpt-toc-highlighted', 'true');
-  const timer = setTimeout(() => {
+  function highlight(element) {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+    const existingTimer = state.highlightTimers.get(element);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
     element.classList.remove('chatgpt-toc-highlight-active');
-    element.removeAttribute('data-chatgpt-toc-highlighted');
     element.style.removeProperty('--toc-highlight-color');
-    tocHighlightTimers.delete(element);
-  }, TOC_HIGHLIGHT_DURATION_MS);
-  tocHighlightTimers.set(element, timer);
-}
+    void element.offsetWidth;
+    const highlightColor = resolveHighlightColor();
+    if (highlightColor) {
+      element.style.setProperty('--toc-highlight-color', highlightColor);
+    }
+    element.classList.add('chatgpt-toc-highlight-active');
+    element.setAttribute('data-chatgpt-toc-highlighted', 'true');
+    const timer = setTimeout(() => {
+      element.classList.remove('chatgpt-toc-highlight-active');
+      element.removeAttribute('data-chatgpt-toc-highlighted');
+      element.style.removeProperty('--toc-highlight-color');
+      state.highlightTimers.delete(element);
+    }, TOC_HIGHLIGHT_DURATION_MS);
+    state.highlightTimers.set(element, timer);
+  }
 
-function handleTableOfContentsResize() {
-  if (!tableOfContentsIsActive() || !tocPanel) {
-    return;
+  function handleResize() {
+    if (!isActive() || !state.panel) {
+      return;
+    }
+    if (!currentSettings.tableOfContentsPosition) {
+      return;
+    }
+    applyPlacement(currentSettings);
   }
-  if (!currentSettings.tableOfContentsPosition) {
-    return;
-  }
-  applyTableOfContentsPlacement();
-}
+
+  return {
+    applyThemeTokens,
+    handleResize,
+    isActive,
+    sync
+  };
+})();
 
 function setGlobalFontVariables(font) {
   if (!root || !font) {
@@ -1740,7 +1772,7 @@ try {
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('resize', handleTableOfContentsResize);
+  window.addEventListener('resize', tableOfContents.handleResize);
 }
 
 if (chrome?.runtime?.onMessage) {
