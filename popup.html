@@ -303,6 +303,17 @@
         </button>
         <div id="stabilize-section" class="accordion__content">
           <label class="toggle toggle--sub">
+            <input type="checkbox" id="toggle-toc" class="toggle__input" />
+            <span class="toggle__track">
+              <span class="toggle__thumb"></span>
+            </span>
+            <div class="toggle__content">
+              <span class="toggle__title">Table of contents</span>
+              <span class="toggle__hint">create a table of content for the conversation.</span>
+            </div>
+          </label>
+
+          <label class="toggle toggle--sub">
             <input type="checkbox" id="toggle-katex" class="toggle__input" />
             <span class="toggle__track">
               <span class="toggle__thumb"></span>
@@ -489,11 +500,11 @@
                   class="export-segment__input"
                   type="radio"
                   name="export-format"
-                  id="export-format-markdown"
-                  value="markdown"
+                  id="export-format-json"
+                  value="json"
                   aria-describedby="export-tooltip-message"
                 />
-                <span class="export-segment__label">Markdown</span>
+                <span class="export-segment__label">JSON</span>
               </label>
               <label
                 class="export-segment__option"

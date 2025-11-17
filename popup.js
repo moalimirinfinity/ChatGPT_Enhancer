@@ -4,6 +4,9 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
+  tableOfContents: false,
+  tableOfContentsCollapsed: false,
+  tableOfContentsPosition: null,
   exportFormat: 'pdf',
   theme: 'original',
   fontsEnabled: false,
@@ -79,6 +82,20 @@ function normalizeThemeAlias(theme) {
   return normalized === 'daybreak' ? 'skylight' : normalized;
 }
 
+function normalizeExportFormat(format) {
+  if (!format || typeof format !== 'string') {
+    return DEFAULT_SETTINGS.exportFormat;
+  }
+  const normalized = format.trim().toLowerCase();
+  if (normalized === 'markdown') {
+    return 'json';
+  }
+  if (['pdf', 'docx', 'json', 'png'].includes(normalized)) {
+    return normalized;
+  }
+  return DEFAULT_SETTINGS.exportFormat;
+}
+
 const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isBusy = false;
@@ -112,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fixCode = document.getElementById('toggle-code');
   controls.fixTables = document.getElementById('toggle-tables');
   controls.copyKatex = document.getElementById('toggle-copy');
+  controls.tableOfContents = document.getElementById('toggle-toc');
   controls.refreshBtn = document.getElementById('refresh-btn');
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
@@ -201,8 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
     fixKatex: controls.fixKatex,
     fixCode: controls.fixCode,
     fixTables: controls.fixTables,
-    copyKatex: controls.copyKatex
+    copyKatex: controls.copyKatex,
+    tableOfContents: controls.tableOfContents
   }).forEach(([key, input]) => {
+    if (!input) {
+      return;
+    }
     input.addEventListener('change', () => {
       if (isBusy) {
         return;
@@ -266,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isBusy) {
         return;
       }
-      updateSetting('exportFormat', input.value);
+      updateSetting('exportFormat', normalizeExportFormat(input.value));
     });
   });
   if (controls.exportBtn) {
@@ -400,6 +422,13 @@ function applySettingsToUI(settings) {
       updateSetting('theme', normalizedTheme);
     }
   }
+  if (settings && settings.exportFormat) {
+    const normalizedExportFormat = normalizeExportFormat(settings.exportFormat);
+    if (normalizedExportFormat !== settings.exportFormat) {
+      settings = { ...settings, exportFormat: normalizedExportFormat };
+      updateSetting('exportFormat', normalizedExportFormat);
+    }
+  }
   currentSettings = settings;
 
   isBusy = true;
@@ -408,6 +437,9 @@ function applySettingsToUI(settings) {
   controls.fixCode.checked = settings.fixCode;
   controls.fixTables.checked = settings.fixTables;
   controls.copyKatex.checked = settings.copyKatex;
+  if (controls.tableOfContents) {
+    controls.tableOfContents.checked = settings.tableOfContents;
+  }
   if (controls.fontToggle) {
     const fontsEnabled = settings.enableFix && settings.fontsEnabled;
     controls.fontToggle.checked = fontsEnabled;
@@ -416,14 +448,23 @@ function applySettingsToUI(settings) {
   updateFontOptionSelection('persian', settings.fontPersian);
   setActiveFontTab(currentFontTab);
   setFontControlsDisabled(!(settings.enableFix && settings.fontsEnabled));
-  const targetFormat = settings.exportFormat || DEFAULT_SETTINGS.exportFormat;
+  const targetFormat = normalizeExportFormat(settings.exportFormat || DEFAULT_SETTINGS.exportFormat);
   controls.exportFormatRadios.forEach((input) => {
     input.checked = input.value === targetFormat;
   });
   isBusy = false;
 
   const dependentsDisabled = !settings.enableFix;
-  [controls.fixKatex, controls.fixCode, controls.fixTables, controls.copyKatex].forEach((input) => {
+  [
+    controls.fixKatex,
+    controls.fixCode,
+    controls.fixTables,
+    controls.copyKatex,
+    controls.tableOfContents
+  ].forEach((input) => {
+    if (!input) {
+      return;
+    }
     input.disabled = dependentsDisabled;
     const toggle = input.closest('.toggle');
     if (toggle) {
@@ -802,7 +843,7 @@ function resetExportLabelSoon() {
 
 function getSelectedExportFormat() {
   const checked = controls.exportFormatRadios.find((input) => input.checked);
-  return checked ? checked.value : DEFAULT_SETTINGS.exportFormat;
+  return normalizeExportFormat(checked ? checked.value : DEFAULT_SETTINGS.exportFormat);
 }
 
 function isChatGPTUrl(url) {

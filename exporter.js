@@ -358,6 +358,20 @@ async function registerExportFonts() {
   return exportFontRegistrationPromise;
 }
 
+function normalizeExportFormat(format) {
+  if (!format || typeof format !== 'string') {
+    return 'pdf';
+  }
+  const normalized = format.trim().toLowerCase();
+  if (normalized === 'markdown') {
+    return 'json';
+  }
+  if (['pdf', 'docx', 'png', 'json'].includes(normalized)) {
+    return normalized;
+  }
+  return 'pdf';
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== EXPORT_MESSAGE_TYPE) {
     return undefined;
@@ -374,25 +388,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function handleExportRequest(format) {
+  const exportFormat = normalizeExportFormat(format);
   await registerExportFonts();
   const { root, stage, styleNode } = await prepareExportStage();
   try {
-    ensureLibraries(format);
+    ensureLibraries(exportFormat);
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
     await ensureExportFontsLoaded();
-    if (format !== 'markdown') {
-      await inlineImages(root);
-    }
+    await inlineImages(root);
 
-    switch (format) {
+    switch (exportFormat) {
       case 'docx':
         prepareDocxSpecificAdjustments(root);
         await convertKatexToImages(root);
         await exportAsDocx(root);
         break;
-      case 'markdown':
-        exportAsMarkdown(root);
+      // case 'markdown':
+      //   exportAsMarkdown(root);
+      //   break;
+      case 'json':
+        await exportAsJson(root);
         break;
       case 'png':
         await exportAsPng(stage, root);
@@ -1174,6 +1190,582 @@ function extractLatex(element) {
   }
   return element.textContent ? element.textContent.trim() : '';
 }
+
+async function exportAsJson(root) {
+  const payload = serializeExportRootToJson(root);
+  const content = JSON.stringify(payload, null, 2);
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+  triggerDownload(blob, buildFilename('json'));
+}
+
+const JSON_BLOCK_LEVEL_SELECTOR = [
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'pre',
+  'blockquote',
+  'ul',
+  'ol',
+  'table',
+  'hr',
+  'figure',
+  '.katex',
+  '.' + EXPORT_EQUATION_CLASS
+].join(', ');
+
+function serializeExportRootToJson(root) {
+  const turns = Array.from(root.children || [])
+    .map((turn, index) => serializeTurnNodeToJson(turn, index))
+    .filter(Boolean);
+
+  return {
+    title: document.title || 'ChatGPT Conversation',
+    sourceUrl: typeof window !== 'undefined' && window.location ? window.location.href : '',
+    exportedAt: new Date().toISOString(),
+    turnCount: turns.length,
+    turns
+  };
+}
+
+function serializeTurnNodeToJson(turnNode, index) {
+  if (!turnNode) {
+    return null;
+  }
+
+  const direction = resolveNodeDirection(turnNode, serializeInlineText(turnNode));
+  const blocks = serializeChildNodesToBlocks(turnNode);
+  if (!blocks.length) {
+    return null;
+  }
+
+  return {
+    index,
+    role: detectTurnRole(turnNode),
+    direction,
+    blocks
+  };
+}
+
+function detectTurnRole(turnNode) {
+  const directRole = (turnNode.getAttribute('data-message-author-role') || '').trim();
+  if (directRole) {
+    return directRole.toLowerCase();
+  }
+  const nestedRole = turnNode.querySelector('[data-message-author-role]');
+  if (nestedRole && nestedRole.getAttribute('data-message-author-role')) {
+    return nestedRole.getAttribute('data-message-author-role').toLowerCase();
+  }
+  const testId = (turnNode.getAttribute('data-testid') || '').toLowerCase();
+  if (testId.includes('user')) {
+    return 'user';
+  }
+  if (testId.includes('assistant')) {
+    return 'assistant';
+  }
+  return 'unknown';
+}
+
+function resolveNodeDirection(node, fallbackText) {
+  if (!node) {
+    return null;
+  }
+  const dirAttr = node.getAttribute && node.getAttribute('dir');
+  if (dirAttr === 'rtl' || dirAttr === 'ltr') {
+    return dirAttr;
+  }
+  const sourceText = fallbackText && fallbackText.trim() ? fallbackText : extractRelevantText(node);
+  if (!sourceText) {
+    return null;
+  }
+  const { rtlCount, ltrCount } = countDirectionCharacters(sourceText);
+  if (rtlCount === 0 && ltrCount === 0) {
+    return null;
+  }
+  return rtlCount > ltrCount ? 'rtl' : 'ltr';
+}
+
+function serializeBlocksFromContainer(container) {
+  return serializeChildNodesToBlocks(container);
+}
+
+function isBlockLevel(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  return node.matches(JSON_BLOCK_LEVEL_SELECTOR);
+}
+
+function serializeChildNodesToBlocks(container) {
+  if (!container) {
+    return [];
+  }
+
+  const blocks = [];
+  let inlineGroup = [];
+
+  const flushInlineGroup = () => {
+    if (!inlineGroup.length) {
+      return;
+    }
+    const temp = document.createElement('div');
+    inlineGroup.forEach((node) => temp.appendChild(node.cloneNode(true)));
+    const content = serializeInlineFragments(temp);
+    if (content.length) {
+      blocks.push({
+        type: 'paragraph',
+        content,
+        direction: resolveNodeDirection(temp, serializeInlineText(temp))
+      });
+    }
+    inlineGroup = [];
+  };
+
+  Array.from(container.childNodes || []).forEach((node) => {
+    if (isBlockLevel(node)) {
+      flushInlineGroup();
+      const block = serializeBlockToJson(node);
+      if (block) {
+        blocks.push(block);
+      }
+      return;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.nodeValue && node.nodeValue.trim()) {
+        inlineGroup.push(node);
+      }
+      return;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      inlineGroup.push(node);
+    }
+  });
+
+  flushInlineGroup();
+
+  return blocks;
+}
+
+function serializeBlockToJson(node) {
+  const tag = node.tagName ? node.tagName.toLowerCase() : '';
+  const direction = resolveNodeDirection(node);
+
+  if (isEquationNode(node)) {
+    return serializeEquationBlock(node, direction);
+  }
+
+  switch (tag) {
+    case 'p':
+      return serializeParagraphBlock(node, direction);
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      return serializeHeadingBlock(node, direction, Number(tag[1]));
+    case 'blockquote':
+      return serializeBlockquoteBlock(node, direction);
+    case 'pre':
+      return serializeCodeBlock(node, direction);
+    case 'ul':
+    case 'ol':
+      return serializeListBlock(node, direction, tag === 'ol');
+    case 'table':
+      return serializeTableBlock(node, direction);
+    case 'hr':
+      return { type: 'separator', direction };
+    case 'figure':
+      return serializeFigureBlock(node, direction);
+    default:
+      return serializeGenericBlock(node, direction);
+  }
+}
+
+function serializeParagraphBlock(node, direction) {
+  const content = serializeInlineFragments(node);
+  if (!content.length) {
+    return null;
+  }
+  return {
+    type: 'paragraph',
+    content,
+    direction
+  };
+}
+
+function serializeHeadingBlock(node, direction, level) {
+  const content = serializeInlineFragments(node);
+  return {
+    type: 'heading',
+    level: Number.isFinite(level) ? level : null,
+    content,
+    direction
+  };
+}
+
+function serializeBlockquoteBlock(node, direction) {
+  const content = serializeInlineFragments(node);
+  const nested = serializeNestedBlocks(node);
+  return {
+    type: 'blockquote',
+    content: content.length ? content : undefined,
+    blocks: nested.length ? nested : undefined,
+    direction
+  };
+}
+
+function serializeCodeBlock(node, direction) {
+  const codeNode = node.querySelector('code');
+  const raw = codeNode ? codeNode.textContent || '' : node.textContent || '';
+  const language = codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '';
+  const code = sanitizeCodeBlockContent(raw);
+  return {
+    type: 'code',
+    language: language || null,
+    code,
+    direction
+  };
+}
+
+function serializeInlineCodeBlock(node, direction) {
+  if (node.closest('pre')) {
+    return null;
+  }
+  const code = sanitizeCodeBlockContent(node.textContent || '');
+  if (!code) {
+    return null;
+  }
+  return {
+    type: 'code',
+    inline: true,
+    code,
+    direction
+  };
+}
+
+function serializeListBlock(node, direction, ordered) {
+  const items = Array.from(node.children || [])
+    .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
+    .map((item, index) => {
+      const content = serializeInlineFragments(item);
+      const nestedBlocks = serializeNestedBlocks(item);
+      const childLists = nestedBlocks.filter((block) => block && block.type === 'list');
+      const otherBlocks = nestedBlocks.filter((block) => block && block.type !== 'list');
+      return {
+        index,
+        content: content.length ? content : undefined,
+        direction: resolveNodeDirection(item, serializeInlineText(item)),
+        children: childLists.length ? childLists : undefined,
+        blocks: otherBlocks.length ? otherBlocks : undefined
+      };
+    })
+    .filter((entry) => entry && (entry.content || (entry.children && entry.children.length) || (entry.blocks && entry.blocks.length)));
+
+  return {
+    type: 'list',
+    ordered: Boolean(ordered),
+    items,
+    direction
+  };
+}
+
+function serializeTableBlock(table, direction) {
+  const rows = Array.from(table.querySelectorAll('tr'))
+    .map((row) => {
+      const cells = Array.from(row.children || [])
+        .filter((cell) => cell.tagName && ['td', 'th'].includes(cell.tagName.toLowerCase()))
+        .map((cell) => ({
+          type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
+          content: serializeInlineFragments(cell),
+          colSpan: parseSpanValue(cell.getAttribute('colspan')),
+          rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
+          direction: resolveNodeDirection(cell)
+        }))
+        .filter((cell) => (cell.content && cell.content.length) || cell.colSpan || cell.rowSpan);
+      if (!cells.length) {
+        return null;
+      }
+      return { cells };
+    })
+    .filter(Boolean);
+
+  return {
+    type: 'table',
+    rows,
+    direction
+  };
+}
+
+function serializeImageBlock(node, direction, inline = false) {
+  const src = node.getAttribute ? node.getAttribute('src') || node.src || '' : '';
+  const alt = node.getAttribute ? node.getAttribute('alt') || '' : '';
+  const title = node.getAttribute ? node.getAttribute('title') || '' : '';
+  if (!src && !alt) {
+    return null;
+  }
+  return {
+    type: 'image',
+    src,
+    alt: alt || null,
+    title: title || null,
+    inline,
+    direction
+  };
+}
+
+function serializeFigureBlock(node, direction) {
+  const image = node.querySelector('img');
+  const captionNode = node.querySelector('figcaption');
+  const caption = captionNode ? serializeInlineFragments(captionNode) : [];
+  const nestedBlocks = serializeNestedBlocks(node).filter((block) => block && block.type !== 'image');
+  const imageBlock = image ? serializeImageBlock(image, resolveNodeDirection(image), false) : null;
+
+  return {
+    type: 'figure',
+    image: imageBlock,
+    caption: caption.length ? caption : null,
+    blocks: nestedBlocks.length ? nestedBlocks : undefined,
+    direction
+  };
+}
+
+function serializeEquationBlock(node, direction) {
+  const latex = extractLatex(node);
+  const text = normalizeJsonText(latex || node.textContent || '');
+  if (!latex && !text) {
+    return null;
+  }
+  return {
+    type: 'equation',
+    latex: latex || null,
+    text,
+    displayMode: node.classList.contains('katex-display'),
+    direction
+  };
+}
+
+function serializeGenericBlock(node, direction) {
+  const nestedBlocks = serializeNestedBlocks(node);
+  if (nestedBlocks.length) {
+    return {
+      type: 'container',
+      tag: node.tagName ? node.tagName.toLowerCase() : null,
+      blocks: nestedBlocks,
+      direction
+    };
+  }
+  const content = serializeInlineFragments(node);
+  if (!content.length) {
+    return null;
+  }
+  return {
+    type: 'block',
+    tag: node.tagName ? node.tagName.toLowerCase() : null,
+    content,
+    direction
+  };
+}
+
+function serializeNestedBlocks(container) {
+  return serializeChildNodesToBlocks(container);
+}
+
+function serializeInlineText(element, options = {}) {
+  const { excludeSelectors = [] } = options;
+  const baseExcludes = ['.' + EXPORT_EQUATION_CLASS, '.katex', '.katex-display'];
+  const selectorExtras = Array.isArray(excludeSelectors) ? excludeSelectors : [];
+  const selectorParts = [...baseExcludes, ...selectorExtras].filter(Boolean);
+  const excludeSelector = selectorParts.length ? selectorParts.join(',') : null;
+
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (textNode) => {
+        if (!textNode || !textNode.nodeValue || !textNode.nodeValue.trim()) {
+          return NodeFilter.FILTER_SKIP;
+        }
+        if (excludeSelector && textNode.parentElement && textNode.parentElement.closest(excludeSelector)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    },
+    false
+  );
+
+  const textParts = [];
+  while (walker.nextNode()) {
+    textParts.push(textNodeValue(walker.currentNode));
+  }
+  return normalizeJsonText(textParts.join(' '));
+}
+
+function textNodeValue(node) {
+  return (node && node.nodeValue ? node.nodeValue : '').replace(/\u00a0/g, ' ');
+}
+
+function normalizeJsonText(text) {
+  if (!text) {
+    return '';
+  }
+  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isEquationNode(node) {
+  if (!node || !node.classList) {
+    return false;
+  }
+  return node.classList.contains(EXPORT_EQUATION_CLASS) || node.classList.contains('katex');
+}
+
+function serializeInlineFragments(container) {
+  const fragments = [];
+
+  const appendFragment = (fragment) => {
+    if (!fragment) {
+      return;
+    }
+    if (fragment.type === 'text') {
+      if (!fragment.text) {
+        return;
+      }
+      const last = fragments[fragments.length - 1];
+      if (last && last.type === 'text') {
+        last.text += fragment.text;
+        return;
+      }
+    }
+    fragments.push(fragment);
+  };
+
+  const walk = (node) => {
+    if (!node) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = textNodeValue(node);
+      if (text) {
+        appendFragment({ type: 'text', text });
+      }
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return;
+    }
+
+    const element = node;
+    if (element.classList.contains('katex') || element.classList.contains(EXPORT_EQUATION_CLASS)) {
+      const eqFragment = serializeEquationFragment(element);
+      if (eqFragment) {
+        appendFragment(eqFragment);
+      }
+      return;
+    }
+
+    const tag = element.tagName.toLowerCase();
+    switch (tag) {
+      case 'br':
+        appendFragment({ type: 'linebreak' });
+        return;
+      case 'strong':
+      case 'b':
+        appendFragment({
+          type: 'strong',
+          content: serializeInlineFragments(element)
+        });
+        return;
+      case 'em':
+      case 'i':
+        appendFragment({
+          type: 'em',
+          content: serializeInlineFragments(element)
+        });
+        return;
+      case 'code':
+        if (!element.closest('pre')) {
+          const codeText = normalizeJsonText(element.textContent || '');
+          if (codeText) {
+            appendFragment({ type: 'code', text: codeText });
+          }
+        }
+        return;
+      case 'a': {
+        const href = element.getAttribute('href') || '';
+        const title = element.getAttribute('title') || null;
+        appendFragment({
+          type: 'link',
+          href,
+          title,
+          content: serializeInlineFragments(element)
+        });
+        return;
+      }
+      case 'img': {
+        const src = element.getAttribute('src') || element.src || '';
+        if (!src) {
+          return;
+        }
+        appendFragment({
+          type: 'image',
+          src,
+          alt: element.getAttribute('alt') || '',
+          title: element.getAttribute('title') || null
+        });
+        return;
+      }
+      default: {
+        serializeInlineFragments(element).forEach(appendFragment);
+      }
+    }
+  };
+
+  Array.from(container.childNodes || []).forEach(walk);
+
+  return fragments.filter((fragment) => {
+    if (fragment.type === 'text') {
+      return Boolean(normalizeJsonText(fragment.text));
+    }
+    return true;
+  });
+}
+
+function serializeEquationFragment(node) {
+  const latex = extractLatex(node);
+  const text = normalizeJsonText(latex || node.textContent || '');
+  if (!latex && !text) {
+    return null;
+  }
+  return {
+    type: 'equation',
+    latex: latex || null,
+    text,
+    displayMode: node.classList.contains('katex-display'),
+    direction: resolveNodeDirection(node, text)
+  };
+}
+
+function parseSpanValue(value) {
+  const numeric = parseInt(value, 10);
+  if (!Number.isFinite(numeric) || numeric <= 1) {
+    return null;
+  }
+  return numeric;
+}
+
+// Markdown export preserved for historical reference.
+// function exportAsMarkdown(root) {
+//   const markdown = serializeExportRootToMarkdown(root);
+//   const content = markdown.endsWith('\n') ? markdown : `${markdown}\n`;
+//   const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+//   triggerDownload(blob, buildFilename('md'));
+// }
 
 function exportAsMarkdown(root) {
   const markdown = serializeExportRootToMarkdown(root);
