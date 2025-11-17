@@ -93,11 +93,24 @@ const EXPORT_STYLE_BLOCK = `
   word-break: normal !important;
   overflow-wrap: normal !important;
 }
-.${EXPORT_ROOT_CLASS} .katex,
-.${EXPORT_ROOT_CLASS} .katex * {
+.${EXPORT_ROOT_CLASS} .katex {
   direction: ltr !important;
   unicode-bidi: normal !important;
   text-align: left !important;
+}
+.${EXPORT_ROOT_CLASS} .katex * {
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+}
+.${EXPORT_ROOT_CLASS} .katex-display {
+  text-align: center !important;
+  margin: 16px auto;
+}
+.${EXPORT_ROOT_CLASS} .katex-display > .katex {
+  text-align: center !important;
+}
+.${EXPORT_ROOT_CLASS} .katex {
+  vertical-align: -0.05em !important;
 }
 .${EXPORT_ROOT_CLASS} img {
   max-width: 100%;
@@ -136,12 +149,17 @@ const EXPORT_STYLE_BLOCK = `
   .${EXPORT_ROOT_CLASS} .katex {
     display: inline-flex !important;
     align-items: center;
-    vertical-align: middle !important;
+    vertical-align: -0.05em !important;
   }
   .${EXPORT_ROOT_CLASS} .katex-display > .katex {
     display: block !important;
     align-items: initial;
     vertical-align: baseline !important;
+    text-align: center !important;
+  }
+  .${EXPORT_ROOT_CLASS} .katex-display {
+    text-align: center !important;
+    margin: 16px auto;
   }
 }
 `;
@@ -456,12 +474,17 @@ async function handleExportRequest(format) {
             .${EXPORT_ROOT_CLASS} .katex {
               display: inline-flex !important;
               align-items: center;
-              vertical-align: middle !important;
+              vertical-align: -0.05em !important;
             }
             .${EXPORT_ROOT_CLASS} .katex-display > .katex {
               display: block !important;
               align-items: initial;
               vertical-align: baseline !important;
+              text-align: center !important;
+            }
+            .${EXPORT_ROOT_CLASS} .katex-display {
+              text-align: center !important;
+              margin: 16px auto;
             }
           }
         `;
