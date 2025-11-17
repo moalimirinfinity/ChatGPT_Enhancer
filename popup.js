@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   tableOfContents: false,
   tableOfContentsCollapsed: false,
   tableOfContentsPosition: null,
+  tableOfContentsSize: null,
   exportFormat: 'pdf',
   theme: 'original',
   fontsEnabled: false,
