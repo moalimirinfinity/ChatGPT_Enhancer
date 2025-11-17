@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   tableOfContents: false,
   tableOfContentsCollapsed: false,
   tableOfContentsPosition: null,
+  tableOfContentsSize: null,
   exportFormat: 'pdf',
   theme: 'original',
   fontsEnabled: false,
@@ -144,6 +145,10 @@ const TOC_ORIGINAL_HIGHLIGHT_COLOR = '#9ca3af';
 const TOC_MAX_TITLE_LENGTH = 120;
 const TOC_MAX_TITLE_WORDS = 10;
 const TOC_PANEL_MIN_GAP = 12;
+const TOC_PANEL_MIN_WIDTH = 190;
+const TOC_PANEL_MAX_WIDTH = 420;
+const TOC_PANEL_MIN_HEIGHT = 220;
+const TOC_PANEL_MAX_HEIGHT = 640;
 const TOC_THEME_TOKEN_PRESETS = {
   light: {
     '--chatgpt-theme-panel': 'rgba(255, 255, 255, 0.96)',
@@ -600,6 +605,10 @@ const tableOfContents = (() => {
     dragHandle: null,
     dragState: null,
     collapseButton: null,
+    heading: null,
+    resizeHandle: null,
+    resizeState: null,
+    size: null,
     highlightTimers: new Map()
   };
 
@@ -615,6 +624,7 @@ const tableOfContents = (() => {
       return;
     }
     ensurePanel();
+    applySize(settings);
     applyPlacement(settings);
     applyThemeTokens();
     setCollapsed(Boolean(settings.tableOfContentsCollapsed), false);
@@ -663,13 +673,16 @@ const tableOfContents = (() => {
     state.panel = panel;
     state.list = list;
     state.collapseButton = collapseButton;
+    state.heading = heading;
     state.anchorCounter = 0;
     enableDragging();
+    enableResizing();
     applyThemeTokens();
   }
 
   function teardown() {
     disableDragging();
+    disableResizing();
     if (state.panel) {
       state.panel.removeEventListener('click', handleClick);
       if (state.panel.parentNode) {
@@ -683,6 +696,10 @@ const tableOfContents = (() => {
     state.panel = null;
     state.list = null;
     state.collapseButton = null;
+    state.heading = null;
+    state.resizeHandle = null;
+    state.resizeState = null;
+    state.size = null;
     state.anchorCounter = 0;
     state.highlightTimers.forEach((timer, element) => {
       clearTimeout(timer);
@@ -752,6 +769,81 @@ const tableOfContents = (() => {
       clearTimeout(state.updateTimer);
       state.updateTimer = null;
     }
+  }
+
+  function applySize(settings = currentSettings) {
+    if (!state.panel) {
+      return;
+    }
+    const normalized = normalizeSize(settings.tableOfContentsSize);
+    if (normalized) {
+      setCustomSize(normalized);
+    } else {
+      resetSize();
+    }
+  }
+
+  function normalizeSize(size) {
+    if (!size || typeof size !== 'object' || !state.panel) {
+      return null;
+    }
+    let { width, height } = size;
+    const viewportMaxWidth = Math.max(TOC_PANEL_MIN_WIDTH, window.innerWidth - TOC_PANEL_MIN_GAP * 2);
+    const viewportMaxHeight = Math.max(TOC_PANEL_MIN_HEIGHT, window.innerHeight - TOC_PANEL_MIN_GAP * 2);
+    const maxWidth = Math.min(TOC_PANEL_MAX_WIDTH, viewportMaxWidth);
+    const maxHeight = Math.min(TOC_PANEL_MAX_HEIGHT, viewportMaxHeight);
+    width = clamp(Number(width), TOC_PANEL_MIN_WIDTH, maxWidth);
+    height = clamp(Number(height), TOC_PANEL_MIN_HEIGHT, maxHeight);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      return null;
+    }
+    return { width, height };
+  }
+
+  function setCustomSize(size) {
+    if (!state.panel) {
+      return;
+    }
+    const width = Math.round(size.width);
+    const height = Math.round(size.height);
+    state.panel.style.width = `${width}px`;
+    state.panel.style.minWidth = `${Math.max(width, TOC_PANEL_MIN_WIDTH)}px`;
+    state.panel.style.maxWidth = `${width}px`;
+    state.panel.style.height = `${height}px`;
+    state.panel.style.maxHeight = `${height}px`;
+    state.size = { width, height };
+    updateListHeight(height);
+  }
+
+  function resetSize() {
+    if (!state.panel) {
+      return;
+    }
+    state.panel.style.width = '';
+    state.panel.style.minWidth = '';
+    state.panel.style.maxWidth = '';
+    state.panel.style.height = '';
+    state.panel.style.maxHeight = '';
+    if (state.list) {
+      state.list.style.maxHeight = '';
+    }
+    state.size = null;
+  }
+
+  function updateListHeight(targetHeight) {
+    if (!state.panel || !state.list || !targetHeight) {
+      return;
+    }
+    const header = state.panel.querySelector('.chatgpt-toc-header');
+    const headerHeight = header && header.getBoundingClientRect ? header.getBoundingClientRect().height : 0;
+    const styles = typeof window !== 'undefined' && window.getComputedStyle ? window.getComputedStyle(state.panel) : null;
+    const paddingTop = styles ? parseFloat(styles.paddingTop) || 0 : 0;
+    const paddingBottom = styles ? parseFloat(styles.paddingBottom) || 0 : 0;
+    const available = Math.max(
+      120,
+      Math.round(targetHeight - headerHeight - paddingTop - paddingBottom - 6)
+    );
+    state.list.style.maxHeight = `${available}px`;
   }
 
   function applyPlacement(settings = currentSettings) {
@@ -844,6 +936,9 @@ const tableOfContents = (() => {
       state.collapseButton.setAttribute('aria-pressed', String(collapsed));
       state.collapseButton.textContent = collapsed ? '+' : '–';
       state.collapseButton.setAttribute('aria-label', collapsed ? 'Expand outline' : 'Collapse outline');
+    }
+    if (!collapsed && (state.size || currentSettings.tableOfContentsSize)) {
+      applySize(currentSettings);
     }
     if (persist) {
       currentSettings.tableOfContentsCollapsed = collapsed;
@@ -1009,6 +1104,135 @@ const tableOfContents = (() => {
     });
   }
 
+  function enableResizing() {
+    if (!state.panel || state.resizeHandle) {
+      return;
+    }
+    const handle = document.createElement('div');
+    handle.className = 'chatgpt-toc-resizer';
+    handle.title = 'Drag to resize the panel';
+    handle.addEventListener('pointerdown', handleResizePointerDown);
+    state.panel.appendChild(handle);
+    state.resizeHandle = handle;
+  }
+
+  function disableResizing() {
+    if (state.resizeHandle) {
+      state.resizeHandle.removeEventListener('pointerdown', handleResizePointerDown);
+      if (state.resizeHandle.parentNode) {
+        state.resizeHandle.parentNode.removeChild(state.resizeHandle);
+      }
+    }
+    state.resizeHandle = null;
+    cancelResizing();
+  }
+
+  function handleResizePointerDown(event) {
+    if (!state.panel || (event.button !== 0 && event.pointerType !== 'touch')) {
+      return;
+    }
+    event.preventDefault();
+    const rect = state.panel.getBoundingClientRect();
+    state.resizeState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: rect.width,
+      startHeight: rect.height,
+      top: rect.top,
+      left: rect.left
+    };
+    state.panel.classList.add('is-resizing');
+    document.addEventListener('pointermove', handleResizePointerMove);
+    document.addEventListener('pointerup', handleResizePointerUpOrCancel);
+    document.addEventListener('pointercancel', handleResizePointerUpOrCancel);
+  }
+
+  function handleResizePointerMove(event) {
+    if (!state.resizeState) {
+      return;
+    }
+    if (typeof state.resizeState.pointerId === 'number' && event.pointerId !== state.resizeState.pointerId) {
+      return;
+    }
+    const deltaX = event.clientX - state.resizeState.startX;
+    const deltaY = event.clientY - state.resizeState.startY;
+    const plannedWidth = state.resizeState.startWidth + deltaX;
+    const plannedHeight = state.resizeState.startHeight + deltaY;
+    const maxWidth = Math.min(
+      TOC_PANEL_MAX_WIDTH,
+      Math.max(TOC_PANEL_MIN_WIDTH, window.innerWidth - state.resizeState.left - TOC_PANEL_MIN_GAP)
+    );
+    const maxHeight = Math.min(
+      TOC_PANEL_MAX_HEIGHT,
+      Math.max(TOC_PANEL_MIN_HEIGHT, window.innerHeight - state.resizeState.top - TOC_PANEL_MIN_GAP)
+    );
+    const width = clamp(plannedWidth, TOC_PANEL_MIN_WIDTH, maxWidth);
+    const height = clamp(plannedHeight, TOC_PANEL_MIN_HEIGHT, maxHeight);
+    setCustomSize({ width, height });
+  }
+
+  function handleResizePointerUpOrCancel(event) {
+    if (!state.resizeState) {
+      return;
+    }
+    if (typeof state.resizeState.pointerId === 'number' && event.pointerId !== state.resizeState.pointerId) {
+      return;
+    }
+    const finalSize = state.size;
+    cancelResizing();
+    if (finalSize) {
+      saveSize(finalSize);
+      if (currentSettings.tableOfContentsPosition && state.panel) {
+        const rect = state.panel.getBoundingClientRect();
+        const rightGap = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - rect.width - rect.left);
+        savePosition({ ...currentSettings.tableOfContentsPosition, top: rect.top, left: rect.left, rightGap });
+      }
+    }
+  }
+
+  function cancelResizing() {
+    if (!state.resizeState) {
+      return;
+    }
+    document.removeEventListener('pointermove', handleResizePointerMove);
+    document.removeEventListener('pointerup', handleResizePointerUpOrCancel);
+    document.removeEventListener('pointercancel', handleResizePointerUpOrCancel);
+    if (state.panel) {
+      state.panel.classList.remove('is-resizing');
+    }
+    state.resizeState = null;
+  }
+
+  function saveSize(size) {
+    currentSettings.tableOfContentsSize = size;
+    if (!chrome || !chrome.storage || !chrome.storage.sync) {
+      return;
+    }
+    chrome.storage.sync.set({ tableOfContentsSize: size }, () => {
+      if (chrome.runtime && chrome.runtime.lastError) {
+        // console.error(chrome.runtime.lastError);
+      }
+    });
+  }
+
+  function updatePanelDirection() {
+    if (!state.panel) {
+      return;
+    }
+    const content = state.list && state.list.textContent ? state.list.textContent : '';
+    const isRtl = TOC_RTL_CHAR_REGEX.test(content);
+    const dir = isRtl ? 'rtl' : 'ltr';
+    if (state.panel.getAttribute('dir') !== dir) {
+      state.panel.setAttribute('dir', dir);
+    }
+    state.panel.classList.toggle('is-rtl', isRtl);
+    state.panel.setAttribute('aria-label', isRtl ? 'فهرست مطالب' : 'Conversation outline');
+    if (state.heading) {
+      state.heading.textContent = isRtl ? 'فهرست مطالب' : 'Table of contents';
+    }
+  }
+
   function rebuildList() {
     if (!isActive() || !state.list) {
       return;
@@ -1020,26 +1244,30 @@ const tableOfContents = (() => {
       empty.className = 'chatgpt-toc-empty';
       empty.textContent = 'No assistant replies yet.';
       state.list.appendChild(empty);
-      return;
+    } else {
+      const fragment = document.createDocumentFragment();
+      assistantMessages.forEach((message, index) => {
+        const anchorId = ensureMessageAnchorId(message);
+        if (!anchorId) {
+          return;
+        }
+        const title = deriveTitle(message, index);
+        const item = document.createElement('li');
+        item.className = 'chatgpt-toc-item';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chatgpt-toc-entry';
+        button.dataset.tocTarget = anchorId;
+        button.textContent = title;
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      state.list.appendChild(fragment);
     }
-    const fragment = document.createDocumentFragment();
-    assistantMessages.forEach((message, index) => {
-      const anchorId = ensureMessageAnchorId(message);
-      if (!anchorId) {
-        return;
-      }
-      const title = deriveTitle(message, index);
-      const item = document.createElement('li');
-      item.className = 'chatgpt-toc-item';
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'chatgpt-toc-entry';
-      button.dataset.tocTarget = anchorId;
-      button.textContent = title;
-      item.appendChild(button);
-      fragment.appendChild(item);
-    });
-    state.list.appendChild(fragment);
+    updatePanelDirection();
+    if (state.size || currentSettings.tableOfContentsSize) {
+      applySize(currentSettings);
+    }
   }
 
   function collectAssistantMessages() {
@@ -1220,10 +1448,10 @@ const tableOfContents = (() => {
     if (!isActive() || !state.panel) {
       return;
     }
-    if (!currentSettings.tableOfContentsPosition) {
-      return;
+    applySize(currentSettings);
+    if (currentSettings.tableOfContentsPosition) {
+      applyPlacement(currentSettings);
     }
-    applyPlacement(currentSettings);
   }
 
   return {
