@@ -82,6 +82,20 @@ function normalizeThemeAlias(theme) {
   return normalized === 'daybreak' ? 'skylight' : normalized;
 }
 
+function normalizeExportFormat(format) {
+  if (!format || typeof format !== 'string') {
+    return DEFAULT_SETTINGS.exportFormat;
+  }
+  const normalized = format.trim().toLowerCase();
+  if (normalized === 'markdown') {
+    return 'json';
+  }
+  if (['pdf', 'docx', 'json', 'png'].includes(normalized)) {
+    return normalized;
+  }
+  return DEFAULT_SETTINGS.exportFormat;
+}
+
 const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isBusy = false;
@@ -274,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isBusy) {
         return;
       }
-      updateSetting('exportFormat', input.value);
+      updateSetting('exportFormat', normalizeExportFormat(input.value));
     });
   });
   if (controls.exportBtn) {
@@ -408,6 +422,13 @@ function applySettingsToUI(settings) {
       updateSetting('theme', normalizedTheme);
     }
   }
+  if (settings && settings.exportFormat) {
+    const normalizedExportFormat = normalizeExportFormat(settings.exportFormat);
+    if (normalizedExportFormat !== settings.exportFormat) {
+      settings = { ...settings, exportFormat: normalizedExportFormat };
+      updateSetting('exportFormat', normalizedExportFormat);
+    }
+  }
   currentSettings = settings;
 
   isBusy = true;
@@ -427,7 +448,7 @@ function applySettingsToUI(settings) {
   updateFontOptionSelection('persian', settings.fontPersian);
   setActiveFontTab(currentFontTab);
   setFontControlsDisabled(!(settings.enableFix && settings.fontsEnabled));
-  const targetFormat = settings.exportFormat || DEFAULT_SETTINGS.exportFormat;
+  const targetFormat = normalizeExportFormat(settings.exportFormat || DEFAULT_SETTINGS.exportFormat);
   controls.exportFormatRadios.forEach((input) => {
     input.checked = input.value === targetFormat;
   });
@@ -822,7 +843,7 @@ function resetExportLabelSoon() {
 
 function getSelectedExportFormat() {
   const checked = controls.exportFormatRadios.find((input) => input.checked);
-  return checked ? checked.value : DEFAULT_SETTINGS.exportFormat;
+  return normalizeExportFormat(checked ? checked.value : DEFAULT_SETTINGS.exportFormat);
 }
 
 function isChatGPTUrl(url) {

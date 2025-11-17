@@ -200,7 +200,7 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
 
 .chatgpt-toc-panel .chatgpt-toc-entry:hover,
 .chatgpt-toc-panel .chatgpt-toc-entry:focus-visible {
-  background: color-mix(in srgb, var(--chatgpt-theme-accent, #1c46d6) 18%, transparent) !important;
+  background: transparent !important;
   color: var(--chatgpt-theme-accent, #1c46d6) !important;
   outline: none;
 }
@@ -208,7 +208,8 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
 @supports not (color: color-mix(in srgb, red 50%, white)) {
   .chatgpt-toc-panel .chatgpt-toc-entry:hover,
   .chatgpt-toc-panel .chatgpt-toc-entry:focus-visible {
-    background: rgba(33, 87, 255, 0.12) !important;
+    background: transparent !important;
+    color: var(--chatgpt-theme-accent, #1c46d6) !important;
   }
 }
 

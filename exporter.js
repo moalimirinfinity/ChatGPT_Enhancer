@@ -358,6 +358,20 @@ async function registerExportFonts() {
   return exportFontRegistrationPromise;
 }
 
+function normalizeExportFormat(format) {
+  if (!format || typeof format !== 'string') {
+    return 'pdf';
+  }
+  const normalized = format.trim().toLowerCase();
+  if (normalized === 'markdown') {
+    return 'json';
+  }
+  if (['pdf', 'docx', 'png', 'json'].includes(normalized)) {
+    return normalized;
+  }
+  return 'pdf';
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== EXPORT_MESSAGE_TYPE) {
     return undefined;
@@ -374,25 +388,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function handleExportRequest(format) {
+  const exportFormat = normalizeExportFormat(format);
   await registerExportFonts();
   const { root, stage, styleNode } = await prepareExportStage();
   try {
-    ensureLibraries(format);
+    ensureLibraries(exportFormat);
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
     await ensureExportFontsLoaded();
-    if (format !== 'markdown') {
-      await inlineImages(root);
-    }
+    await inlineImages(root);
 
-    switch (format) {
+    switch (exportFormat) {
       case 'docx':
         prepareDocxSpecificAdjustments(root);
         await convertKatexToImages(root);
         await exportAsDocx(root);
         break;
-      case 'markdown':
-        exportAsMarkdown(root);
+      // case 'markdown':
+      //   exportAsMarkdown(root);
+      //   break;
+      case 'json':
+        await exportAsJson(root);
         break;
       case 'png':
         await exportAsPng(stage, root);
@@ -1174,6 +1190,517 @@ function extractLatex(element) {
   }
   return element.textContent ? element.textContent.trim() : '';
 }
+
+async function exportAsJson(root) {
+  const payload = serializeExportRootToJson(root);
+  const content = JSON.stringify(payload, null, 2);
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+  triggerDownload(blob, buildFilename('json'));
+}
+
+const JSON_BLOCK_LEVEL_SELECTOR = [
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'pre',
+  'blockquote',
+  'ul',
+  'ol',
+  'table',
+  'hr',
+  'figure',
+  'img',
+  '.' + EXPORT_EQUATION_CLASS,
+  '.katex'
+].join(', ');
+
+function serializeExportRootToJson(root) {
+  const turns = Array.from(root.children || [])
+    .map((turn, index) => serializeTurnNodeToJson(turn, index))
+    .filter(Boolean);
+
+  return {
+    title: document.title || 'ChatGPT Conversation',
+    sourceUrl: typeof window !== 'undefined' && window.location ? window.location.href : '',
+    exportedAt: new Date().toISOString(),
+    turnCount: turns.length,
+    turns
+  };
+}
+
+function serializeTurnNodeToJson(turnNode, index) {
+  if (!turnNode) {
+    return null;
+  }
+
+  const plainText = combineTextWithEquations(serializeInlineText(turnNode), turnNode);
+  const direction = resolveNodeDirection(turnNode, plainText);
+  const blocks = serializeBlocksFromContainer(turnNode);
+  const equations = extractEquationsFromNode(turnNode);
+  const rawHtml = normalizeRawHtml(turnNode.innerHTML);
+  const uniqueEquations = dedupeEquations(equations);
+
+  if (!plainText && !blocks.length && !equations.length && !rawHtml) {
+    return null;
+  }
+
+  return {
+    index,
+    role: detectTurnRole(turnNode),
+    direction,
+    plainText,
+    blocks,
+    equations: uniqueEquations,
+    rawHtml
+  };
+}
+
+function detectTurnRole(turnNode) {
+  const directRole = (turnNode.getAttribute('data-message-author-role') || '').trim();
+  if (directRole) {
+    return directRole.toLowerCase();
+  }
+  const nestedRole = turnNode.querySelector('[data-message-author-role]');
+  if (nestedRole && nestedRole.getAttribute('data-message-author-role')) {
+    return nestedRole.getAttribute('data-message-author-role').toLowerCase();
+  }
+  const testId = (turnNode.getAttribute('data-testid') || '').toLowerCase();
+  if (testId.includes('user')) {
+    return 'user';
+  }
+  if (testId.includes('assistant')) {
+    return 'assistant';
+  }
+  return 'unknown';
+}
+
+function resolveNodeDirection(node, fallbackText) {
+  if (!node) {
+    return null;
+  }
+  const dirAttr = node.getAttribute && node.getAttribute('dir');
+  if (dirAttr === 'rtl' || dirAttr === 'ltr') {
+    return dirAttr;
+  }
+  const sourceText = fallbackText && fallbackText.trim() ? fallbackText : extractRelevantText(node);
+  if (!sourceText) {
+    return null;
+  }
+  const { rtlCount, ltrCount } = countDirectionCharacters(sourceText);
+  if (rtlCount === 0 && ltrCount === 0) {
+    return null;
+  }
+  return rtlCount > ltrCount ? 'rtl' : 'ltr';
+}
+
+function serializeBlocksFromContainer(container) {
+  const candidates = collectBlockCandidates(container);
+  return candidates
+    .map((node) => serializeBlockToJson(node))
+    .filter(Boolean);
+}
+
+function collectBlockCandidates(container, rootBlock = null) {
+  const nodes = Array.from(container.querySelectorAll(JSON_BLOCK_LEVEL_SELECTOR));
+  return nodes.filter((node) => {
+    if (rootBlock && node === rootBlock) {
+      return false;
+    }
+    if (isEquationNode(node)) {
+      return true;
+    }
+    const ancestor = node.parentElement ? node.parentElement.closest(JSON_BLOCK_LEVEL_SELECTOR) : null;
+    if (!ancestor) {
+      return true;
+    }
+    if (rootBlock && ancestor === rootBlock) {
+      return true;
+    }
+    return false;
+  });
+}
+
+function serializeBlockToJson(node) {
+  const tag = node.tagName ? node.tagName.toLowerCase() : '';
+  const direction = resolveNodeDirection(node);
+
+  if (isEquationNode(node)) {
+    return serializeEquationBlock(node, direction);
+  }
+
+  switch (tag) {
+    case 'p':
+      return serializeParagraphBlock(node, direction);
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      return serializeHeadingBlock(node, direction, Number(tag[1]));
+    case 'blockquote':
+      return serializeBlockquoteBlock(node, direction);
+    case 'pre':
+      return serializeCodeBlock(node, direction);
+    case 'ul':
+    case 'ol':
+      return serializeListBlock(node, direction, tag === 'ol');
+    case 'table':
+      return serializeTableBlock(node, direction);
+    case 'hr':
+      return { type: 'separator', direction };
+    case 'figure':
+      return serializeFigureBlock(node, direction);
+    case 'img':
+      return serializeImageBlock(node, direction, true);
+    case 'code':
+      return serializeInlineCodeBlock(node, direction);
+    default:
+      return serializeGenericBlock(node, direction);
+  }
+}
+
+function serializeParagraphBlock(node, direction) {
+  const text = combineTextWithEquations(serializeInlineText(node), node);
+  const rawHtml = normalizeRawHtml(node.innerHTML);
+  if (!text && !rawHtml) {
+    return null;
+  }
+  return {
+    type: 'paragraph',
+    text,
+    rawHtml,
+    direction
+  };
+}
+
+function serializeHeadingBlock(node, direction, level) {
+  const text = combineTextWithEquations(serializeInlineText(node), node);
+  const rawHtml = normalizeRawHtml(node.innerHTML);
+  return {
+    type: 'heading',
+    level: Number.isFinite(level) ? level : null,
+    text,
+    rawHtml,
+    direction
+  };
+}
+
+function serializeBlockquoteBlock(node, direction) {
+  const text = combineTextWithEquations(serializeInlineText(node), node);
+  const nested = serializeNestedBlocks(node);
+  return {
+    type: 'blockquote',
+    text,
+    blocks: nested.length ? nested : undefined,
+    direction
+  };
+}
+
+function serializeCodeBlock(node, direction) {
+  const codeNode = node.querySelector('code');
+  const raw = codeNode ? codeNode.textContent || '' : node.textContent || '';
+  const language = codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '';
+  const code = sanitizeCodeBlockContent(raw);
+  return {
+    type: 'code',
+    language: language || null,
+    code,
+    direction
+  };
+}
+
+function serializeInlineCodeBlock(node, direction) {
+  if (node.closest('pre')) {
+    return null;
+  }
+  const code = sanitizeCodeBlockContent(node.textContent || '');
+  if (!code) {
+    return null;
+  }
+  return {
+    type: 'code',
+    inline: true,
+    code,
+    direction
+  };
+}
+
+function serializeListBlock(node, direction, ordered) {
+  const items = Array.from(node.children || [])
+    .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
+    .map((item, index) => {
+      const text = combineTextWithEquations(
+        serializeInlineText(item, { excludeSelectors: ['ul', 'ol'] }),
+        item
+      );
+      const nestedBlocks = serializeNestedBlocks(item);
+      const childLists = nestedBlocks.filter((block) => block && block.type === 'list');
+      const otherBlocks = nestedBlocks.filter((block) => block && block.type !== 'list');
+      return {
+        index,
+        text,
+        direction: resolveNodeDirection(item, text),
+        children: childLists.length ? childLists : undefined,
+        blocks: otherBlocks.length ? otherBlocks : undefined
+      };
+    })
+    .filter((entry) => entry && (entry.text || (entry.children && entry.children.length) || (entry.blocks && entry.blocks.length)));
+
+  return {
+    type: 'list',
+    ordered: Boolean(ordered),
+    items,
+    direction
+  };
+}
+
+function serializeTableBlock(table, direction) {
+  const rows = Array.from(table.querySelectorAll('tr'))
+    .map((row) => {
+      const cells = Array.from(row.children || [])
+        .filter((cell) => cell.tagName && ['td', 'th'].includes(cell.tagName.toLowerCase()))
+        .map((cell) => ({
+          type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
+          text: combineTextWithEquations(serializeInlineText(cell), cell),
+          rawHtml: normalizeRawHtml(cell.innerHTML),
+          colSpan: parseSpanValue(cell.getAttribute('colspan')),
+          rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
+          direction: resolveNodeDirection(cell)
+        }))
+        .filter((cell) => cell.text || cell.rawHtml || cell.colSpan || cell.rowSpan);
+      if (!cells.length) {
+        return null;
+      }
+      return { cells };
+    })
+    .filter(Boolean);
+
+  return {
+    type: 'table',
+    rows,
+    direction
+  };
+}
+
+function serializeImageBlock(node, direction, inline = false) {
+  const src = node.getAttribute ? node.getAttribute('src') || node.src || '' : '';
+  const alt = node.getAttribute ? node.getAttribute('alt') || '' : '';
+  const title = node.getAttribute ? node.getAttribute('title') || '' : '';
+  if (!src && !alt) {
+    return null;
+  }
+  return {
+    type: 'image',
+    src,
+    alt: alt || null,
+    title: title || null,
+    inline,
+    direction
+  };
+}
+
+function serializeFigureBlock(node, direction) {
+  const image = node.querySelector('img');
+  const captionNode = node.querySelector('figcaption');
+  const caption = captionNode ? combineTextWithEquations(serializeInlineText(captionNode), captionNode) : '';
+  const nestedBlocks = serializeNestedBlocks(node).filter((block) => block && block.type !== 'image');
+  const imageBlock = image ? serializeImageBlock(image, resolveNodeDirection(image), false) : null;
+
+  return {
+    type: 'figure',
+    image: imageBlock,
+    caption: caption || null,
+    blocks: nestedBlocks.length ? nestedBlocks : undefined,
+    direction
+  };
+}
+
+function serializeEquationBlock(node, direction) {
+  const latex = extractLatex(node);
+  const text = normalizeJsonText(latex || node.textContent || '');
+  if (!latex && !text) {
+    return null;
+  }
+  return {
+    type: 'equation',
+    latex: latex || null,
+    text,
+    displayMode: node.classList.contains('katex-display'),
+    direction
+  };
+}
+
+function serializeGenericBlock(node, direction) {
+  const text = combineTextWithEquations(serializeInlineText(node), node);
+  const rawHtml = normalizeRawHtml(node.innerHTML || node.outerHTML || '');
+  if (!text && !rawHtml) {
+    return null;
+  }
+  return {
+    type: 'block',
+    text,
+    rawHtml,
+    direction,
+    tag: node.tagName ? node.tagName.toLowerCase() : null
+  };
+}
+
+function serializeNestedBlocks(container) {
+  return collectBlockCandidates(container, container)
+    .map((node) => serializeBlockToJson(node))
+    .filter(Boolean);
+}
+
+function dedupeEquations(equations) {
+  if (!Array.isArray(equations) || !equations.length) {
+    return [];
+  }
+  const seen = new Set();
+  return equations.filter((eq) => {
+    const key = [
+      eq.latex || '',
+      eq.text || '',
+      eq.displayMode ? 'display' : 'inline',
+      eq.direction || ''
+    ].join('|');
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function serializeInlineText(element, options = {}) {
+  const { excludeSelectors = [] } = options;
+  const baseExcludes = ['.' + EXPORT_EQUATION_CLASS, '.katex', '.katex-display'];
+  const selectorExtras = Array.isArray(excludeSelectors) ? excludeSelectors : [];
+  const selectorParts = [...baseExcludes, ...selectorExtras].filter(Boolean);
+  const excludeSelector = selectorParts.length ? selectorParts.join(',') : null;
+
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (textNode) => {
+        if (!textNode || !textNode.nodeValue || !textNode.nodeValue.trim()) {
+          return NodeFilter.FILTER_SKIP;
+        }
+        if (excludeSelector && textNode.parentElement && textNode.parentElement.closest(excludeSelector)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    },
+    false
+  );
+
+  const textParts = [];
+  while (walker.nextNode()) {
+    textParts.push(textNodeValue(walker.currentNode));
+  }
+  return normalizeJsonText(textParts.join(' '));
+}
+
+function textNodeValue(node) {
+  return (node && node.nodeValue ? node.nodeValue : '').replace(/\u00a0/g, ' ');
+}
+
+function normalizeJsonText(text) {
+  if (!text) {
+    return '';
+  }
+  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeRawHtml(html) {
+  if (!html) {
+    return '';
+  }
+  const trimmed = html.trim();
+  return trimmed ? trimmed : '';
+}
+
+function isEquationNode(node) {
+  if (!node || !node.classList) {
+    return false;
+  }
+  return node.classList.contains(EXPORT_EQUATION_CLASS) || node.classList.contains('katex');
+}
+
+function extractEquationsFromNode(root) {
+  const nodes = Array.from(root.querySelectorAll('.katex, .' + EXPORT_EQUATION_CLASS));
+  const unique = nodes.filter((node) => !node.querySelector('.katex, .' + EXPORT_EQUATION_CLASS));
+  return unique
+    .map((node, index) => {
+      const latex = extractLatex(node);
+      const text = normalizeJsonText(latex || node.textContent || '');
+      if (!text && !latex) {
+        return null;
+      }
+      return {
+        index,
+        latex: latex || null,
+        text,
+        displayMode: node.classList.contains('katex-display'),
+        direction: resolveNodeDirection(node, text)
+      };
+    })
+    .filter(Boolean);
+}
+
+function combineTextWithEquations(text, container) {
+  const eqStrings = collectEquationStrings(container);
+  const combined = [text, ...eqStrings].filter(Boolean).join(' ');
+  return normalizeJsonText(combined);
+}
+
+function collectEquationStrings(container) {
+  if (!container) {
+    return [];
+  }
+  const entries = Array.from(container.querySelectorAll('.katex, .' + EXPORT_EQUATION_CLASS));
+  return entries
+    .map((node) => normalizeJsonText(extractLatex(node) || node.textContent || ''))
+    .filter(Boolean);
+}
+
+function combineTextWithEquations(text, container) {
+  const eqStrings = collectEquationStrings(container);
+  const combined = [text, ...eqStrings].filter(Boolean).join(' ');
+  return normalizeJsonText(combined);
+}
+
+function collectEquationStrings(container) {
+  if (!container) {
+    return [];
+  }
+  const entries = Array.from(container.querySelectorAll('.katex, .' + EXPORT_EQUATION_CLASS));
+  return entries
+    .map((node) => normalizeJsonText(extractLatex(node) || node.textContent || ''))
+    .filter(Boolean);
+}
+
+function parseSpanValue(value) {
+  const numeric = parseInt(value, 10);
+  if (!Number.isFinite(numeric) || numeric <= 1) {
+    return null;
+  }
+  return numeric;
+}
+
+// Markdown export preserved for historical reference.
+// function exportAsMarkdown(root) {
+//   const markdown = serializeExportRootToMarkdown(root);
+//   const content = markdown.endsWith('\n') ? markdown : `${markdown}\n`;
+//   const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+//   triggerDownload(blob, buildFilename('md'));
+// }
 
 function exportAsMarkdown(root) {
   const markdown = serializeExportRootToMarkdown(root);
