@@ -132,6 +132,18 @@ const EXPORT_STYLE_BLOCK = `
   unicode-bidi: normal !important;
   text-align: left !important;
 }
+@media print {
+  .${EXPORT_ROOT_CLASS} .katex {
+    display: inline-flex !important;
+    align-items: center;
+    vertical-align: middle !important;
+  }
+  .${EXPORT_ROOT_CLASS} .katex-display > .katex {
+    display: block !important;
+    align-items: initial;
+    vertical-align: baseline !important;
+  }
+}
 `;
 const DOCX_EXPORT_STYLE_BLOCK = `
 @page {
@@ -439,6 +451,17 @@ async function handleExportRequest(format) {
                margin: 0 !important;
                box-shadow: none !important;
                box-sizing: border-box; 
+            }
+            
+            .${EXPORT_ROOT_CLASS} .katex {
+              display: inline-flex !important;
+              align-items: center;
+              vertical-align: middle !important;
+            }
+            .${EXPORT_ROOT_CLASS} .katex-display > .katex {
+              display: block !important;
+              align-items: initial;
+              vertical-align: baseline !important;
             }
           }
         `;
