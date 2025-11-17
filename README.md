@@ -13,7 +13,6 @@ A [browser extension](https://chromewebstore.google.com/detail/gpt-enhancer-for-
 - **Themes** – apply handcrafted themes (Midnight, Aurora, Paper, Nebula, Skyblue); the extension only enables themes that match ChatGPT’s current light/dark mode.
 - **One-tap KaTeX copy** – click any KaTeX formula to copy its LaTeX.
 - **Prompt library** – create, edit, and reorder reusable prompts from the popup, and copy them into ChatGPT in one click.
-- **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, Image or Markdown via the pop-up.
+- **Table of contents** – add a collapsible outline to long chats and move it wherever it’s most convenient.
+- **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, JSON, or Image via the pop-up.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
-- **Prompt-Library** – you could save all your prompts and use them later
-
