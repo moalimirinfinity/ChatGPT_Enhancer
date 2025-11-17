@@ -609,6 +609,7 @@ const tableOfContents = (() => {
     resizeHandle: null,
     resizeState: null,
     size: null,
+    isRtlPanel: false,
     highlightTimers: new Map()
   };
 
@@ -700,6 +701,7 @@ const tableOfContents = (() => {
     state.resizeHandle = null;
     state.resizeState = null;
     state.size = null;
+    state.isRtlPanel = false;
     state.anchorCounter = 0;
     state.highlightTimers.forEach((timer, element) => {
       clearTimeout(timer);
@@ -932,11 +934,7 @@ const tableOfContents = (() => {
     if (state.list) {
       state.list.hidden = collapsed;
     }
-    if (state.collapseButton) {
-      state.collapseButton.setAttribute('aria-pressed', String(collapsed));
-      state.collapseButton.textContent = collapsed ? '+' : '–';
-      state.collapseButton.setAttribute('aria-label', collapsed ? 'Expand outline' : 'Collapse outline');
-    }
+    updateCollapseButtonVisual(collapsed);
     if (!collapsed && (state.size || currentSettings.tableOfContentsSize)) {
       applySize(currentSettings);
     }
@@ -1222,6 +1220,7 @@ const tableOfContents = (() => {
     }
     const content = state.list && state.list.textContent ? state.list.textContent : '';
     const isRtl = TOC_RTL_CHAR_REGEX.test(content);
+    state.isRtlPanel = isRtl;
     const dir = isRtl ? 'rtl' : 'ltr';
     if (state.panel.getAttribute('dir') !== dir) {
       state.panel.setAttribute('dir', dir);
@@ -1231,6 +1230,7 @@ const tableOfContents = (() => {
     if (state.heading) {
       state.heading.textContent = isRtl ? 'فهرست مطالب' : 'Table of contents';
     }
+    updateCollapseButtonVisual(Boolean(currentSettings?.tableOfContentsCollapsed));
   }
 
   function rebuildList() {
@@ -1268,6 +1268,16 @@ const tableOfContents = (() => {
     if (state.size || currentSettings.tableOfContentsSize) {
       applySize(currentSettings);
     }
+  }
+
+  function updateCollapseButtonVisual(collapsed) {
+    if (!state.collapseButton) {
+      return;
+    }
+    state.collapseButton.setAttribute('aria-pressed', String(collapsed));
+    state.collapseButton.setAttribute('aria-label', collapsed ? 'Expand outline' : 'Collapse outline');
+    state.collapseButton.textContent = collapsed ? '+' : '–';
+    state.collapseButton.dir = 'ltr';
   }
 
   function collectAssistantMessages() {
