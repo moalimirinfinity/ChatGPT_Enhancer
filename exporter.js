@@ -8,6 +8,7 @@ const DARK_TEXT_LUMINANCE_THRESHOLD = 0.75;
 const DIRECTIONAL_TAGS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TD', 'TH']);
 const RTL_CHAR_REGEX = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
+const ARABIC_LETTER_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const VAZIRMATN_FONT_PATH = 'fonts/Vazirmatn-VF.woff2';
 const FONT_FAMILY_STACK = '"Vazirmatn", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
 const PNG_EXPORT_PIXEL_LIMIT = 32000000;
@@ -151,6 +152,14 @@ const EXPORT_STYLE_BLOCK = `
     align-items: center;
     vertical-align: -0.05em !important;
   }
+  .${EXPORT_ROOT_CLASS} {
+    font-kerning: normal !important;
+    font-variant-ligatures: common-ligatures contextual !important;
+    font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1 !important;
+    font-variation-settings: "wght" 400 !important;
+    font-synthesis: none !important;
+    text-rendering: optimizeLegibility !important;
+  }
   .${EXPORT_ROOT_CLASS} .katex-display > .katex {
     display: block !important;
     align-items: initial;
@@ -160,6 +169,13 @@ const EXPORT_STYLE_BLOCK = `
   .${EXPORT_ROOT_CLASS} .katex-display {
     text-align: center !important;
     margin: 16px auto;
+  }
+  .${EXPORT_ROOT_CLASS} b,
+  .${EXPORT_ROOT_CLASS} strong {
+    font-weight: 700 !important;
+    font-variation-settings: "wght" 700 !important;
+    font-synthesis: none !important;
+    letter-spacing: 0.05px !important;
   }
 }
 `;
@@ -410,6 +426,7 @@ async function handleExportRequest(format) {
     ensureLibraries(format);
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
+    insertRtlWeightBoundaries(root);
     await ensureExportFontsLoaded();
     if (format !== 'markdown') {
       await inlineImages(root);
@@ -741,6 +758,134 @@ function normalizeUnsupportedColors(root) {
   });
 }
 
+function insertRtlWeightBoundaries(root) {
+  const boldNodes = root.querySelectorAll('b, strong');
+  boldNodes.forEach((node) => {
+    if (!isRtlElement(node)) {
+      return;
+    }
+
+    const firstText = firstTextNode(node);
+    const lastText = lastTextNode(node);
+    const prevText = adjacentTextNode(node, 'previous');
+    const nextText = adjacentTextNode(node, 'next');
+
+    if (prevText && firstText && needsLeadingSeparator(prevText.nodeValue, firstText.nodeValue)) {
+      prependZwnj(firstText);
+    }
+    if (nextText && lastText && needsTrailingSeparator(lastText.nodeValue, nextText.nodeValue)) {
+      appendZwnj(lastText);
+    }
+  });
+}
+
+function isRtlElement(element) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+  const dir = element.getAttribute('dir');
+  if (dir) {
+    return dir.toLowerCase() === 'rtl';
+  }
+  const computed = window.getComputedStyle(element);
+  return computed && computed.direction === 'rtl';
+}
+
+function firstTextNode(element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+  return walker.nextNode();
+}
+
+function lastTextNode(element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+  let last = null;
+  while (walker.nextNode()) {
+    last = walker.currentNode;
+  }
+  return last;
+}
+
+function adjacentTextNode(node, direction) {
+  let current = node;
+  while (current) {
+    const sibling = direction === 'previous' ? current.previousSibling : current.nextSibling;
+    if (sibling) {
+      let candidate = sibling;
+      while (candidate && candidate.lastChild && direction === 'previous') {
+        candidate = candidate.lastChild;
+      }
+      while (candidate && candidate.firstChild && direction === 'next') {
+        candidate = candidate.firstChild;
+      }
+      if (candidate && candidate.nodeType === Node.TEXT_NODE) {
+        return candidate;
+      }
+      current = candidate;
+      continue;
+    }
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function needsLeadingSeparator(prevValue, currentValue) {
+  const prevChar = lastSignificantChar(prevValue);
+  const nextChar = firstSignificantChar(currentValue);
+  if (!prevChar || !nextChar) {
+    return false;
+  }
+  return ARABIC_LETTER_REGEX.test(prevChar) && ARABIC_LETTER_REGEX.test(nextChar) && nextChar !== '\u200c';
+}
+
+function needsTrailingSeparator(currentValue, nextValue) {
+  const lastChar = lastSignificantChar(currentValue);
+  const nextChar = firstSignificantChar(nextValue);
+  if (!lastChar || !nextChar) {
+    return false;
+  }
+  return ARABIC_LETTER_REGEX.test(lastChar) && ARABIC_LETTER_REGEX.test(nextChar) && lastChar !== '\u200c';
+}
+
+function prependZwnj(textNode) {
+  if (textNode.nodeValue && textNode.nodeValue.startsWith('\u200c')) {
+    return;
+  }
+  textNode.nodeValue = '\u200c' + textNode.nodeValue;
+}
+
+function appendZwnj(textNode) {
+  if (textNode.nodeValue && textNode.nodeValue.endsWith('\u200c')) {
+    return;
+  }
+  textNode.nodeValue = textNode.nodeValue + '\u200c';
+}
+
+function firstSignificantChar(value) {
+  if (!value) {
+    return '';
+  }
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i];
+    if (!/\s/.test(ch)) {
+      return ch;
+    }
+  }
+  return '';
+}
+
+function lastSignificantChar(value) {
+  if (!value) {
+    return '';
+  }
+  for (let i = value.length - 1; i >= 0; i -= 1) {
+    const ch = value[i];
+    if (!/\s/.test(ch)) {
+      return ch;
+    }
+  }
+  return '';
+}
+
 function ensureDirectionalConsistency(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
   while (walker.nextNode()) {
@@ -774,7 +919,10 @@ async function ensureExportFontsLoaded() {
   await registerExportFonts();
 
   try {
-    await document.fonts.load('16px "Vazirmatn"');
+    await Promise.all([
+      document.fonts.load('400 16px "Vazirmatn"'),
+      document.fonts.load('700 16px "Vazirmatn"')
+    ]);
   } catch (error) {
     // console.warn('[GPT Enhancer] Unable to load Vazirmatn font', error);
   }
