@@ -1334,7 +1334,9 @@ function prepareDocxSpecificAdjustments(root) {
   tableCells.forEach((cell) => {
     cell.style.setProperty('border', '1px solid #cdd2e5', 'important');
     cell.style.setProperty('padding', '8px 10px', 'important');
-    cell.style.setProperty('text-align', 'left', 'important');
+    const cellDir = (cell.getAttribute('dir') || '').toLowerCase();
+    const cellAlign = cellDir === 'rtl' ? 'right' : 'left';
+    cell.style.setProperty('text-align', cellAlign, 'important');
     cell.style.setProperty('vertical-align', 'top', 'important');
     cell.style.setProperty('word-wrap', 'break-word', 'important');
     cell.style.setProperty('overflow-wrap', 'anywhere', 'important');
@@ -1346,6 +1348,19 @@ function prepareDocxSpecificAdjustments(root) {
     img.style.setProperty('height', 'auto', 'important');
     img.style.setProperty('display', 'block', 'important');
     img.style.setProperty('margin', '12px 0', 'important');
+  });
+
+  const directionalNodes = root.querySelectorAll('[dir]');
+  directionalNodes.forEach((element) => {
+    const dir = (element.getAttribute('dir') || '').toLowerCase();
+    if (dir !== 'rtl' && dir !== 'ltr') {
+      return;
+    }
+    element.style.setProperty('direction', dir, 'important');
+    element.style.setProperty('unicode-bidi', 'isolate', 'important');
+    if (!element.closest('pre, code')) {
+      element.style.setProperty('text-align', dir === 'rtl' ? 'right' : 'left', 'important');
+    }
   });
 }
 
