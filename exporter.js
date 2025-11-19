@@ -279,6 +279,22 @@ body {
   display: block;
   margin: 12px 0;
 }
+.${EXPORT_ROOT_CLASS} .katex-display {
+  text-align: center;
+  width: 75%;
+  margin: 20px auto 12px;
+  padding: 6px 0;
+  display: block;
+}
+.${EXPORT_ROOT_CLASS} .katex-display > .${EXPORT_EQUATION_CLASS} {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 4px 0;
+}
+.${EXPORT_ROOT_CLASS} .katex-display + .katex-display {
+  margin-top: 28px;
+}
 .${EXPORT_ROOT_CLASS} hr {
   border: none;
   border-top: 1px solid #d0d3e7;
@@ -290,6 +306,10 @@ body {
   direction: ltr !important;
   unicode-bidi: normal !important;
   text-align: left !important;
+  white-space: pre-wrap;
+  font-family: "Cambria Math", "Consolas", "Courier New", monospace;
+  font-size: 0.95em;
+  line-height: 1.25;
 }
 `;
 const COLOR_PROPERTIES = [
@@ -350,6 +370,19 @@ const MARKDOWN_BLOCK_TAGS = new Set([
 ]);
 
 const MARKDOWN_CODE_LANGUAGE_REGEX = /language-([a-z0-9+-]+)/i;
+const STANDALONE_EQUATION_CONTAINER_SELECTOR = [
+  'p',
+  'div',
+  'section',
+  'article',
+  'main',
+  'li',
+  'blockquote',
+  'dd',
+  'dt',
+  'figure',
+  'figcaption'
+].join(',');
 
 function getExtensionAssetUrl(path) {
   if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
@@ -1325,6 +1358,43 @@ function blobToDataUrl(blob) {
   });
 }
 
+function isStandaloneEquationBlock(node) {
+  if (!node || !(node instanceof HTMLElement)) {
+    return false;
+  }
+  if (node.closest('pre, code')) {
+    return false;
+  }
+  const block = node.closest(STANDALONE_EQUATION_CONTAINER_SELECTOR);
+  if (!block) {
+    return false;
+  }
+  const residual = extractNonEquationText(block);
+  return residual.length === 0;
+}
+
+function extractNonEquationText(container) {
+  if (!container) {
+    return '';
+  }
+  const clone = container.cloneNode(true);
+  const equations = clone.querySelectorAll('.katex');
+  equations.forEach((equation) => equation.remove());
+  const text = clone.textContent || '';
+  return text.replace(/\s+/g, '').trim();
+}
+
+function wrapInlineEquationInDisplayContainer(node) {
+  if (!node || !node.parentNode) {
+    return null;
+  }
+  const wrapper = document.createElement('div');
+  wrapper.className = 'katex-display';
+  node.parentNode.insertBefore(wrapper, node);
+  wrapper.appendChild(node);
+  return wrapper;
+}
+
 async function convertKatexToImages(root) {
   const katexNodes = Array.from(root.querySelectorAll('.katex'));
   if (!katexNodes.length) {
@@ -1336,13 +1406,44 @@ async function convertKatexToImages(root) {
   for (const node of uniqueNodes) {
     try {
       const latex = extractLatex(node);
-      if (node.closest('td, th')) {
-        // Use text fallback inside table cells to avoid DOCX rendering issues.
-        const textEquation = document.createElement('span');
+      let displayContainer = node.closest('.katex-display');
+      const standaloneBlock = !displayContainer && isStandaloneEquationBlock(node);
+      const inTableCell = Boolean(node.closest('td, th'));
+      if (!displayContainer && standaloneBlock && !inTableCell) {
+        const wrapped = wrapInlineEquationInDisplayContainer(node);
+        if (wrapped) {
+          displayContainer = wrapped;
+        }
+      }
+      const isDisplayMode = Boolean(displayContainer);
+      const shouldUseTextFallback = inTableCell || !isDisplayMode;
+
+      if (displayContainer && !inTableCell) {
+        displayContainer.style.setProperty('text-align', 'center', 'important');
+        displayContainer.style.setProperty('margin', '20px auto 12px', 'important');
+        displayContainer.style.setProperty('width', '75%', 'important');
+        displayContainer.style.setProperty('max-width', '75%', 'important');
+        displayContainer.style.setProperty('display', 'block', 'important');
+        displayContainer.style.setProperty('padding', '6px 0', 'important');
+      }
+
+      if (shouldUseTextFallback) {
+        const replacementTag = isDisplayMode ? 'div' : 'span';
+        const textEquation = document.createElement(replacementTag);
         textEquation.className = EXPORT_EQUATION_CLASS;
         textEquation.setAttribute('dir', 'ltr');
         textEquation.style.setProperty('direction', 'ltr', 'important');
         textEquation.style.setProperty('unicode-bidi', 'normal', 'important');
+        textEquation.style.setProperty('white-space', 'pre-wrap', 'important');
+        textEquation.style.setProperty('font-family', '"Cambria Math", "Consolas", "Courier New", monospace', 'important');
+        textEquation.style.setProperty('display', isDisplayMode ? 'block' : 'inline-block', 'important');
+        textEquation.style.setProperty('vertical-align', isDisplayMode ? 'baseline' : 'middle', 'important');
+        textEquation.style.setProperty('line-height', isDisplayMode ? '1.35' : '1.1', 'important');
+        if (isDisplayMode) {
+          textEquation.style.setProperty('text-align', 'center', 'important');
+          textEquation.style.setProperty('margin', '0 auto', 'important');
+          textEquation.style.setProperty('padding', '4px 0', 'important');
+        }
         textEquation.textContent = latex || (node.textContent ? node.textContent.trim() : 'Equation');
         node.replaceWith(textEquation);
         continue;
@@ -1366,6 +1467,10 @@ async function convertKatexToImages(root) {
       image.style.setProperty('direction', 'ltr', 'important');
       image.style.setProperty('unicode-bidi', 'normal', 'important');
       image.style.setProperty('text-align', 'left', 'important');
+      image.style.setProperty('display', 'inline-block', 'important');
+      image.style.setProperty('margin', '6px auto', 'important');
+      image.style.setProperty('max-width', '75%', 'important');
+      image.style.setProperty('height', 'auto', 'important');
       node.replaceWith(image);
     } catch (error) {
       // console.warn('[GPT Enhancer] Failed to rasterize equation', error);
