@@ -88,10 +88,10 @@ function normalizeExportFormat(format) {
     return DEFAULT_SETTINGS.exportFormat;
   }
   const normalized = format.trim().toLowerCase();
-  if (normalized === 'markdown') {
-    return 'json';
+  if (normalized === 'md') {
+    return 'markdown';
   }
-  if (['pdf', 'docx', 'json', 'png'].includes(normalized)) {
+  if (['pdf', 'docx', 'json', 'png', 'markdown', 'csv'].includes(normalized)) {
     return normalized;
   }
   return DEFAULT_SETTINGS.exportFormat;
