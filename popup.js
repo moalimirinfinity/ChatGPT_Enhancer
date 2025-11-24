@@ -4,7 +4,7 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
-  tableOfContents: false,
+  tableOfContents: true,
   tableOfContentsCollapsed: false,
   tableOfContentsPosition: null,
   tableOfContentsSize: null,
@@ -434,10 +434,18 @@ function applySettingsToUI(settings) {
 
   isBusy = true;
   controls.enableFix.checked = settings.enableFix;
-  controls.fixKatex.checked = settings.fixKatex;
-  controls.fixCode.checked = settings.fixCode;
-  controls.fixTables.checked = settings.fixTables;
-  controls.copyKatex.checked = settings.copyKatex;
+  if (controls.fixKatex) {
+    controls.fixKatex.checked = settings.fixKatex;
+  }
+  if (controls.fixCode) {
+    controls.fixCode.checked = settings.fixCode;
+  }
+  if (controls.fixTables) {
+    controls.fixTables.checked = settings.fixTables;
+  }
+  if (controls.copyKatex) {
+    controls.copyKatex.checked = settings.copyKatex;
+  }
   if (controls.tableOfContents) {
     controls.tableOfContents.checked = settings.tableOfContents;
   }
