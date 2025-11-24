@@ -14,5 +14,5 @@ A [browser extension](https://chromewebstore.google.com/detail/gpt-enhancer-for-
 - **One-tap KaTeX copy** – click any KaTeX formula to copy its LaTeX.
 - **Prompt library** – create, edit, and reorder reusable prompts from the popup, and copy them into ChatGPT in one click.
 - **Table of contents** – add a collapsible outline to long chats and move it wherever it’s most convenient.
-- **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, JSON, or Image via the pop-up.
+- **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, JSON, Markdown, CSV, or Image via the pop-up.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.

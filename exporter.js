@@ -442,10 +442,10 @@ function normalizeExportFormat(format) {
     return 'pdf';
   }
   const normalized = format.trim().toLowerCase();
-  if (normalized === 'markdown') {
-    return 'json';
+  if (normalized === 'md') {
+    return 'markdown';
   }
-  if (['pdf', 'docx', 'png', 'json'].includes(normalized)) {
+  if (['pdf', 'docx', 'png', 'json', 'markdown', 'csv'].includes(normalized)) {
     return normalized;
   }
   return 'pdf';
@@ -484,9 +484,12 @@ async function handleExportRequest(format) {
         await convertKatexToImages(root);
         await exportAsDocx(root);
         break;
-      // case 'markdown':
-      //   exportAsMarkdown(root);
-      //   break;
+      case 'markdown':
+        exportAsMarkdown(root);
+        break;
+      case 'csv':
+        exportAsCsv(root);
+        break;
       case 'json':
         await exportAsJson(root);
         break;
@@ -1512,6 +1515,14 @@ async function exportAsJson(root) {
   triggerDownload(blob, buildFilename('json'));
 }
 
+function exportAsCsv(root) {
+  const payload = serializeExportRootToJson(root);
+  const rows = buildCsvRows(payload);
+  const csv = rows.map(formatCsvRow).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  triggerDownload(blob, buildFilename('csv'));
+}
+
 const JSON_BLOCK_LEVEL_SELECTOR = [
   'p',
   'h1',
@@ -1932,6 +1943,201 @@ function normalizeJsonText(text) {
   return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function buildCsvRows(payload) {
+  const rows = [['turn_index', 'role', 'direction', 'block_index', 'block_type', 'text']];
+  const turns = payload && Array.isArray(payload.turns) ? payload.turns : [];
+  if (!turns.length) {
+    return rows;
+  }
+
+  turns.forEach((turn, turnIdx) => {
+    const blocks = Array.isArray(turn && turn.blocks) ? turn.blocks : [];
+    const turnIndex = Number.isFinite(turn && turn.index) ? turn.index : turnIdx;
+
+    if (!blocks.length) {
+      rows.push([turnIndex, turn?.role || '', turn?.direction || '', '', '', '']);
+      return;
+    }
+
+    blocks.forEach((block, blockIdx) => {
+      const rawText = blockToPlainText(block, 0);
+      const text = typeof rawText === 'string' ? rawText.replace(/\s+$/g, '') : '';
+      rows.push([
+        turnIndex,
+        turn?.role || '',
+        turn?.direction || '',
+        blockIdx + 1,
+        block && block.type ? block.type : '',
+        text
+      ]);
+    });
+  });
+
+  return rows;
+}
+
+function formatCsvRow(columns) {
+  return columns.map((value) => escapeCsvValue(value == null ? '' : value)).join(',');
+}
+
+function escapeCsvValue(value) {
+  const stringValue = typeof value === 'string' ? value : String(value);
+  const normalized = stringValue.replace(/\r\n?/g, '\n');
+  if (!/[",\n]/.test(normalized)) {
+    return normalized;
+  }
+  return `"${normalized.replace(/"/g, '""')}"`;
+}
+
+function blocksToPlainText(blocks, depth = 0) {
+  if (!Array.isArray(blocks) || !blocks.length) {
+    return '';
+  }
+  const parts = blocks
+    .map((block) => blockToPlainText(block, depth))
+    .filter((part) => typeof part === 'string' && part.trim());
+  return parts.join('\n');
+}
+
+function blockToPlainText(block, depth = 0) {
+  if (!block || typeof block !== 'object') {
+    return '';
+  }
+
+  const parts = [];
+  const pushIfText = (value) => {
+    if (typeof value === 'string' && value.trim()) {
+      parts.push(value);
+    }
+  };
+
+  switch (block.type) {
+    case 'paragraph':
+    case 'heading':
+    case 'block':
+    case 'container': {
+      pushIfText(inlineFragmentsToPlainText(block.content || []));
+      pushIfText(blocksToPlainText(block.blocks, depth + 1));
+      return parts.join('\n');
+    }
+    case 'blockquote': {
+      pushIfText(inlineFragmentsToPlainText(block.content || []));
+      pushIfText(blocksToPlainText(block.blocks, depth + 1));
+      return parts.join('\n');
+    }
+    case 'code':
+      return typeof block.code === 'string' ? block.code : '';
+    case 'list': {
+      const indent = '  '.repeat(Math.max(0, depth));
+      const lines = (block.items || [])
+        .map((item) => {
+          if (!item || typeof item !== 'object') {
+            return '';
+          }
+          const itemParts = [];
+          const itemContent = inlineFragmentsToPlainText(item.content || []);
+          if (itemContent.trim()) {
+            itemParts.push(itemContent);
+          }
+          const nestedBlocks = blocksToPlainText(item.blocks, depth + 1);
+          if (nestedBlocks.trim()) {
+            itemParts.push(nestedBlocks);
+          }
+          const childLists = blocksToPlainText(item.children, depth + 1);
+          if (childLists.trim()) {
+            itemParts.push(childLists);
+          }
+          const line = itemParts.join('\n').replace(/\s+$/g, '');
+          if (!line.trim()) {
+            return '';
+          }
+          return `${indent}- ${line}`;
+        })
+        .filter((line) => line && line.trim());
+      return lines.join('\n');
+    }
+    case 'table': {
+      const lines = (block.rows || [])
+        .map((row) => {
+          if (!row || !Array.isArray(row.cells)) {
+            return '';
+          }
+          const cellText = row.cells
+            .map((cell) => inlineFragmentsToPlainText(cell?.content || []))
+            .filter((value) => value && value.trim());
+          if (!cellText.length) {
+            return '';
+          }
+          return cellText.join(' | ');
+        })
+        .filter((line) => line && line.trim());
+      return lines.join('\n');
+    }
+    case 'image':
+      return block.alt || block.title || block.src || '[image]';
+    case 'figure': {
+      const figureParts = [];
+      if (block.image) {
+        figureParts.push(blockToPlainText(block.image, depth + 1));
+      }
+      if (Array.isArray(block.caption)) {
+        const captionText = inlineFragmentsToPlainText(block.caption);
+        if (captionText.trim()) {
+          figureParts.push(captionText);
+        }
+      }
+      const nested = blocksToPlainText(block.blocks, depth + 1);
+      if (nested.trim()) {
+        figureParts.push(nested);
+      }
+      return figureParts.filter((value) => value && value.trim()).join('\n');
+    }
+    case 'equation':
+      return block.latex || block.text || '';
+    case 'separator':
+      return '---';
+    default: {
+      const inline = inlineFragmentsToPlainText(block.content || []);
+      const nested = blocksToPlainText(block.blocks, depth + 1);
+      pushIfText(inline);
+      pushIfText(nested);
+      return parts.join('\n');
+    }
+  }
+}
+
+function inlineFragmentsToPlainText(fragments) {
+  if (!Array.isArray(fragments)) {
+    return '';
+  }
+  const pieces = fragments
+    .map((fragment) => {
+      if (!fragment || typeof fragment !== 'object') {
+        return '';
+      }
+      switch (fragment.type) {
+        case 'text':
+          return (fragment.text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ');
+        case 'linebreak':
+          return '\n';
+        case 'strong':
+        case 'em':
+        case 'link':
+          return inlineFragmentsToPlainText(fragment.content || []);
+        case 'code':
+          return fragment.text || '';
+        case 'image':
+          return fragment.alt || fragment.title || fragment.src || '[image]';
+        case 'equation':
+          return fragment.latex || fragment.text || '';
+        default:
+          return '';
+      }
+    })
+    .filter(Boolean);
+  return pieces.join('');
+}
+
 function isEquationNode(node) {
   if (!node || !node.classList) {
     return false;
@@ -2072,14 +2278,6 @@ function parseSpanValue(value) {
   }
   return numeric;
 }
-
-// Markdown export preserved for historical reference.
-// function exportAsMarkdown(root) {
-//   const markdown = serializeExportRootToMarkdown(root);
-//   const content = markdown.endsWith('\n') ? markdown : `${markdown}\n`;
-//   const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-//   triggerDownload(blob, buildFilename('md'));
-// }
 
 function exportAsMarkdown(root) {
   const markdown = serializeExportRootToMarkdown(root);
