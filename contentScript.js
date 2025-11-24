@@ -4,7 +4,7 @@ const DEFAULT_SETTINGS = {
   fixCode: true,
   fixTables: true,
   copyKatex: true,
-  tableOfContents: false,
+  tableOfContents: true,
   tableOfContentsCollapsed: false,
   tableOfContentsPosition: null,
   tableOfContentsSize: null,
