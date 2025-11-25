@@ -3,8 +3,12 @@
 document.addEventListener('DOMContentLoaded', () => {
     const langButtons = Array.from(document.querySelectorAll('.help-page__lang-btn'));
     const sections = Array.from(document.querySelectorAll('.help-page__section'));
+    const versionElement = document.getElementById('help-version');
 
     let currentLanguage = 'english';
+
+    // Load version from manifest
+    loadVersion();
 
     // Try to load saved language preference from storage
     if (chrome && chrome.storage && chrome.storage.local) {
@@ -32,6 +36,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    function loadVersion() {
+        if (chrome && chrome.runtime && chrome.runtime.getManifest) {
+            const manifest = chrome.runtime.getManifest();
+            if (manifest && manifest.version && versionElement) {
+                versionElement.textContent = `v${manifest.version}`;
+            }
+        } else {
+            // Fallback if chrome API is not available
+            if (versionElement) {
+                versionElement.textContent = 'v1.1.0';
+            }
+        }
+    }
 
     function setLanguage(language) {
         if (!['english', 'persian'].includes(language)) {

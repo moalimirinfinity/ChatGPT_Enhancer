@@ -49,31 +49,52 @@ body {
     padding: 20px;
     color: var(--text-primary);
     background:
-        radial-gradient(circle at 18% 18%, rgba(87, 103, 255, 0.35), transparent 55%),
-        radial-gradient(circle at 82% 22%, rgba(76, 192, 255, 0.28), transparent 50%),
-        radial-gradient(circle at 50% 88%, rgba(255, 182, 120, 0.16), transparent 60%),
-        linear-gradient(135deg, #07142d, #0c1d45 45%, #122a60 100%);
-    background-color: #07142d;
+        radial-gradient(ellipse at 20% 25%, rgba(87, 103, 255, 0.35), transparent 50%),
+        radial-gradient(ellipse at 80% 30%, rgba(76, 192, 255, 0.28), transparent 45%),
+        radial-gradient(ellipse at 50% 75%, rgba(255, 182, 120, 0.18), transparent 55%),
+        radial-gradient(ellipse at 15% 65%, rgba(147, 51, 234, 0.22), transparent 48%),
+        linear-gradient(135deg, #07142d 0%, #0c1d45 45%, #122a60 100%);
     background-attachment: fixed;
     display: flex;
     justify-content: center;
     align-items: flex-start;
 }
 
+
 .help-page {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     gap: 24px;
-    background: var(--content-bg);
-    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(18, 23, 52, 0.92), rgba(12, 16, 38, 0.95));
+    border-radius: 20px;
     padding: 32px;
     box-shadow:
-        0 24px 48px rgba(9, 10, 27, 0.42),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(18px);
-    border: 1px solid var(--content-border);
+        0 30px 60px rgba(9, 10, 27, 0.5),
+        0 8px 16px rgba(118, 140, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(118, 140, 255, 0.25);
     width: min(800px, 100%);
     margin: 20px auto;
+    position: relative;
+}
+
+.help-page::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 20px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(118, 140, 255, 0.4), rgba(94, 208, 255, 0.2), transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0.6;
+    pointer-events: none;
 }
 
 .help-page__header {
@@ -82,9 +103,22 @@ body {
     align-items: center;
     gap: 16px;
     text-align: center;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--surface-outline);
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(118, 140, 255, 0.15);
+    position: relative;
 }
+
+.help-page__header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(118, 140, 255, 0.5), transparent);
+}
+
 
 .help-page__title {
     margin: 0;
@@ -223,33 +257,18 @@ body {
 .help-page__footer {
     display: flex;
     justify-content: center;
+    align-items: center;
     padding-top: 16px;
     border-top: 1px solid var(--surface-outline);
 }
 
-.help-page__author {
+.help-page__version {
     margin: 0;
-    font-size: 13px;
-    color: var(--text-muted);
+    font-size: 12px;
+    color: var(--text-subtle);
     text-align: center;
-}
-
-.help-page__author-link {
-    color: #9eb5ff;
-    text-decoration: none;
     font-weight: 600;
-    transition: color 0.2s ease;
-}
-
-.help-page__author-link:hover {
-    color: #d4e2ff;
-    text-decoration: underline;
-}
-
-.help-page__author-link:focus-visible {
-    outline: 2px solid rgba(118, 140, 255, 0.8);
-    outline-offset: 2px;
-    border-radius: 4px;
+    letter-spacing: 0.05em;
 }
 
 /* Responsive Design */
