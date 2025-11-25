@@ -1,0 +1,287 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Vazirmatn:wght@400;700&display=swap");
+
+@font-face {
+    font-family: "Sahel";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Sahel";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2") format("woff2");
+}
+
+:root {
+    color-scheme: dark;
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --page-bg-base: #06071a;
+    --content-bg: linear-gradient(145deg, rgba(18, 23, 52, 0.96), rgba(12, 16, 38, 0.98));
+    --content-border: rgba(118, 140, 255, 0.22);
+    --surface-1: #111633;
+    --surface-2: #151c3f;
+    --surface-hover: #1d2550;
+    --surface-outline: rgba(132, 152, 255, 0.18);
+    --surface-outline-strong: rgba(132, 152, 255, 0.28);
+    --text-primary: #f5f6fb;
+    --text-muted: rgba(245, 246, 251, 0.72);
+    --text-subtle: rgba(245, 246, 251, 0.55);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    height: 100%;
+    background-color: #07142d;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px;
+    color: var(--text-primary);
+    background:
+        radial-gradient(circle at 18% 18%, rgba(87, 103, 255, 0.35), transparent 55%),
+        radial-gradient(circle at 82% 22%, rgba(76, 192, 255, 0.28), transparent 50%),
+        radial-gradient(circle at 50% 88%, rgba(255, 182, 120, 0.16), transparent 60%),
+        linear-gradient(135deg, #07142d, #0c1d45 45%, #122a60 100%);
+    background-color: #07142d;
+    background-attachment: fixed;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.help-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    background: var(--content-bg);
+    border-radius: 18px;
+    padding: 32px;
+    box-shadow:
+        0 24px 48px rgba(9, 10, 27, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--content-border);
+    width: min(800px, 100%);
+    margin: 20px auto;
+}
+
+.help-page__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--surface-outline);
+}
+
+.help-page__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.help-page__subtitle {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+.help-page__language-toggle {
+    display: inline-flex;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 10px;
+    background: rgba(10, 13, 31, 0.6);
+    border: 1px solid rgba(118, 140, 255, 0.22);
+}
+
+.help-page__lang-btn {
+    border: none;
+    background: transparent;
+    color: #d8ddff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.help-page__lang-btn:hover {
+    background: rgba(118, 140, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.help-page__lang-btn.is-active {
+    background: linear-gradient(135deg, rgba(118, 140, 255, 0.9), rgba(94, 208, 255, 0.9));
+    color: #121426;
+    box-shadow: 0 6px 12px rgba(12, 14, 30, 0.35);
+}
+
+.help-page__lang-btn:focus-visible {
+    outline: 2px solid rgba(118, 140, 255, 0.8);
+    outline-offset: 2px;
+}
+
+.help-page__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.help-page__section {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.help-page__section.is-active {
+    display: flex;
+}
+
+.help-page__section-title {
+    margin: 0 0 8px 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.help-page__intro {
+    margin: 0 0 8px 0;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.help-page__list {
+    margin: 0;
+    padding-left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    list-style: none;
+}
+
+.help-page__list li {
+    color: var(--text-primary);
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(14, 18, 42, 0.55);
+    border: 1px solid rgba(118, 140, 255, 0.16);
+    border-left: 3px solid rgba(118, 140, 255, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.help-page__list li strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #eef1ff;
+}
+
+/* Persian/RTL styles */
+.help-page__section[dir='rtl'] {
+    text-align: right;
+    font-family: "Sahel", "Vazirmatn", "Tahoma", sans-serif;
+}
+
+.help-page__section[dir='rtl'] .help-page__list {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.help-page__section[dir='rtl'] .help-page__list li {
+    border-right: 3px solid rgba(118, 140, 255, 0.45);
+    border-left: 1px solid rgba(118, 140, 255, 0.16);
+    background: rgba(28, 32, 58, 0.65);
+}
+
+.help-page__section[dir='rtl'] .help-page__list li strong {
+    font-size: 14.5px;
+}
+
+.help-page__footer {
+    display: flex;
+    justify-content: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--surface-outline);
+}
+
+.help-page__author {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.help-page__author-link {
+    color: #9eb5ff;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.help-page__author-link:hover {
+    color: #d4e2ff;
+    text-decoration: underline;
+}
+
+.help-page__author-link:focus-visible {
+    outline: 2px solid rgba(118, 140, 255, 0.8);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+    body {
+        padding: 12px;
+    }
+
+    .help-page {
+        padding: 20px;
+        margin: 10px auto;
+    }
+
+    .help-page__title {
+        font-size: 24px;
+    }
+
+    .help-page__section-title {
+        font-size: 19px;
+    }
+}
+
+/* Image support for future additions */
+.help-page__section img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    margin: 12px 0;
+    box-shadow: 0 8px 16px rgba(9, 10, 27, 0.3);
+    border: 1px solid var(--surface-outline);
+}
+
+.help-page__list li img {
+    margin-top: 8px;
+}
