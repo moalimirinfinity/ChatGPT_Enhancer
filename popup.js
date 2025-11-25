@@ -101,8 +101,6 @@ const controls = {};
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isBusy = false;
 let currentFontTab = FONT_LANGUAGES[0];
-let helpLanguage = 'english';
-let lastFocusedBeforeHelp = null;
 let chatBaseThemeMode = null;
 let activePanelView = 'settings';
 let prompts = [];
@@ -112,7 +110,6 @@ let promptDragState = null;
 let promptSearchQuery = '';
 let conversationLanguageHint = LANGUAGE_HINT_DEFAULT;
 let hasUserSetFontTab = false;
-let hasUserSetHelpLanguage = false;
 const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
 const REFRESH_LABEL_OPEN = 'Open ChatGPT';
 const REFRESH_LABEL_BUSY = 'Refreshing…';
@@ -151,10 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.exportFormatRadios = Array.from(document.querySelectorAll('input[name="export-format"]'));
   controls.exportBtn = document.getElementById('export-btn');
   controls.helpBtn = document.getElementById('help-btn');
-  controls.helpPanel = document.getElementById('help-panel');
-  controls.helpCloseBtn = document.getElementById('help-close-btn');
-  controls.helpLangButtons = Array.from(document.querySelectorAll('.help-panel__lang-btn'));
-  controls.helpSections = Array.from(document.querySelectorAll('.help-panel__section'));
   controls.tabSettings = document.getElementById('panel-tab-settings');
   controls.tabPrompts = document.getElementById('panel-tab-prompts');
   controls.viewSettings = document.getElementById('panel-view-settings');
@@ -168,11 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (controls.promptTextInput && controls.promptTextInput.parentElement) {
     const metaDiv = document.createElement('div');
     metaDiv.className = 'prompt-form__meta';
-    
+
     controls.promptCharCount = document.createElement('span');
     controls.promptCharCount.id = 'prompt-char-count';
     controls.promptCharCount.className = 'prompt-form__char-count';
-    
+
     metaDiv.appendChild(controls.promptCharCount);
 
     // MODIFICATION: Insert *after* the parent .prompt-form__field, not inside it.
@@ -296,27 +289,8 @@ document.addEventListener('DOMContentLoaded', () => {
     controls.exportBtn.addEventListener('click', handleExport);
   }
   if (controls.helpBtn) {
-    controls.helpBtn.addEventListener('click', () => {
-      if (isHelpPanelOpen()) {
-        closeHelpPanel();
-      } else {
-        openHelpPanel();
-      }
-    });
+    controls.helpBtn.addEventListener('click', handleHelp);
   }
-  if (controls.helpCloseBtn) {
-    controls.helpCloseBtn.addEventListener('click', closeHelpPanel);
-  }
-  controls.helpLangButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      const { lang } = button.dataset;
-      if (!lang || lang === helpLanguage) {
-        return;
-      }
-      hasUserSetHelpLanguage = true;
-      setHelpLanguage(lang);
-    });
-  });
   if (controls.promptSearch) {
     controls.promptSearch.addEventListener('input', handlePromptSearch);
   }
@@ -331,12 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (controls.promptFormAccordionHeader && controls.promptFormSection) {
     setAccordionExpanded(controls.promptFormAccordionHeader, controls.promptFormSection, false);
   }
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && isHelpPanelOpen()) {
-      event.preventDefault();
-      closeHelpPanel();
-    }
-  });
+
   controls.themeCards.forEach((card) => {
     card.addEventListener('click', () => {
       if (card.disabled) {
@@ -495,7 +464,6 @@ function applySettingsToUI(settings) {
   controls.donateBtn.textContent = DONATE_LABEL_DEFAULT;
   setActiveTheme(settings.theme);
   setThemeCardsDisabled(dependentsDisabled);
-  setHelpLanguage(helpLanguage);
 }
 
 function handleRefresh() {
@@ -748,9 +716,6 @@ function applyConversationPersonalization(language) {
   conversationLanguageHint = normalized;
   if (!hasUserSetFontTab && normalized !== currentFontTab) {
     setActiveFontTab(normalized);
-  }
-  if (!hasUserSetHelpLanguage && normalized !== helpLanguage) {
-    setHelpLanguage(normalized);
   }
 }
 
@@ -1147,6 +1112,22 @@ function setAccordionExpanded(header, content, expanded) {
   }
   header.setAttribute('aria-expanded', String(expanded));
   content.classList.toggle('is-open', expanded);
+
+  // Smooth auto-scroll when accordion opens
+  if (expanded) {
+    // Use requestAnimationFrame to ensure the DOM has updated (accordion is fully expanded)
+    // before scrolling, so the scroll calculates the correct position
+    requestAnimationFrame(() => {
+      // Add a slight delay to allow the accordion animation to complete
+      setTimeout(() => {
+        header.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+      }, 100);
+    });
+  }
 }
 
 function handlePromptSearch(event) {
@@ -1173,11 +1154,11 @@ function updatePromptCharCount() {
   }
   const len = controls.promptTextInput.value.length;
   controls.promptCharCount.textContent = `${len} / ${PROMPT_TEXT_MAX_LENGTH}`;
-  
+
   const isOverLimit = len > PROMPT_TEXT_MAX_LENGTH;
   controls.promptCharCount.classList.toggle('is-over-limit', isOverLimit);
   controls.promptTextInput.classList.toggle('is-over-limit', isOverLimit);
-  
+
   if (controls.promptSubmitButton) {
     controls.promptSubmitButton.disabled = isOverLimit;
   }
@@ -1188,7 +1169,7 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   card.className = 'prompt-card';
   card.dataset.id = prompt.id;
   card.setAttribute('role', 'listitem');
-  
+
   // NEW: Add mouseleave listener to the card itself to flip back
   card.addEventListener('mouseleave', () => {
     card.classList.remove('is-active');
@@ -1234,7 +1215,7 @@ function buildPromptCard(prompt, { disableDrag } = {}) {
   const backTitle = document.createElement('h4');
   backTitle.className = 'prompt-card__back-title';
   backTitle.textContent = 'Prompt Preview';
-  
+
   const backText = document.createElement('p');
   backText.className = 'prompt-card__text';
   backText.textContent = prompt.text || 'This prompt is empty.';
@@ -1385,7 +1366,7 @@ async function handlePromptFormSubmit(event) {
     const newPrompt = {
       id: generatePromptId(),
       title,
-            text,
+      text,
       createdAt: now,
       updatedAt: now
     };
@@ -1419,9 +1400,9 @@ async function handlePromptFormSubmit(event) {
       // This is the error for TOTAL storage being full
       userMessage = 'Error: Storage quota exceeded. You have too many saved prompts. Please remove some older prompts to save this new one.';
     }
-    
+
     showPromptError(userMessage);
-    
+
     // --- MODIFICATION END ---
   }
 }
@@ -1480,7 +1461,7 @@ function handlePromptListClick(event) {
   if (!target) {
     return;
   }
-  
+
   const card = target.closest('.prompt-card');
   if (!card) {
     return;
@@ -1944,76 +1925,15 @@ function confirmPromptDeletion(promptId) {
     });
 }
 
-function openHelpPanel() {
-  if (!controls.helpPanel) {
-    return;
-  }
-  setHelpLanguage(helpLanguage);
-  lastFocusedBeforeHelp =
-    document.activeElement && document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  controls.helpPanel.classList.add('is-open');
-  controls.helpPanel.setAttribute('aria-hidden', 'false');
-  window.requestAnimationFrame(() => {
-    const container = controls.helpPanel?.querySelector('.help-panel__container');
-    if (container && container instanceof HTMLElement) {
-      container.focus();
+function handleHelp() {
+  // Open help.html in a new tab
+  chrome.tabs.create({ url: chrome.runtime.getURL('help.html') }, () => {
+    if (chrome.runtime.lastError) {
+      console.error('[GPT Enhancer] Failed to open help page', chrome.runtime.lastError);
     }
   });
 }
 
-function closeHelpPanel() {
-  if (!controls.helpPanel) {
-    return;
-  }
-  controls.helpPanel.classList.remove('is-open');
-  controls.helpPanel.setAttribute('aria-hidden', 'true');
-  const targetToFocus = lastFocusedBeforeHelp || controls.helpBtn;
-  if (targetToFocus && typeof targetToFocus.focus === 'function') {
-    targetToFocus.focus();
-  }
-  lastFocusedBeforeHelp = null;
-}
-
-function isHelpPanelOpen() {
-  return Boolean(controls.helpPanel && controls.helpPanel.classList.contains('is-open'));
-}
-
-function setHelpLanguage(language) {
-  if (!controls.helpLangButtons || !controls.helpSections || !language) {
-    return;
-  }
-  if (!['english', 'persian'].includes(language)) {
-    language = 'english';
-  }
-  helpLanguage = language;
-  controls.helpLangButtons.forEach((button) => {
-    if (!button) {
-      return;
-    }
-    const isActive = button.dataset.lang === language;
-    button.classList.toggle('is-active', isActive);
-    button.setAttribute('aria-selected', String(isActive));
-    if (isActive) {
-      button.removeAttribute('tabindex');
-    } else {
-      button.setAttribute('tabindex', '-1');
-    }
-  });
-  controls.helpSections.forEach((section) => {
-    if (!section) {
-      return;
-    }
-    const isActive = section.dataset.lang === language;
-    section.classList.toggle('is-active', isActive);
-    if (isActive) {
-      section.removeAttribute('hidden');
-    } else {
-      section.setAttribute('hidden', 'true');
-    }
-  });
-}
 
 function safeStringify(value) {
   if (value === undefined) {
