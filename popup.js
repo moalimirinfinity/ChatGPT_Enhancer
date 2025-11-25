@@ -175,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptCancelButton = document.getElementById('prompt-cancel-button');
   controls.promptSubmitButton = document.querySelector('.prompt-form__submit');
   controls.promptList = document.getElementById('prompt-list');
+  controls.promptListContainer = document.querySelector('.prompt-list-container');
   controls.promptsEmpty = document.getElementById('prompts-empty');
   controls.promptsEmptyPrimary = document.querySelector('.prompts-empty__primary');
   controls.promptsEmptySecondary = document.querySelector('.prompts-empty__secondary');
@@ -1086,8 +1087,8 @@ function renderPrompts(promptsToRender = prompts, options = {}) {
   controls.promptList.setAttribute('data-filtered', String(isFiltered));
   updatePromptsEmptyState(list);
 
-  if (options.scrollToTop && controls.promptList) {
-    controls.promptList.scrollTop = 0;
+  if (options.scrollToTop && controls.promptListContainer) {
+    controls.promptListContainer.scrollTop = 0;
   }
 
   if (options.focusId) {

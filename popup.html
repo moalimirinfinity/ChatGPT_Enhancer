@@ -398,11 +398,13 @@
             <input type="search" id="prompt-search" class="prompt-search prompt-form__input" placeholder="Search..."
               autocomplete="off" aria-label="Search saved prompts" />
           </div>
-          <div id="prompts-empty" class="prompts-empty" hidden>
-            <p class="prompts-empty__primary">You have no saved prompts yet.</p>
-            <p class="prompts-empty__secondary">Create your first prompt to see it here.</p>
+          <div class="prompt-list-container">
+            <div id="prompts-empty" class="prompts-empty" hidden>
+              <p class="prompts-empty__primary">You have no saved prompts yet.</p>
+              <p class="prompts-empty__secondary">Create your first prompt to see it here.</p>
+            </div>
+            <ul id="prompt-list" class="prompt-list" aria-live="polite"></ul>
           </div>
-          <ul id="prompt-list" class="prompt-list" aria-live="polite"></ul>
         </section>
       </div>
     </div>
