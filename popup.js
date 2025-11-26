@@ -73,7 +73,8 @@ const PROMPT_COPY_SUCCESS_ICON = `
     <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"></path>
   </svg>
 `;
-const CHAT_URL_PREFIXES = ['https://chat.openai.com/', 'https://chatgpt.com/'];
+const CHAT_URL_HOSTS = ['chat.openai.com', 'chatgpt.com'];
+const CHAT_URL_DEFAULT = 'https://chat.openai.com/';
 
 function normalizeThemeAlias(theme) {
   if (typeof theme !== 'string') {
@@ -480,11 +481,10 @@ function handleRefresh() {
 
     const activeTab = tabs[0];
     const url = activeTab.url || '';
-    const onChatGPT =
-      url.startsWith('https://chat.openai.com') || url.startsWith('https://chatgpt.com');
+    const onChatGPT = isChatGPTUrl(url);
 
     if (!onChatGPT) {
-      chrome.tabs.update(activeTab.id, { url: 'https://chat.openai.com/' }, () => {
+      chrome.tabs.update(activeTab.id, { url: CHAT_URL_DEFAULT }, () => {
         if (chrome.runtime.lastError) {
           controls.refreshBtn.textContent = REFRESH_LABEL_OPEN;
           controls.refreshBtn.disabled = false;
@@ -825,7 +825,16 @@ function isChatGPTUrl(url) {
   if (typeof url !== 'string') {
     return false;
   }
-  return CHAT_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== 'https:') {
+      return false;
+    }
+    const normalizedHost = hostname.toLowerCase().replace(/\.+$/, '');
+    return CHAT_URL_HOSTS.includes(normalizedHost);
+  } catch {
+    return false;
+  }
 }
 
 function buildExportErrorMessage(response, runtimeError) {
