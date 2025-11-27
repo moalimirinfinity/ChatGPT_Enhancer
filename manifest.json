@@ -25,6 +25,7 @@
       "js": [
         "libs/html-docx.min.js",
         "libs/html-to-image.min.js",
+        "retention.js",
         "contentScript.js",
         "exporter.js"
       ],
