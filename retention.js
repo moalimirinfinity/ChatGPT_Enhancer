@@ -69,6 +69,7 @@
     state.initialized = true;
     state.ready = hydrateFromStorage().then(() => {
       attachExportListener();
+      attachStorageListener();
       if (state.options.forceShow) {
         maybeShow('init', true);
       }
@@ -140,6 +141,23 @@
     return state.ready;
   }
 
+  function refreshReviewedStatus() {
+    return new Promise((resolve) => {
+      if (state.hasReviewed || !chrome?.storage?.local) {
+        resolve();
+        return;
+      }
+      chrome.storage.local.get(CONFIG.storageKeys.reviewed, (data) => {
+        const reviewed = Boolean(data?.[CONFIG.storageKeys.reviewed]);
+        if (reviewed) {
+          state.hasReviewed = true;
+          teardownPopup();
+        }
+        resolve();
+      });
+    });
+  }
+
   // Trigger handling ----------------------------------------------------------
   function attachExportListener() {
     if (state.listenersAttached || typeof document === 'undefined') {
@@ -158,8 +176,45 @@
     state.listenersAttached = true;
   }
 
+  function attachStorageListener() {
+    if (!chrome?.storage?.onChanged) {
+      return;
+    }
+    chrome.storage.onChanged.addListener(handleStorageChanges);
+  }
+
+  function handleStorageChanges(changes, areaName) {
+    if (areaName !== 'local') {
+      return;
+    }
+    const keys = CONFIG.storageKeys;
+    if (keys.usage in changes) {
+      state.usageCount = Number(changes[keys.usage]?.newValue) || state.usageCount;
+    }
+    if (keys.exports in changes) {
+      state.exportCount = Number(changes[keys.exports]?.newValue) || state.exportCount;
+    }
+    if (keys.lastShown in changes) {
+      state.lastShown = Number(changes[keys.lastShown]?.newValue) || state.lastShown;
+    }
+    if (keys.snoozeUntil in changes) {
+      state.snoozeUntil = Number(changes[keys.snoozeUntil]?.newValue) || state.snoozeUntil;
+    }
+    if (keys.dismissCount in changes) {
+      state.dismissCount = Number(changes[keys.dismissCount]?.newValue) || state.dismissCount;
+    }
+    if (keys.reviewed in changes) {
+      const reviewed = Boolean(changes[keys.reviewed]?.newValue);
+      state.hasReviewed = reviewed;
+      if (reviewed) {
+        teardownPopup();
+      }
+    }
+  }
+
   async function maybeShow(reason = '', force = false) {
     await ensureReady();
+    await refreshReviewedStatus();
     if (!document || !document.body) {
       return;
     }
