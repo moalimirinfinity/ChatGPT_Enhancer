@@ -17,7 +17,3 @@ A [browser extension](https://chromewebstore.google.com/detail/gpt-enhancer-for-
 - **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, JSON, Markdown, CSV, or Image via the pop-up.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
 
-## Testing
-
-- Install Node 18+.
-- Run `npm test` to execute every `*.test.js` file under `tests/`.
