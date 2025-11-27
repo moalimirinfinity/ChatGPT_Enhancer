@@ -11,8 +11,8 @@
       dismissCount: 'gptEnhancerReviewDismissCount'
     },
     exportEvent: 'GPT_ENHANCER_EXPORT_SUCCESS',
-    exportDelayMs: 60 * 1000,
-    exportThreshold: 5,
+    exportDelayMs: 30 * 1000,
+    exportThreshold: 3,
     usageThreshold: 16,
     cooldownMs: 4 * 24 * 60 * 60 * 1000,
     snoozeMs: 12 * 24 * 60 * 60 * 1000,
@@ -29,7 +29,7 @@
     },
     persian: {
       title: 'از GPT Enhancer راضی هستی؟',
-      body: 'نظرت رو حتما به ما بده تا کمک کنی بهتر شیم.',
+      body: 'نظرت رو حتما بده تا کمک کنی بهتر شیم.',
       cta: 'ثبت نظر',
       dismiss: 'فعلاً نه'
     }
