@@ -7,6 +7,9 @@
   "scripts": {
     "test": "node ./tests/run-tests.js"
   },
+  "devDependencies": {
+    "jsdom": "^22.1.0"
+  },
   "engines": {
     "node": ">=18"
   }
