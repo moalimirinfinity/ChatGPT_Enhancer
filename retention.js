@@ -4,12 +4,15 @@
       'https://chromewebstore.google.com/detail/gpt-enhancer-for-chatgpt/deobmkpgnanhnoojdecfpndfmgjhaddk/reviews',
     storageKeys: {
       usage: 'gptEnhancerReviewUsageCount',
+      exports: 'gptEnhancerReviewExportCount',
       lastShown: 'gptEnhancerReviewLastShown',
       reviewed: 'gptEnhancerReviewCompleted',
       snoozeUntil: 'gptEnhancerReviewSnoozeUntil',
       dismissCount: 'gptEnhancerReviewDismissCount'
     },
     exportEvent: 'GPT_ENHANCER_EXPORT_SUCCESS',
+    exportDelayMs: 60 * 1000,
+    exportThreshold: 5,
     usageThreshold: 16,
     cooldownMs: 4 * 24 * 60 * 60 * 1000,
     snoozeMs: 12 * 24 * 60 * 60 * 1000,
@@ -26,64 +29,79 @@
     },
     persian: {
       title: 'از GPT Enhancer راضی هستی؟',
-      body: 'نظرت رو حتما به ما بده تا بهتر شیم.',
+      body: 'نظرت رو حتما به ما بده تا کمک کنی بهتر شیم.',
       cta: 'ثبت نظر',
       dismiss: 'فعلاً نه'
     }
   };
 
+  const DEFAULT_OPTIONS = {
+    forceShow: false,
+    usageThreshold: CONFIG.usageThreshold,
+    cooldownMs: CONFIG.cooldownMs,
+    snoozeMs: CONFIG.snoozeMs,
+    usagePromptChance: CONFIG.usagePromptChance
+  };
+
   const state = {
     initialized: false,
-    readyPromise: null,
+    ready: null,
     language: 'english',
     usageCount: 0,
+    exportCount: 0,
     lastShown: 0,
-    hasReviewed: false,
     snoozeUntil: 0,
     dismissCount: 0,
+    hasReviewed: false,
     sessionShown: false,
     popup: null,
     nodes: null,
     listenersAttached: false,
-    options: {
-      forceShow: false,
-      usageThreshold: CONFIG.usageThreshold,
-      cooldownMs: CONFIG.cooldownMs,
-      snoozeMs: CONFIG.snoozeMs,
-      usagePromptChance: CONFIG.usagePromptChance
-    }
+    options: { ...DEFAULT_OPTIONS }
   };
 
+  // Public API ----------------------------------------------------------------
   function init(options = {}) {
-    state.options = buildOptions(options);
+    state.options = normalizeOptions(options);
     if (state.initialized) {
-      return state.readyPromise || Promise.resolve();
+      return state.ready || Promise.resolve();
     }
-
     state.initialized = true;
-    state.readyPromise = hydrateFromStorage();
-
-    state.readyPromise.then(() => {
-      attachListeners();
+    state.ready = hydrateFromStorage().then(() => {
+      attachExportListener();
       if (state.options.forceShow) {
         maybeShow('init', true);
       }
     });
-
-    return state.readyPromise;
+    return state.ready;
   }
 
-  function buildOptions(options) {
-    const usageThreshold = Number.isFinite(options.usageThreshold)
-      ? options.usageThreshold
-      : CONFIG.usageThreshold;
-    const cooldownMs = Number.isFinite(options.cooldownMs) ? options.cooldownMs : CONFIG.cooldownMs;
-    const snoozeMs = Number.isFinite(options.snoozeMs) ? options.snoozeMs : CONFIG.snoozeMs;
-    const usagePromptChance = Number.isFinite(options.usagePromptChance)
-      ? options.usagePromptChance
-      : CONFIG.usagePromptChance;
-    const forceShow = Boolean(options.forceShow);
-    return { usageThreshold, cooldownMs, snoozeMs, usagePromptChance, forceShow };
+  function recordUsage() {
+    ensureReady().then(() => {
+      state.usageCount += 1;
+      persist({ [CONFIG.storageKeys.usage]: state.usageCount });
+      maybeShow('usage');
+    });
+  }
+
+  function setLanguage(language) {
+    state.language = language === 'persian' ? 'persian' : 'english';
+    syncPopupLanguage();
+  }
+
+  // Initialization helpers ----------------------------------------------------
+  function normalizeOptions(options) {
+    return {
+      forceShow: Boolean(options.forceShow),
+      usageThreshold: pickNumber(options.usageThreshold, CONFIG.usageThreshold),
+      cooldownMs: pickNumber(options.cooldownMs, CONFIG.cooldownMs),
+      snoozeMs: pickNumber(options.snoozeMs, CONFIG.snoozeMs),
+      usagePromptChance: pickNumber(options.usagePromptChance, CONFIG.usagePromptChance)
+    };
+  }
+
+  function pickNumber(candidate, fallback) {
+    return Number.isFinite(candidate) ? candidate : fallback;
   }
 
   function hydrateFromStorage() {
@@ -94,47 +112,50 @@
       }
       chrome.storage.local.get(CONFIG.storageKeys, (data) => {
         state.usageCount = Number(data?.[CONFIG.storageKeys.usage]) || 0;
+        state.exportCount = Number(data?.[CONFIG.storageKeys.exports]) || 0;
         state.lastShown = Number(data?.[CONFIG.storageKeys.lastShown]) || 0;
-        state.hasReviewed = Boolean(data?.[CONFIG.storageKeys.reviewed]);
         state.snoozeUntil = Number(data?.[CONFIG.storageKeys.snoozeUntil]) || 0;
         state.dismissCount = Number(data?.[CONFIG.storageKeys.dismissCount]) || 0;
+        state.hasReviewed = Boolean(data?.[CONFIG.storageKeys.reviewed]);
         resolve();
       });
     });
   }
 
-  function persistToStorage(partial) {
+  function persist(partial) {
     if (!chrome?.storage?.local || !partial) {
       return;
     }
     chrome.storage.local.set(partial, () => {
       if (chrome.runtime && chrome.runtime.lastError) {
-        // Silently ignore storage errors.
+        // Ignore storage errors.
       }
     });
   }
 
-  function attachListeners() {
+  function ensureReady() {
+    if (!state.ready) {
+      state.ready = hydrateFromStorage();
+    }
+    return state.ready;
+  }
+
+  // Trigger handling ----------------------------------------------------------
+  function attachExportListener() {
     if (state.listenersAttached || typeof document === 'undefined') {
       return;
     }
     document.addEventListener(CONFIG.exportEvent, () => {
-      maybeShow('export');
+      const delay = Math.max(0, CONFIG.exportDelayMs || 0);
+      state.exportCount += 1;
+      persist({ [CONFIG.storageKeys.exports]: state.exportCount });
+      window.setTimeout(() => {
+        if (state.exportCount >= CONFIG.exportThreshold) {
+          maybeShow('export');
+        }
+      }, delay);
     });
     state.listenersAttached = true;
-  }
-
-  function setLanguage(language) {
-    state.language = language === 'persian' ? 'persian' : 'english';
-    syncPopupLanguage();
-  }
-
-  function recordUsage() {
-    ensureReady().then(() => {
-      state.usageCount += 1;
-      persistToStorage({ [CONFIG.storageKeys.usage]: state.usageCount });
-      maybeShow('usage');
-    });
   }
 
   async function maybeShow(reason = '', force = false) {
@@ -142,33 +163,33 @@
     if (!document || !document.body) {
       return;
     }
-    if (state.hasReviewed || state.popup) {
+    if (state.popup || state.hasReviewed) {
       return;
     }
-    if (state.sessionShown && !force) {
-      return;
-    }
-    if (!force && state.dismissCount >= CONFIG.dismissLimit) {
+    if (!force && (state.sessionShown || state.dismissCount >= CONFIG.dismissLimit)) {
       return;
     }
 
     const now = Date.now();
-    if (!force && now < state.snoozeUntil) {
-      return;
-    }
     const triggeredByExport = reason === 'export';
-    const meetsUsage = state.usageCount >= state.options.usageThreshold;
-    const inCooldown = now - state.lastShown < state.options.cooldownMs;
-
     if (!force) {
-      if (inCooldown) {
+      if (now < state.snoozeUntil) {
         return;
       }
-      if (!meetsUsage && !triggeredByExport) {
+      if (now - state.lastShown < state.options.cooldownMs) {
         return;
       }
-      if (!triggeredByExport && Math.random() > state.options.usagePromptChance) {
-        return;
+      if (triggeredByExport) {
+        if (state.exportCount < CONFIG.exportThreshold) {
+          return;
+        }
+      } else {
+        if (state.usageCount < state.options.usageThreshold) {
+          return;
+        }
+        if (Math.random() > state.options.usagePromptChance) {
+          return;
+        }
       }
     }
 
@@ -176,19 +197,13 @@
     markShown(now);
   }
 
-  function ensureReady() {
-    if (!state.readyPromise) {
-      state.readyPromise = hydrateFromStorage();
-    }
-    return state.readyPromise;
-  }
-
   function markShown(timestamp) {
     state.lastShown = timestamp;
     state.sessionShown = true;
-    persistToStorage({ [CONFIG.storageKeys.lastShown]: timestamp });
+    persist({ [CONFIG.storageKeys.lastShown]: timestamp });
   }
 
+  // Rendering -----------------------------------------------------------------
   function renderPopup() {
     teardownPopup();
     if (!document || !document.body) {
@@ -205,8 +220,8 @@
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'chatgpt-review-close';
-    applyStyles(close, closeButtonStyles());
     close.textContent = '×';
+    applyStyles(close, closeButtonStyles());
     close.addEventListener('click', handleClose);
 
     const title = document.createElement('div');
@@ -245,6 +260,11 @@
 
   function containerStyles() {
     return {
+      position: 'fixed',
+      top: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      'z-index': '12000',
       background: 'linear-gradient(135deg, #0d1633, #0a122b)',
       color: '#f4e7c5',
       border: '1px solid #d4af37',
@@ -255,8 +275,7 @@
       'text-align': 'center',
       filter: 'none',
       'mix-blend-mode': 'normal',
-      'box-sizing': 'border-box',
-      position: 'relative'
+      'box-sizing': 'border-box'
     };
   }
 
@@ -345,6 +364,7 @@
     state.nodes.dismiss.textContent = copy.dismiss;
   }
 
+  // Event handlers ------------------------------------------------------------
   function handleRateClick() {
     try {
       window.open(CONFIG.reviewUrl, '_blank', 'noopener,noreferrer');
@@ -352,23 +372,23 @@
       window.location.href = CONFIG.reviewUrl;
     }
     state.hasReviewed = true;
-    persistToStorage({ [CONFIG.storageKeys.reviewed]: true });
+    persist({ [CONFIG.storageKeys.reviewed]: true });
     teardownPopup();
   }
 
   function handleDismiss() {
     state.dismissCount += 1;
-    const dismissPersist = { [CONFIG.storageKeys.dismissCount]: state.dismissCount };
-    if (state.dismissCount >= CONFIG.dismissLimit) {
-      state.hasReviewed = true;
-      dismissPersist[CONFIG.storageKeys.reviewed] = true;
-    }
     const snoozeUntil = Date.now() + state.options.snoozeMs;
     state.snoozeUntil = snoozeUntil;
-    persistToStorage({
-      ...dismissPersist,
+    const updates = {
+      [CONFIG.storageKeys.dismissCount]: state.dismissCount,
       [CONFIG.storageKeys.snoozeUntil]: snoozeUntil
-    });
+    };
+    if (state.dismissCount >= CONFIG.dismissLimit) {
+      state.hasReviewed = true;
+      updates[CONFIG.storageKeys.reviewed] = true;
+    }
+    persist(updates);
     teardownPopup();
   }
 
