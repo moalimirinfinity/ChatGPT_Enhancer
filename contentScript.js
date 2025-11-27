@@ -1967,10 +1967,16 @@ function syncEquationCopyListener() {
   }
 }
 
+let hasRecordedReviewUsage = false;
+
 function notifyReviewUsage() {
   if (!window?.ReviewManager || typeof window.ReviewManager.recordUsage !== 'function') {
     return;
   }
+  if (hasRecordedReviewUsage) {
+    return;
+  }
+  hasRecordedReviewUsage = true;
   window.ReviewManager.recordUsage();
 }
 

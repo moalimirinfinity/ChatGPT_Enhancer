@@ -19,6 +19,7 @@
     usagePromptChance: 0.4,
     dismissLimit: 3
   };
+  const POPUP_STYLE_ID = 'chatgpt-review-popup-styles';
 
   const COPY = {
     english: {
@@ -56,6 +57,8 @@
     sessionShown: false,
     popup: null,
     nodes: null,
+    focusCleanup: null,
+    previouslyFocused: null,
     listenersAttached: false,
     options: { ...DEFAULT_OPTIONS }
   };
@@ -111,7 +114,8 @@
         resolve();
         return;
       }
-      chrome.storage.local.get(CONFIG.storageKeys, (data) => {
+      const keys = Object.values(CONFIG.storageKeys);
+      chrome.storage.local.get(keys, (data) => {
         state.usageCount = Number(data?.[CONFIG.storageKeys.usage]) || 0;
         state.exportCount = Number(data?.[CONFIG.storageKeys.exports]) || 0;
         state.lastShown = Number(data?.[CONFIG.storageKeys.lastShown]) || 0;
@@ -269,13 +273,16 @@
     popup.className = 'chatgpt-review-popup';
     popup.setAttribute('role', 'dialog');
     popup.setAttribute('aria-live', 'polite');
-    popup.setAttribute('aria-label', 'Rate GPT Enhancer');
+    popup.setAttribute('aria-modal', 'true');
+    popup.tabIndex = -1;
     applyStyles(popup, containerStyles());
+    ensurePopupStyles();
 
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'chatgpt-review-close';
     close.textContent = '×';
+    close.setAttribute('aria-label', 'Close');
     applyStyles(close, closeButtonStyles());
     close.addEventListener('click', handleClose);
 
@@ -309,8 +316,9 @@
     document.body.appendChild(popup);
 
     state.popup = popup;
-    state.nodes = { title, body, cta, dismiss };
+    state.nodes = { title, body, cta, dismiss, close };
     syncPopupLanguage();
+    setupFocusManagement(popup, [cta, dismiss, close]);
   }
 
   function containerStyles() {
@@ -353,7 +361,6 @@
       'text-shadow': 'none',
       'mix-blend-mode': 'normal',
       'box-sizing': 'border-box',
-      outline: 'none',
       'pointer-events': 'auto',
       color: 'inherit',
       'background-color': 'transparent'
@@ -398,6 +405,29 @@
     };
   }
 
+  function ensurePopupStyles() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    if (document.getElementById(POPUP_STYLE_ID)) {
+      return;
+    }
+    const style = document.createElement('style');
+    style.id = POPUP_STYLE_ID;
+    style.textContent = `
+.chatgpt-review-popup button:focus,
+.chatgpt-review-popup button:focus-visible {
+  outline: 2px solid #f4d075 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(244, 208, 117, 0.35) !important;
+}
+`;
+    const target = document.head || document.documentElement || document.body;
+    if (target) {
+      target.appendChild(style);
+    }
+  }
+
   function applyStyles(target, styles) {
     if (!target || !target.style || !styles) {
       return;
@@ -407,12 +437,75 @@
     });
   }
 
+  function setupFocusManagement(popup, focusables) {
+    if (!popup) {
+      return;
+    }
+    const focusableNodes = (focusables || []).filter(Boolean);
+    state.previouslyFocused =
+      document?.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const handleKeydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+      if (!focusableNodes.length) {
+        return;
+      }
+      const currentIndex = focusableNodes.indexOf(document.activeElement);
+      const direction = event.shiftKey ? -1 : 1;
+      let nextIndex = currentIndex + direction;
+
+      if (currentIndex === -1) {
+        nextIndex = direction === 1 ? 0 : focusableNodes.length - 1;
+      } else {
+        if (nextIndex < 0) {
+          nextIndex = focusableNodes.length - 1;
+        }
+        if (nextIndex >= focusableNodes.length) {
+          nextIndex = 0;
+        }
+      }
+
+      event.preventDefault();
+      focusableNodes[nextIndex].focus();
+    };
+
+    popup.addEventListener('keydown', handleKeydown);
+    const initialTarget = focusableNodes[0] || popup;
+    window.setTimeout(() => {
+      if (initialTarget && typeof initialTarget.focus === 'function') {
+        initialTarget.focus({ preventScroll: true });
+      }
+    }, 0);
+
+    state.focusCleanup = () => {
+      popup.removeEventListener('keydown', handleKeydown);
+      const previous = state.previouslyFocused;
+      state.previouslyFocused = null;
+      if (previous && typeof previous.focus === 'function') {
+        previous.focus({ preventScroll: true });
+      }
+      state.focusCleanup = null;
+    };
+  }
+
   function syncPopupLanguage() {
     if (!state.popup || !state.nodes) {
       return;
     }
     const copy = COPY[state.language] || COPY.english;
-    state.popup.setAttribute('dir', state.language === 'persian' ? 'rtl' : 'ltr');
+    const isRtl = state.language === 'persian';
+    state.popup.setAttribute('dir', isRtl ? 'rtl' : 'ltr');
+    state.popup.setAttribute('aria-label', copy.title);
+    if (state.nodes.close) {
+      state.nodes.close.setAttribute('aria-label', isRtl ? 'بستن' : 'Close');
+    }
     state.nodes.title.textContent = copy.title;
     state.nodes.body.textContent = copy.body;
     state.nodes.cta.textContent = copy.cta;
@@ -453,6 +546,9 @@
   }
 
   function teardownPopup() {
+    if (state.focusCleanup) {
+      state.focusCleanup();
+    }
     if (state.popup && state.popup.parentNode) {
       state.popup.parentNode.removeChild(state.popup);
     }
