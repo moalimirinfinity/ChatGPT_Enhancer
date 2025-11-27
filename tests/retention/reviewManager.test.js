@@ -48,6 +48,50 @@ test('recordUsage shows popup once the usage threshold is reached', async () => 
   }
 });
 
+test('usage prompt chance gates rendering even when threshold is met', async () => {
+  const env = setupDom();
+  const originalRandom = Math.random;
+  Math.random = () => 0.99;
+
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usageThreshold: 0, usagePromptChance: 0.1, cooldownMs: 0 });
+
+    ReviewManager.recordUsage();
+    await nextTick();
+
+    assert.ok(!document.querySelector('.chatgpt-review-popup'), 'popup should not render when chance fails');
+  } finally {
+    Math.random = originalRandom;
+    env.cleanup();
+  }
+});
+
+test('snooze and cooldown windows prevent the popup from showing', async () => {
+  const baseTime = 10000;
+  const env = setupDom({
+    storageData: {
+      gptEnhancerReviewUsageCount: 5,
+      gptEnhancerReviewSnoozeUntil: baseTime + 5000,
+      gptEnhancerReviewLastShown: baseTime - 100
+    }
+  });
+  const originalNow = Date.now;
+  Date.now = () => baseTime;
+
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usageThreshold: 0, usagePromptChance: 1, cooldownMs: 1000 });
+
+    ReviewManager.recordUsage();
+    await nextTick();
+    assert.ok(!document.querySelector('.chatgpt-review-popup'), 'popup should respect snooze and cooldown windows');
+  } finally {
+    Date.now = originalNow;
+    env.cleanup();
+  }
+});
+
 test('dismissing the popup updates storage and removes the dialog', async () => {
   const env = setupDom();
   try {
@@ -75,6 +119,30 @@ test('dismissing the popup updates storage and removes the dialog', async () => 
   }
 });
 
+test('cta click marks the flow as reviewed and closes the popup', async () => {
+  const env = setupDom();
+  let openedUrl;
+  env.dom.window.open = (url) => {
+    openedUrl = url;
+    return null;
+  };
+
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usagePromptChance: 1 });
+    await ReviewManager.showNow();
+
+    document.querySelector('.chatgpt-review-button').click();
+    await nextTick();
+
+    assert.equal(env.chromeMock.data.gptEnhancerReviewCompleted, true);
+    assert.equal(openedUrl, 'https://chromewebstore.google.com/detail/gpt-enhancer-for-chatgpt/deobmkpgnanhnoojdecfpndfmgjhaddk/reviews');
+    assert.ok(!document.querySelector('.chatgpt-review-popup'), 'popup should be removed after rating');
+  } finally {
+    env.cleanup();
+  }
+});
+
 test('export success events trigger the prompt once the threshold is met', async () => {
   const env = setupDom({ storageData: { gptEnhancerReviewExportCount: 2 } });
   const originalSetTimeout = window.setTimeout;
@@ -94,6 +162,29 @@ test('export success events trigger the prompt once the threshold is met', async
     assert.ok(document.querySelector('.chatgpt-review-popup'), 'popup should render after export threshold');
   } finally {
     window.setTimeout = originalSetTimeout;
+    env.cleanup();
+  }
+});
+
+test('storage updates marking reviewed tear down the popup and block future renders', async () => {
+  const env = setupDom();
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usagePromptChance: 1 });
+    await ReviewManager.showNow();
+    assert.ok(document.querySelector('.chatgpt-review-popup'), 'popup should render before storage change');
+
+    env.chromeMock.emitChange({
+      gptEnhancerReviewCompleted: { newValue: true }
+    });
+    await nextTick();
+
+    assert.ok(!document.querySelector('.chatgpt-review-popup'), 'popup should be removed after review completion');
+
+    await ReviewManager.showNow();
+    await nextTick();
+    assert.ok(!document.querySelector('.chatgpt-review-popup'), 'popup should stay hidden when marked reviewed');
+  } finally {
     env.cleanup();
   }
 });
