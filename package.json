@@ -1,0 +1,13 @@
+{
+  "name": "chatgpt-enhancer",
+  "version": "1.0.0",
+  "description": "Development and test tooling for the GPT Enhancer browser extension.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node ./tests/run-tests.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
