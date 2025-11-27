@@ -1800,6 +1800,7 @@ function mergeSettings(partial) {
   const cleanupScope = document.querySelector('main') || document;
   clearLegacyInlineStyles(cleanupScope);
   syncEquationCopyListener();
+  notifyReviewUsage();
 }
 
 applySettings(currentSettings);
@@ -1966,6 +1967,63 @@ function syncEquationCopyListener() {
   }
 }
 
+let hasRecordedReviewUsage = false;
+
+function notifyReviewUsage() {
+  if (!window?.ReviewManager || typeof window.ReviewManager.recordUsage !== 'function') {
+    return;
+  }
+  if (hasRecordedReviewUsage) {
+    return;
+  }
+  hasRecordedReviewUsage = true;
+  window.ReviewManager.recordUsage();
+}
+
+let reviewLanguageObserver = null;
+let reviewLanguageSyncTimer = null;
+
+function syncReviewLanguage() {
+  if (!window?.ReviewManager || typeof window.ReviewManager.setLanguage !== 'function') {
+    return;
+  }
+  const result = detectConversationLanguageHint(
+    LANGUAGE_DETECTION_MAX_MESSAGES,
+    LANGUAGE_DETECTION_MAX_CHARS
+  );
+  window.ReviewManager.setLanguage(result.language);
+}
+
+function scheduleReviewLanguageSync(delay = 600) {
+  if (reviewLanguageSyncTimer) {
+    clearTimeout(reviewLanguageSyncTimer);
+  }
+  reviewLanguageSyncTimer = setTimeout(() => {
+    syncReviewLanguage();
+  }, delay);
+}
+
+function attachReviewLanguageObserver() {
+  const container = document.querySelector('main') || document.body || document.documentElement;
+  if (!container || typeof MutationObserver === 'undefined') {
+    return;
+  }
+  if (!reviewLanguageObserver) {
+    reviewLanguageObserver = new MutationObserver(() => scheduleReviewLanguageSync());
+  }
+  reviewLanguageObserver.disconnect();
+  reviewLanguageObserver.observe(container, { childList: true, subtree: true });
+}
+
+function initReviewManager() {
+  if (!window?.ReviewManager || typeof window.ReviewManager.init !== 'function') {
+    return;
+  }
+  window.ReviewManager.init({ forceShow: false });
+  attachReviewLanguageObserver();
+  scheduleReviewLanguageSync(0);
+}
+
 const rootObserver = new MutationObserver((mutations) => {
   if (isApplyingClasses) {
     return;
@@ -2032,6 +2090,8 @@ if (chrome?.runtime?.onMessage) {
     }
   });
 }
+
+initReviewManager();
 
 // chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 //   if (message && message.type === 'GPT_INJECT_PROMPT') {
