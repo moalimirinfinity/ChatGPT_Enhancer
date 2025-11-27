@@ -20,17 +20,13 @@
       title: 'Enjoying GPT Enhancer?',
       body: 'Let us know your thoughts to help us improve.',
       cta: 'Rate GPT Enhancer',
-      dismiss: 'Maybe later',
-      already: 'I already left a review',
-      note: 'We’ll ask again in a couple of weeks.'
+      dismiss: 'Maybe later'
     },
     persian: {
       title: 'از GPT Enhancer راضی هستی؟',
       body: 'نظرت رو حتما به ما بده تا بهتر شیم.',
       cta: 'ثبت نظر',
-      dismiss: 'فعلاً نه',
-      already: 'قبلاً نظر ثبت کردم',
-      note: 'تا یکی دو هفته دیگه دوباره یادآوری می‌کنیم.'
+      dismiss: 'فعلاً نه'
     }
   };
 
@@ -227,28 +223,16 @@
     applyStyles(dismiss, buttonStyles('ghost'));
     dismiss.addEventListener('click', handleDismiss);
 
-    const already = document.createElement('button');
-    already.type = 'button';
-    already.className = 'chatgpt-review-already';
-    applyStyles(already, linkButtonStyles());
-    already.addEventListener('click', handleAlreadyReviewed);
-
-    const note = document.createElement('div');
-    note.className = 'chatgpt-review-note';
-    applyStyles(note, noteStyles());
-
     actions.appendChild(cta);
     actions.appendChild(dismiss);
-    actions.appendChild(already);
     popup.appendChild(title);
     popup.appendChild(body);
     popup.appendChild(actions);
-    popup.appendChild(note);
     popup.appendChild(close);
     document.body.appendChild(popup);
 
     state.popup = popup;
-    state.nodes = { title, body, cta, dismiss, already, note };
+    state.nodes = { title, body, cta, dismiss };
     syncPopupLanguage();
   }
 
@@ -315,32 +299,6 @@
     };
   }
 
-  function linkButtonStyles() {
-    return {
-      appearance: 'none',
-      background: 'transparent',
-      border: 'none',
-      color: '#cdd9ff',
-      '-webkit-text-fill-color': '#cdd9ff',
-      'font-size': '12px',
-      'font-weight': '600',
-      'text-decoration': 'underline',
-      cursor: 'pointer',
-      padding: '6px 8px',
-      'margin-left': '4px',
-      'margin-right': '4px'
-    };
-  }
-
-  function noteStyles() {
-    return {
-      'font-size': '12px',
-      color: '#d0d8f5',
-      'margin-top': '6px',
-      opacity: '0.85'
-    };
-  }
-
   function closeButtonStyles() {
     return {
       appearance: 'none',
@@ -378,8 +336,6 @@
     state.nodes.body.textContent = copy.body;
     state.nodes.cta.textContent = copy.cta;
     state.nodes.dismiss.textContent = copy.dismiss;
-    state.nodes.already.textContent = copy.already;
-    state.nodes.note.textContent = copy.note;
   }
 
   function handleRateClick() {
@@ -402,12 +358,6 @@
 
   function handleClose() {
     markShown(Date.now());
-    teardownPopup();
-  }
-
-  function handleAlreadyReviewed() {
-    state.hasReviewed = true;
-    persistToStorage({ [CONFIG.storageKeys.reviewed]: true });
     teardownPopup();
   }
 
