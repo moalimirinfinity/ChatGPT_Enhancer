@@ -3,13 +3,16 @@ const { JSDOM } = require('jsdom');
 
 const RETENTION_PATH = path.join(__dirname, '..', '..', 'retention.js');
 
-function createChromeMock(initialData = {}) {
-  const data = { ...initialData };
+function createChromeMock({ storageData = {}, runtime = {} } = {}) {
+  const data = { ...storageData };
   const listeners = [];
+  const setCalls = [];
+  const getCalls = [];
 
   const local = {
     data,
     get(keys, callback) {
+      getCalls.push(keys);
       if (Array.isArray(keys)) {
         const result = {};
         keys.forEach((key) => {
@@ -21,6 +24,7 @@ function createChromeMock(initialData = {}) {
       callback({ [keys]: data[keys] });
     },
     set(partial, callback) {
+      setCalls.push(partial);
       Object.assign(data, partial);
       if (typeof callback === 'function') {
         callback();
@@ -28,30 +32,39 @@ function createChromeMock(initialData = {}) {
     }
   };
 
-  return {
-    chrome: {
-      runtime: {},
-      storage: {
-        local,
-        onChanged: {
-          addListener(listener) {
-            listeners.push(listener);
-          }
+  const chromeObject = {
+    runtime: { lastError: null, ...runtime },
+    storage: {
+      local,
+      onChanged: {
+        addListener(listener) {
+          listeners.push(listener);
         }
       }
-    },
+    }
+  };
+
+  return {
+    chrome: chromeObject,
     data,
+    setCalls,
+    getCalls,
     emitChange(changes) {
+      Object.entries(changes || {}).forEach(([key, change]) => {
+        if (change && Object.prototype.hasOwnProperty.call(change, 'newValue')) {
+          data[key] = change.newValue;
+        }
+      });
       listeners.forEach((listener) => listener(changes, 'local'));
     }
   };
 }
 
-function setupDom({ storageData } = {}) {
+function setupDom({ storageData, runtime } = {}) {
   const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
     url: 'https://example.com/'
   });
-  const chromeMock = createChromeMock(storageData);
+  const chromeMock = createChromeMock({ storageData, runtime });
 
   global.window = dom.window;
   global.document = dom.window.document;

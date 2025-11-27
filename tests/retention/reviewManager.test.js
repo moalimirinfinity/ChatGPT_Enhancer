@@ -74,3 +74,60 @@ test('dismissing the popup updates storage and removes the dialog', async () => 
     env.cleanup();
   }
 });
+
+test('export success events trigger the prompt once the threshold is met', async () => {
+  const env = setupDom({ storageData: { gptEnhancerReviewExportCount: 2 } });
+  const originalSetTimeout = window.setTimeout;
+  window.setTimeout = (fn) => {
+    fn();
+    return 0;
+  };
+
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usagePromptChance: 1 });
+
+    document.dispatchEvent(new env.dom.window.Event('GPT_ENHANCER_EXPORT_SUCCESS'));
+    await nextTick();
+
+    assert.equal(env.chromeMock.data.gptEnhancerReviewExportCount, 3);
+    assert.ok(document.querySelector('.chatgpt-review-popup'), 'popup should render after export threshold');
+  } finally {
+    window.setTimeout = originalSetTimeout;
+    env.cleanup();
+  }
+});
+
+test('reaching the dismiss limit marks the flow as reviewed for future sessions', async () => {
+  const env = setupDom({ storageData: { gptEnhancerReviewDismissCount: 2 } });
+  let persistedData;
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usagePromptChance: 1 });
+    await ReviewManager.showNow();
+
+    document.querySelector('.chatgpt-review-dismiss').click();
+    await nextTick();
+    persistedData = { ...env.chromeMock.data };
+
+    assert.equal(persistedData.gptEnhancerReviewDismissCount, 3);
+    assert.equal(persistedData.gptEnhancerReviewCompleted, true);
+  } finally {
+    env.cleanup();
+  }
+
+  const env2 = setupDom({ storageData: persistedData });
+  try {
+    const ReviewManager = loadReviewManager();
+    await ReviewManager.init({ usagePromptChance: 1 });
+    await ReviewManager.showNow();
+    await nextTick();
+
+    assert.ok(
+      !document.querySelector('.chatgpt-review-popup'),
+      'reviewed users should not see the popup even when forced'
+    );
+  } finally {
+    env2.cleanup();
+  }
+});
