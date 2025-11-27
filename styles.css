@@ -732,3 +732,131 @@ html.chatgpt-theme-skylight [class*='border-token-'] {
   transition: filter 0.2s ease;
   filter: drop-shadow(0 0 12px rgba(90, 173, 255, 0.45));
 }
+
+.chatgpt-review-popup {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 28px));
+  background: linear-gradient(135deg, #0d1633, #0a122b) !important;
+  color: #f4e7c5 !important;
+  border: 1px solid #d4af37 !important;
+  border-radius: 14px !important;
+  box-shadow:
+    0 18px 42px rgba(5, 7, 18, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  padding: 14px 16px 16px !important;
+  text-align: center;
+  z-index: 12000;
+  font-family: inherit;
+  line-height: 1.4;
+  backdrop-filter: blur(12px);
+  isolation: isolate;
+  box-sizing: border-box;
+  mix-blend-mode: normal;
+  filter: none !important;
+  color-scheme: light;
+  text-shadow: none !important;
+}
+
+.chatgpt-review-popup[dir='rtl'] {
+  direction: rtl;
+}
+
+.chatgpt-review-title {
+  font-weight: 700;
+  color: #ffe7a1;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.chatgpt-review-body {
+  font-size: 13px;
+  color: #f4e7c5;
+  opacity: 0.92;
+}
+
+.chatgpt-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.chatgpt-review-button,
+.chatgpt-review-dismiss {
+  all: unset;
+  appearance: none !important;
+  border-radius: 10px !important;
+  padding: 9px 14px !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important;
+  border: 1px solid transparent !important;
+  min-width: 120px !important;
+  background: transparent !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-shadow: none !important;
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+  outline: none !important;
+}
+
+.chatgpt-review-button {
+  background: linear-gradient(135deg, #f2c14f, #e3b23c) !important;
+  color: #0b1023 !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-color: #f4d075 !important;
+  -webkit-text-fill-color: #0b1023 !important;
+  background-clip: padding-box !important;
+  box-shadow: 0 10px 28px rgba(244, 192, 79, 0.35) !important;
+}
+
+.chatgpt-review-button:hover,
+.chatgpt-review-button:focus-visible {
+  background: linear-gradient(135deg, #ffd76d, #f0c14a) !important;
+  transform: translateY(-1px);
+  outline: none;
+  box-shadow:
+    0 12px 30px rgba(244, 192, 79, 0.45),
+    0 0 0 2px rgba(244, 192, 79, 0.2) !important;
+}
+
+.chatgpt-review-dismiss {
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: #dbe6ff !important;
+  -webkit-text-fill-color: #dbe6ff !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-color: rgba(244, 208, 117, 0.35) !important;
+}
+
+.chatgpt-review-dismiss:hover,
+.chatgpt-review-dismiss:focus-visible {
+  background: rgba(255, 255, 255, 0.06) !important;
+  transform: translateY(-1px);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(244, 208, 117, 0.18) !important;
+}
+
+@media (max-width: 520px) {
+  .chatgpt-review-popup {
+    top: 14px;
+    padding: 12px 14px;
+    width: min(380px, calc(100vw - 20px));
+  }
+}
