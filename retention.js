@@ -11,7 +11,7 @@
       dismissCount: 'gptEnhancerReviewDismissCount'
     },
     exportEvent: 'GPT_ENHANCER_EXPORT_SUCCESS',
-    exportDelayMs: 30 * 1000,
+    exportDelayMs: 10 * 1000,
     exportThreshold: 3,
     usageThreshold: 16,
     cooldownMs: 4 * 24 * 60 * 60 * 1000,
@@ -369,11 +369,11 @@
     if (variant === 'primary') {
       return {
         ...base,
-        background: 'linear-gradient(135deg, #f2c14f, #e3b23c)',
+        background: '#f2c14f',
         color: '#0b1023',
         '-webkit-text-fill-color': '#0b1023',
         'border-color': '#f4d075',
-        'box-shadow': '0 10px 28px rgba(244, 192, 79, 0.35)'
+        'box-shadow': 'none'
       };
     }
 
