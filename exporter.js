@@ -466,6 +466,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+function dispatchExportSuccessEvent() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const event = new CustomEvent('GPT_ENHANCER_EXPORT_SUCCESS');
+  document.dispatchEvent(event);
+}
+
 async function handleExportRequest(format) {
   const exportFormat = normalizeExportFormat(format);
   await registerExportFonts();
@@ -562,6 +570,7 @@ async function handleExportRequest(format) {
         document.head.removeChild(printStyle);
         break;
     }
+    dispatchExportSuccessEvent();
   } finally {
     if (styleNode && styleNode.parentNode) {
       styleNode.parentNode.removeChild(styleNode);
