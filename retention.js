@@ -6,13 +6,15 @@
       usage: 'gptEnhancerReviewUsageCount',
       lastShown: 'gptEnhancerReviewLastShown',
       reviewed: 'gptEnhancerReviewCompleted',
-      snoozeUntil: 'gptEnhancerReviewSnoozeUntil'
+      snoozeUntil: 'gptEnhancerReviewSnoozeUntil',
+      dismissCount: 'gptEnhancerReviewDismissCount'
     },
     exportEvent: 'GPT_ENHANCER_EXPORT_SUCCESS',
     usageThreshold: 16,
     cooldownMs: 4 * 24 * 60 * 60 * 1000,
     snoozeMs: 12 * 24 * 60 * 60 * 1000,
-    usagePromptChance: 0.4
+    usagePromptChance: 0.4,
+    dismissLimit: 3
   };
 
   const COPY = {
@@ -38,6 +40,7 @@
     lastShown: 0,
     hasReviewed: false,
     snoozeUntil: 0,
+    dismissCount: 0,
     sessionShown: false,
     popup: null,
     nodes: null,
@@ -94,6 +97,7 @@
         state.lastShown = Number(data?.[CONFIG.storageKeys.lastShown]) || 0;
         state.hasReviewed = Boolean(data?.[CONFIG.storageKeys.reviewed]);
         state.snoozeUntil = Number(data?.[CONFIG.storageKeys.snoozeUntil]) || 0;
+        state.dismissCount = Number(data?.[CONFIG.storageKeys.dismissCount]) || 0;
         resolve();
       });
     });
@@ -142,6 +146,9 @@
       return;
     }
     if (state.sessionShown && !force) {
+      return;
+    }
+    if (!force && state.dismissCount >= CONFIG.dismissLimit) {
       return;
     }
 
@@ -350,9 +357,18 @@
   }
 
   function handleDismiss() {
+    state.dismissCount += 1;
+    const dismissPersist = { [CONFIG.storageKeys.dismissCount]: state.dismissCount };
+    if (state.dismissCount >= CONFIG.dismissLimit) {
+      state.hasReviewed = true;
+      dismissPersist[CONFIG.storageKeys.reviewed] = true;
+    }
     const snoozeUntil = Date.now() + state.options.snoozeMs;
     state.snoozeUntil = snoozeUntil;
-    persistToStorage({ [CONFIG.storageKeys.snoozeUntil]: snoozeUntil });
+    persistToStorage({
+      ...dismissPersist,
+      [CONFIG.storageKeys.snoozeUntil]: snoozeUntil
+    });
     teardownPopup();
   }
 
