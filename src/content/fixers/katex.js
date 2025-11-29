@@ -1,0 +1,169 @@
+import { DEFAULT_SETTINGS } from '../../common/config.js';
+
+let currentSettings = { ...DEFAULT_SETTINGS };
+let isCopyListenerActive = false;
+let toastNode = null;
+let toastTimer = null;
+
+function extractLatex(element) {
+  const preferred = element.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
+  if (preferred && preferred.textContent) {
+    return preferred.textContent.trim();
+  }
+
+  const anyAnnotation = element.querySelector('.katex-mathml annotation');
+  if (anyAnnotation && anyAnnotation.textContent) {
+    return anyAnnotation.textContent.trim();
+  }
+
+  return element.textContent ? element.textContent.trim() : '';
+}
+
+async function copyTextToClipboard(text) {
+  if (!text) {
+    return;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
+function showToast(message, referenceRect) {
+  if (!document.body) {
+    return;
+  }
+
+  if (!toastNode) {
+    toastNode = document.createElement('div');
+    toastNode.className = 'chatgpt-direction-fix-toast';
+    document.body.appendChild(toastNode);
+  }
+
+  toastNode.textContent = message;
+  toastNode.classList.add('is-visible');
+
+  if (referenceRect) {
+    const top = Math.max(referenceRect.top + window.scrollY - 40, 12);
+    let left = referenceRect.left + window.scrollX + referenceRect.width / 2;
+    toastNode.style.left = `${left}px`;
+    toastNode.style.top = `${top}px`;
+    toastNode.style.transform = 'translate(-50%, -100%)';
+  } else {
+    toastNode.style.left = '50%';
+    toastNode.style.top = '24px';
+    toastNode.style.transform = 'translate(-50%, 0)';
+  }
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+
+  toastTimer = setTimeout(() => {
+    if (toastNode) {
+      toastNode.classList.remove('is-visible');
+    }
+  }, 1800);
+}
+
+function markEquationCopied(element) {
+  element.classList.add('chatgpt-katex-copied');
+  setTimeout(() => {
+    element.classList.remove('chatgpt-katex-copied');
+  }, 400);
+}
+
+async function handleEquationClick(event) {
+  if (!shouldListen()) {
+    return;
+  }
+  if (event.defaultPrevented) {
+    return;
+  }
+  if (
+    (typeof event.button === 'number' && event.button !== 0) ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  if (selection && selection.toString().trim().length > 0) {
+    return;
+  }
+
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) {
+    return;
+  }
+
+  const katexElement = target.closest('.katex, .katex-display');
+  if (!katexElement) {
+    return;
+  }
+
+  try {
+    const latex = extractLatex(katexElement);
+    await copyTextToClipboard(latex);
+    markEquationCopied(katexElement);
+    showToast('Equation copied', katexElement.getBoundingClientRect());
+  } catch (error) {
+    showToast('Unable to copy equation');
+  }
+}
+
+function shouldListen(settings = currentSettings) {
+  return Boolean(settings?.enableFix && settings?.copyKatex);
+}
+
+function syncListener() {
+  if (!document) {
+    return;
+  }
+  const active = shouldListen();
+  if (active && !isCopyListenerActive) {
+    document.addEventListener('click', handleEquationClick, true);
+    isCopyListenerActive = true;
+  } else if (!active && isCopyListenerActive) {
+    document.removeEventListener('click', handleEquationClick, true);
+    isCopyListenerActive = false;
+  }
+}
+
+function init(settings) {
+  currentSettings = { ...currentSettings, ...(settings || {}) };
+  syncListener();
+}
+
+function update(changes) {
+  if (!changes) {
+    return;
+  }
+  const next = { ...currentSettings };
+  ['enableFix', 'copyKatex'].forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(changes, key) && changes[key]) {
+      next[key] = changes[key].newValue;
+    }
+  });
+  currentSettings = next;
+  syncListener();
+}
+
+export const KatexCopyFixer = {
+  init,
+  update
+};
