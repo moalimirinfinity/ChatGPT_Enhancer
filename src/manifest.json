@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "GPT Enhancer for ChatGPT",
+  "version": "1.1.0",
+  "description": "Enhance ChatGPT with themes, fonts, KaTeX copy, prompt library, and chat export — lightweight and private.",
+  "permissions": ["storage", "tabs", "clipboardWrite"],
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "GPT Enhancer",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
+      "css": ["assets/styles/content.css"],
+      "js": [
+        "content/retention.js",
+        "content/index.js",
+        "export/index.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/fonts/*.woff2", "assets/libs/*.js"],
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"]
+    },
+    {
+      "resources": ["help/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
