@@ -10,6 +10,7 @@ import {
   MESSAGE_SELECTOR,
   PERSIAN_CHAR_REGEX
 } from './constants.js';
+import { RETENTION_COPY } from '../common/i18n.js';
 
 (() => {
   const CONFIG = {
@@ -31,22 +32,6 @@ import {
     snoozeMs: 12 * 24 * 60 * 60 * 1000,
     usagePromptChance: 0.4,
     dismissLimit: 3
-  };
-  const POPUP_STYLE_ID = 'chatgpt-review-popup-styles';
-
-  const COPY = {
-    english: {
-      title: 'Enjoying GPT Enhancer?',
-      body: 'Let us know your thoughts to help us improve.',
-      cta: 'Rate GPT Enhancer',
-      dismiss: 'Maybe later'
-    },
-    persian: {
-      title: 'از GPT Enhancer راضی هستی؟',
-      body: 'نظرت رو حتما بده تا کمک کنی بهتر شیم.',
-      cta: 'ثبت نظر',
-      dismiss: 'فعلاً نه'
-    }
   };
 
   const DEFAULT_OPTIONS = {
@@ -399,7 +384,6 @@ import {
     popup.setAttribute('aria-modal', 'true');
     popup.tabIndex = -1;
     applyStyles(popup, containerStyles());
-    ensurePopupStyles();
 
     const close = document.createElement('button');
     close.type = 'button';
@@ -528,29 +512,6 @@ import {
     };
   }
 
-  function ensurePopupStyles() {
-    if (typeof document === 'undefined') {
-      return;
-    }
-    if (document.getElementById(POPUP_STYLE_ID)) {
-      return;
-    }
-    const style = document.createElement('style');
-    style.id = POPUP_STYLE_ID;
-    style.textContent = `
-.chatgpt-review-popup button:focus,
-.chatgpt-review-popup button:focus-visible {
-  outline: 2px solid #f4d075 !important;
-  outline-offset: 2px !important;
-  box-shadow: 0 0 0 3px rgba(244, 208, 117, 0.35) !important;
-}
-`;
-    const target = document.head || document.documentElement || document.body;
-    if (target) {
-      target.appendChild(style);
-    }
-  }
-
   function applyStyles(target, styles) {
     if (!target || !target.style || !styles) {
       return;
@@ -622,7 +583,7 @@ import {
     if (!state.popup || !state.nodes) {
       return;
     }
-    const copy = COPY[state.language] || COPY.english;
+    const copy = RETENTION_COPY[state.language] || RETENTION_COPY.english;
     const isRtl = state.language === 'persian';
     state.popup.setAttribute('dir', isRtl ? 'rtl' : 'ltr');
     state.popup.setAttribute('aria-label', copy.title);

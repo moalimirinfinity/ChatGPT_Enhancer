@@ -670,13 +670,26 @@ function collectAssistantMessages() {
   if (!nodes || !nodes.length) {
     return [];
   }
-  return Array.from(nodes).filter((node) => {
-    if (!(node instanceof HTMLElement)) {
-      return false;
-    }
-    const role = node.getAttribute('data-message-author-role') || (node.dataset ? node.dataset.messageAuthorRole : null);
-    return role === 'assistant';
-  });
+  return Array.from(nodes).filter((node) => isAssistantTurn(node));
+}
+
+function isAssistantTurn(node) {
+  if (!(node instanceof HTMLElement)) {
+    return false;
+  }
+  const directRole = node.getAttribute('data-message-author-role') || (node.dataset ? node.dataset.messageAuthorRole : null);
+  if (directRole === 'assistant') {
+    return true;
+  }
+  const testId = (node.getAttribute('data-testid') || '').toLowerCase();
+  if (testId.includes('assistant')) {
+    return true;
+  }
+  const nestedRole = node.querySelector('[data-message-author-role]');
+  if (nestedRole && nestedRole.getAttribute('data-message-author-role') === 'assistant') {
+    return true;
+  }
+  return false;
 }
 
 function deriveTitle(message, index) {

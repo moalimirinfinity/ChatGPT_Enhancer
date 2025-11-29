@@ -1,3 +1,6 @@
+/**
+ * Renders prompt cards and manages DOM updates for the prompt library.
+ */
 const PROMPT_ACTION_LABELS = {
   copy: 'Copy prompt',
   edit: 'Edit prompt',

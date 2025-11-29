@@ -3,11 +3,15 @@
  */
 import { EXPORT_ROOT_CLASS, EXPORT_TURN_CLASS } from '../constants.js';
 import { delay } from '../utils/time.js';
+import { MESSAGE_SELECTOR } from '../../content/constants.js';
 
-const TURN_SELECTORS = ['[data-testid="conversation-turn"]', '[data-message-author-role]'];
+const MAX_VIRTUAL_SCROLL_ATTEMPTS = 16;
+const IDLE_ATTEMPTS_THRESHOLD = 3;
+const SCAN_DELAY_MS = 180;
+const EMPTY_DELAY_MS = 120;
 
 export async function ensureConversationContentLoaded() {
-  const selector = '[data-testid="conversation-turn"], [data-message-author-role]';
+  const selector = MESSAGE_SELECTOR;
   const main = document.querySelector('main');
   const container = main || document.body;
   if (!container) {
@@ -36,14 +40,14 @@ export async function ensureConversationContentLoaded() {
 }
 
 async function exhaustVirtualizedContent(container, scrollHost, selector, direction) {
-  const maxAttempts = 8;
+  const maxAttempts = MAX_VIRTUAL_SCROLL_ATTEMPTS;
   let previousCount = container.querySelectorAll(selector).length;
   let idleAttempts = 0;
 
-  for (let attempt = 0; attempt < maxAttempts && idleAttempts < 2; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts && idleAttempts < IDLE_ATTEMPTS_THRESHOLD; attempt += 1) {
     const nodes = container.querySelectorAll(selector);
     if (!nodes.length) {
-      await delay(80);
+      await delay(EMPTY_DELAY_MS);
       continue;
     }
 
@@ -69,7 +73,7 @@ async function exhaustVirtualizedContent(container, scrollHost, selector, direct
       }
     }
 
-    await delay(180);
+    await delay(SCAN_DELAY_MS);
     const currentCount = container.querySelectorAll(selector).length;
     if (currentCount === previousCount) {
       idleAttempts += 1;
@@ -84,13 +88,7 @@ export function collectConversation(sanitizeFn, hasRenderableContentFn, finalize
   const exportRoot = document.createElement('div');
   exportRoot.className = EXPORT_ROOT_CLASS;
 
-  let nodes = [];
-  for (const selector of TURN_SELECTORS) {
-    nodes = Array.from(document.querySelectorAll(selector));
-    if (nodes.length) {
-      break;
-    }
-  }
+  let nodes = Array.from(document.querySelectorAll(MESSAGE_SELECTOR));
 
   if (!nodes.length) {
     const main = document.querySelector('main');

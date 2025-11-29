@@ -26,19 +26,8 @@ export async function exportAsPdf(stage) {
       }
       .${EXPORT_STAGE_CLASS} {
         opacity: 1 !important;
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
+        position: static !important;
         z-index: 9999 !important;
-      }
-      .${EXPORT_ROOT_CLASS} {
-         padding: 0 !important; 
-         max-width: 100% !important;
-         margin: 0 !important;
-         box-shadow: none !important;
-         box-sizing: border-box; 
       }
       .${EXPORT_ROOT_CLASS} .katex {
         display: inline-flex !important;

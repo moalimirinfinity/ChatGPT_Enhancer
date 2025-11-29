@@ -873,6 +873,13 @@ html.chatgpt-theme-skylight [class*='border-token-'] {
   box-shadow: 0 0 0 2px rgba(244, 208, 117, 0.18) !important;
 }
 
+.chatgpt-review-popup button:focus,
+.chatgpt-review-popup button:focus-visible {
+  outline: 2px solid #f4d075 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(244, 208, 117, 0.35) !important;
+}
+
 @media (max-width: 520px) {
   .chatgpt-review-popup {
     top: 14px;

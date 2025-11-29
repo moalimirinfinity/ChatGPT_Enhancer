@@ -1,4 +1,6 @@
-// Help page JavaScript for language toggle functionality
+/**
+ * Logic for the help page, including language toggling and version display.
+ */
 
 document.addEventListener('DOMContentLoaded', () => {
     const langButtons = Array.from(document.querySelectorAll('.help-page__lang-btn'));

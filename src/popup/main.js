@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../common/config.js';
 import { loadSettings } from '../common/storage.js';
 import { PROMPTS_STORAGE_KEY } from './prompts/manager.js';
 import { createPromptController } from './prompts/controller.js';
+import { PROMPTS_EMPTY_MESSAGES, EXPORT_ERROR_MESSAGES, POPUP_LABELS, POPUP_COPY } from '../common/i18n.js';
 import {
   clearPromptError,
   initPromptUI,
@@ -30,10 +31,14 @@ const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPT_TITLE_MAX_LENGTH = 80;
 const PROMPT_TEXT_MAX_LENGTH = 8000; // NEW CONSTANT
 const PROMPT_COPY_RESET_DELAY = 1600;
-const PROMPTS_EMPTY_DEFAULT_PRIMARY = 'You have no saved prompts yet.';
-const PROMPTS_EMPTY_DEFAULT_SECONDARY = 'Create your first prompt to see it here.';
-const PROMPTS_EMPTY_FILTERED_PRIMARY = 'No prompts match your search.';
-const PROMPTS_EMPTY_FILTERED_SECONDARY = 'Try a different keyword or clear the search.';
+const {
+  defaultPrimary: PROMPTS_EMPTY_DEFAULT_PRIMARY,
+  defaultSecondary: PROMPTS_EMPTY_DEFAULT_SECONDARY,
+  filteredPrimary: PROMPTS_EMPTY_FILTERED_PRIMARY,
+  filteredSecondary: PROMPTS_EMPTY_FILTERED_SECONDARY
+} = PROMPTS_EMPTY_MESSAGES;
+const { refresh: REFRESH_LABELS, donate: DONATE_LABELS, export: EXPORT_LABELS, prompts: PROMPT_LABELS } =
+  POPUP_LABELS;
 const CHAT_URL_HOSTS = ['chat.openai.com', 'chatgpt.com'];
 const CHAT_URL_DEFAULT = 'https://chat.openai.com/';
 
@@ -60,7 +65,8 @@ const promptController = createPromptController({
   clearPromptError: () => clearPromptError(controls),
   setPromptsCountLabel: (count) => {
     if (controls.promptsCountLabel) {
-      controls.promptsCountLabel.textContent = count === 1 ? 'prompt' : 'prompts';
+      controls.promptsCountLabel.textContent =
+        count === 1 ? PROMPT_LABELS.countSingular : PROMPT_LABELS.countPlural;
     }
   },
   focusPromptHandle: (id) => {
@@ -72,16 +78,17 @@ const promptController = createPromptController({
 });
 let conversationLanguageHint = LANGUAGE_HINT_DEFAULT;
 let hasUserSetFontTab = false;
-const REFRESH_LABEL_DEFAULT = 'Refresh ChatGPT';
-const REFRESH_LABEL_OPEN = 'Open ChatGPT';
-const REFRESH_LABEL_BUSY = 'Refreshing…';
+const REFRESH_LABEL_DEFAULT = REFRESH_LABELS.default;
+const REFRESH_LABEL_OPEN = REFRESH_LABELS.open;
+const REFRESH_LABEL_BUSY = REFRESH_LABELS.busy;
 const DONATION_URL = 'https://donito.me/u-qd7d6';
-const DONATE_LABEL_DEFAULT = 'Support';
-const DONATE_LABEL_BUSY = 'Opening…';
-const EXPORT_LABEL_DEFAULT = 'Export conversation';
-const EXPORT_LABEL_BUSY = 'Exporting…';
-const EXPORT_LABEL_ERROR = 'Export failed';
-const EXPORT_LABEL_UNAVAILABLE = 'Open ChatGPT to export';
+const DONATE_LABEL_DEFAULT = DONATE_LABELS.default;
+const DONATE_LABEL_BUSY = DONATE_LABELS.busy;
+const EXPORT_LABEL_DEFAULT = EXPORT_LABELS.default;
+const EXPORT_LABEL_BUSY = EXPORT_LABELS.busy;
+const EXPORT_LABEL_ERROR = EXPORT_LABELS.error;
+const EXPORT_LABEL_UNAVAILABLE = EXPORT_LABELS.unavailable;
+const EXPORT_ERRORS = EXPORT_ERROR_MESSAGES;
 
 document.addEventListener('DOMContentLoaded', () => {
   controls.enableFix = document.getElementById('toggle-enable');
@@ -119,6 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptForm = document.getElementById('prompt-form');
   controls.promptNameInput = document.getElementById('prompt-name');
   controls.promptTextInput = document.getElementById('prompt-text');
+  controls.promptHeaderTitle =
+    controls.promptFormAccordionHeader?.querySelector('.panel__section-title') || null;
+  controls.promptNameLabel = document.querySelector('label[for="prompt-name"]');
+  controls.promptTextLabel = document.querySelector('label[for="prompt-text"]');
   // NEW: Create and insert the character counter
   if (controls.promptTextInput && controls.promptTextInput.parentElement) {
     const metaDiv = document.createElement('div');
@@ -143,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptsEmptySecondary = document.querySelector('.prompts-empty__secondary');
   controls.promptError = document.getElementById('prompt-error');
   controls.promptSearch = document.getElementById('prompt-search');
+  applyPromptCopy();
   if (controls.promptsEmptyPrimary) {
     controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
   }
@@ -367,6 +379,39 @@ function applyConversationPersonalization(language) {
   }
 }
 
+function applyPromptCopy() {
+  const copy = (POPUP_COPY && POPUP_COPY.prompts) || {};
+  if (controls.promptHeaderTitle && copy.addHeader) {
+    controls.promptHeaderTitle.textContent = copy.addHeader;
+  }
+  if (controls.promptNameLabel && copy.titleLabel) {
+    controls.promptNameLabel.textContent = copy.titleLabel;
+  }
+  if (controls.promptNameInput && copy.titlePlaceholder) {
+    controls.promptNameInput.placeholder = copy.titlePlaceholder;
+  }
+  if (controls.promptTextLabel && copy.promptLabel) {
+    controls.promptTextLabel.textContent = copy.promptLabel;
+  }
+  if (controls.promptTextInput && copy.promptPlaceholder) {
+    controls.promptTextInput.placeholder = copy.promptPlaceholder;
+  }
+  if (controls.promptSubmitButton && copy.save) {
+    controls.promptSubmitButton.textContent = copy.save;
+  }
+  if (controls.promptCancelButton && copy.cancel) {
+    controls.promptCancelButton.textContent = copy.cancel;
+  }
+  if (controls.promptSearch) {
+    if (copy.searchPlaceholder) {
+      controls.promptSearch.placeholder = copy.searchPlaceholder;
+    }
+    if (copy.searchAriaLabel) {
+      controls.promptSearch.setAttribute('aria-label', copy.searchAriaLabel);
+    }
+  }
+}
+
 function normalizeLanguageHint(language) {
   return language === 'persian' ? 'persian' : LANGUAGE_HINT_DEFAULT;
 }
@@ -396,7 +441,8 @@ function handleExport() {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tabQueryError = chrome.runtime.lastError;
     if (tabQueryError || !tabs.length) {
-      const message = buildExportErrorMessage(null, tabQueryError) || 'Unable to access active tab.';
+      const message =
+        buildExportErrorMessage(null, tabQueryError) || EXPORT_ERRORS.accessActiveTab;
       reportExportError(message, { runtimeError: tabQueryError });
       setExportErrorTooltip(message);
       setExportIdleState(EXPORT_LABEL_ERROR);
@@ -406,7 +452,7 @@ function handleExport() {
 
     const activeTab = tabs[0];
     if (!isChatGPTUrl(activeTab.url || '')) {
-      const message = 'Open ChatGPT in the current tab before exporting.';
+      const message = EXPORT_ERRORS.mustOpenChat;
       reportExportError(message, { url: activeTab.url });
       setExportErrorTooltip(message);
       setExportIdleState(EXPORT_LABEL_UNAVAILABLE);
@@ -490,12 +536,12 @@ function buildExportErrorMessage(response, runtimeError) {
   }
 
   if (!response) {
-    return 'No response received from the page.';
+    return EXPORT_ERRORS.noResponse;
   }
 
   const { error } = response;
   if (!error) {
-    return 'Export failed for an unknown reason.';
+    return EXPORT_ERRORS.unknownFailure;
   }
 
   if (typeof error === 'string') {
@@ -516,7 +562,7 @@ function buildHandledExportError({ response, runtimeError }) {
   }
 
   if (runtimeError.message.includes('Receiving end does not exist')) {
-    const guidance = 'Reload ChatGPT in this tab so the export helper can load, then try again once the page finishes.';
+    const guidance = EXPORT_ERRORS.reloadGuidance;
     return {
       message: guidance,
       originalMessage: baseMessage

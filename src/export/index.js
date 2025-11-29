@@ -70,7 +70,11 @@ async function handleExportRequest(format) {
     if (styleNode && styleNode.parentNode) {
       styleNode.parentNode.removeChild(styleNode);
     }
-    stage.remove();
+    if (stage && typeof stage.remove === 'function') {
+      stage.remove();
+    } else if (stage && stage.parentNode) {
+      stage.parentNode.removeChild(stage);
+    }
   }
 }
 
