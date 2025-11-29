@@ -1,3 +1,6 @@
+/**
+ * Generators for text-based formats including Markdown, JSON, and CSV.
+ */
 import { serializeExportRootToJson, buildCsvRows, formatCsvRow, serializeExportRootToMarkdown } from '../utils/serialization.js';
 import { triggerDownload, buildFilename } from '../utils/download.js';
 

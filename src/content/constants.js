@@ -1,3 +1,6 @@
+/**
+ * Shared constants and DOM selectors specific to the content script environment.
+ */
 export const MESSAGE_SELECTOR = [
   '[data-testid="conversation-turn"]',
   '[data-testid^="conversation-turn-"]',

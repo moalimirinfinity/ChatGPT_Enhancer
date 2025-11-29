@@ -1,3 +1,6 @@
+/**
+ * Centralized loader for external libraries and fonts required by exports.
+ */
 import { VAZIRMATN_FONT_PATH, HTML_DOCX_PATH } from '../constants.js';
 import { resolveRuntimeUrl } from './download.js';
 

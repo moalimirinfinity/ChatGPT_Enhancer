@@ -1,3 +1,6 @@
+/**
+ * Logic for rasterizing the conversation into a single long PNG image.
+ */
 import * as htmlToImage from 'html-to-image';
 import { PNG_EXPORT_PIXEL_LIMIT, PNG_EXPORT_MIN_PIXEL_RATIO, PNG_EXPORT_APPROX_PAGE_HEIGHT } from '../constants.js';
 import { dataUrlToBlob } from '../utils/blob.js';

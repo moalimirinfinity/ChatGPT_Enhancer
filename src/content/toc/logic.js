@@ -1,3 +1,6 @@
+/**
+ * Controller logic for the Table of Contents, handling navigation, state, and positioning.
+ */
 import { DEFAULT_SETTINGS } from '../../common/config.js';
 import { MESSAGE_SELECTOR } from '../constants.js';
 import { getChatGPTThemeMode, isCustomThemeActive } from '../theme/index.js';

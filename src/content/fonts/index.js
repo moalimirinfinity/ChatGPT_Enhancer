@@ -1,3 +1,6 @@
+/**
+ * Handles injection and application of custom fonts for English and Persian text.
+ */
 import { DEFAULT_SETTINGS, FONT_STACKS } from '../../common/config.js';
 
 const FONT_IMPORT_CSS = `

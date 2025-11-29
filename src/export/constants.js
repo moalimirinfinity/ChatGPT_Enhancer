@@ -1,3 +1,6 @@
+/**
+ * Configuration constants, class names, and regex patterns used throughout the export module.
+ */
 export const EXPORT_MESSAGE_TYPE = 'GPT_EXPORT_CONVERSATION';
 export const EXPORT_STAGE_CLASS = 'gpt-export-stage';
 export const EXPORT_ROOT_CLASS = 'gpt-export-root';

@@ -1,3 +1,6 @@
+/**
+ * Cleans the exported DOM by removing interactive elements and unwanted metadata.
+ */
 import { EXPORT_EQUATION_CLASS } from '../constants.js';
 
 export function sanitizeExportNode(node) {

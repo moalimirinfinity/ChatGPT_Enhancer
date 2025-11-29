@@ -1,3 +1,6 @@
+/**
+ * Manages application of custom themes and synchronization with ChatGPT's native mode.
+ */
 import { DEFAULT_SETTINGS, THEME_COMPATIBILITY } from '../../common/config.js';
 
 const root = document.documentElement;

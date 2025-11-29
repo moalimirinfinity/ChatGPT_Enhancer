@@ -1,3 +1,6 @@
+/**
+ * Main orchestrator for the export pipeline, managing the lifecycle from request to download.
+ */
 import { EXPORT_MESSAGE_TYPE, EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from './constants.js';
 import { EXPORT_STYLE_BLOCK } from './styles.js';
 import { ensureExportFontsLoaded } from './utils/assets.js';

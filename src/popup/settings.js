@@ -1,3 +1,6 @@
+/**
+ * Manages UI state and persistence for extension settings.
+ */
 import { DEFAULT_SETTINGS, THEME_COMPATIBILITY } from '../common/config.js';
 
 export const FONT_DEFAULTS = {

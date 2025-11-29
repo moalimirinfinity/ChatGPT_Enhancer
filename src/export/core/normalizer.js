@@ -1,3 +1,6 @@
+/**
+ * Normalizes CSS colors and text directionality for consistent export rendering.
+ */
 import {
   DARK_TEXT_COLOR,
   DARK_TEXT_LUMINANCE_THRESHOLD,

@@ -1,3 +1,6 @@
+/**
+ * DOM manipulation and rendering logic for the Table of Contents panel.
+ */
 export function ensurePanel(state, options) {
   if (!document || !document.body) {
     return;

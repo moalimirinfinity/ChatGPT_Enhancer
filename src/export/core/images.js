@@ -1,3 +1,6 @@
+/**
+ * Handles fetching and inlining of external images as Base64 data.
+ */
 import * as htmlToImage from 'html-to-image';
 
 export async function inlineImages(root) {

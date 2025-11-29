@@ -1,3 +1,6 @@
+/**
+ * Shared error handling and configuration for export generators.
+ */
 import * as htmlToImage from 'html-to-image';
 
 export function createExportError(code, message, details) {

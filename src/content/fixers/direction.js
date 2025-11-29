@@ -1,3 +1,6 @@
+/**
+ * Monitors and corrects text direction (RTL/LTR) for code blocks, tables, and mixed content.
+ */
 import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
 
 const root = document.documentElement;

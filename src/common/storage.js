@@ -1,3 +1,6 @@
+/**
+ * Abstraction layer for Chrome storage operations with fallback and error handling.
+ */
 import { DEFAULT_SETTINGS } from './config.js';
 
 function getChromeStorage() {

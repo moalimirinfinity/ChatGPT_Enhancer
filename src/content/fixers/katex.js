@@ -1,3 +1,6 @@
+/**
+ * Enables click-to-copy functionality for KaTeX mathematical formulas.
+ */
 import { DEFAULT_SETTINGS } from '../../common/config.js';
 
 let currentSettings = { ...DEFAULT_SETTINGS };

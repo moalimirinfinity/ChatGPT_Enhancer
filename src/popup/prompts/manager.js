@@ -1,3 +1,6 @@
+/**
+ * Persistence layer for loading and saving prompts to Chrome storage.
+ */
 import { DEFAULT_SETTINGS } from '../../common/config.js';
 
 export const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';

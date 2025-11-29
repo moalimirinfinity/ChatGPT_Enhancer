@@ -1,3 +1,6 @@
+/**
+ * Converts or rasterizes KaTeX equations to ensure visibility in exported documents.
+ */
 import { EXPORT_EQUATION_CLASS } from '../constants.js';
 import { renderNodeToPngSafely } from '../generators/shared.js';
 

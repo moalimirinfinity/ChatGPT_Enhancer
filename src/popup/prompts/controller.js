@@ -1,3 +1,6 @@
+/**
+ * Business logic for managing prompt CRUD operations, filtering, and drag-and-drop.
+ */
 import { loadPrompts, savePrompts } from './manager.js';
 import {
   buildPromptCard,

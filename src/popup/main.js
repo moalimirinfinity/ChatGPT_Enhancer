@@ -1,3 +1,6 @@
+/**
+ * Primary controller for the popup UI, handling initialization and global event delegation.
+ */
 import { DEFAULT_SETTINGS } from '../common/config.js';
 import { loadSettings } from '../common/storage.js';
 import { PROMPTS_STORAGE_KEY } from './prompts/manager.js';

@@ -1,3 +1,6 @@
+/**
+ * Default configuration settings and global constants for the extension.
+ */
 export const DEFAULT_SETTINGS = {
   enableFix: true,
   fixKatex: true,

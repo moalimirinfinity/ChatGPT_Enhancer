@@ -1,3 +1,6 @@
+/**
+ * Logic for generating and downloading DOCX files using html-docx-js.
+ */
 import { DOCX_EXPORT_STYLE_BLOCK } from '../styles.js';
 import { buildFilename, triggerDownload } from '../utils/download.js';
 import { ensureHtmlDocxLoaded } from '../utils/assets.js';

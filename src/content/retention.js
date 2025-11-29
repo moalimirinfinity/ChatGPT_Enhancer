@@ -1,3 +1,6 @@
+/**
+ * Manages the review solicitation popup logic based on usage metrics.
+ */
 import {
   LANGUAGE_DETECTION_CACHE_INTERVAL,
   LANGUAGE_DETECTION_MAX_CHARS,

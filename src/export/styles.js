@@ -1,3 +1,6 @@
+/**
+ * CSS styles injected into the export stage for consistent formatting across formats.
+ */
 import {
   EXPORT_ROOT_CLASS,
   EXPORT_TURN_CLASS,

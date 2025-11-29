@@ -1,3 +1,6 @@
+/**
+ * Main entry point that bootstraps feature managers (Theme, Font, Fixers) and observes settings changes.
+ */
 import { DEFAULT_SETTINGS } from '../common/config.js';
 import { loadSettings } from '../common/storage.js';
 import {

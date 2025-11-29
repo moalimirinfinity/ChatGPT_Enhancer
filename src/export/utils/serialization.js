@@ -1,3 +1,6 @@
+/**
+ * Utilities for traversing the DOM and serializing content into structured data (JSON/Markdown).
+ */
 import { EXPORT_EQUATION_CLASS, RTL_CHAR_REGEX, LTR_CHAR_REGEX } from '../constants.js';
 
 const JSON_BLOCK_LEVEL_SELECTOR = [

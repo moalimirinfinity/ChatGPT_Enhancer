@@ -1,3 +1,6 @@
+/**
+ * Handles virtualization scrolling and extraction of conversation nodes from the DOM.
+ */
 import { EXPORT_ROOT_CLASS, EXPORT_TURN_CLASS } from '../constants.js';
 import { delay } from '../utils/time.js';
 
