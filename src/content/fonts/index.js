@@ -12,7 +12,22 @@ let fontImportStyle = null;
 let fontObserver = null;
 let fontObserverReconnectTimer = null;
 let pendingFontSync = false;
+let fontSyncInterval = null;
 let cachedSettings = { ...DEFAULT_SETTINGS };
+const FONT_FACE_DEFINITIONS = [
+  { family: 'Inter', path: 'assets/fonts/Inter-Variable-latin.woff2', weight: '100 900' },
+  { family: 'Source Sans 3', path: 'assets/fonts/SourceSans3-Variable-latin.woff2', weight: '200 900' },
+  { family: 'Roboto', path: 'assets/fonts/Roboto-Variable-latin.woff2', weight: '100 900' },
+  { family: 'Noto Sans', path: 'assets/fonts/NotoSans-Variable-latin.woff2', weight: '100 900' },
+  { family: 'Work Sans', path: 'assets/fonts/WorkSans-Variable-latin.woff2', weight: '200 800' },
+  { family: 'Vazirmatn', path: 'assets/fonts/Vazirmatn-VF.woff2', weight: '100 900' },
+  { family: 'Noto Sans Arabic', path: 'assets/fonts/NotoSansArabic-400-600.woff2', weight: '400 600' },
+  { family: 'Noto Naskh Arabic', path: 'assets/fonts/NotoNaskhArabic-400-600.woff2', weight: '400 600' },
+  { family: 'Sahel', path: 'assets/fonts/Sahel-Regular.woff2', weight: '400' },
+  { family: 'Sahel', path: 'assets/fonts/Sahel-Bold.woff2', weight: '700' },
+  { family: 'Shabnam', path: 'assets/fonts/Shabnam-Regular.woff2', weight: '400' },
+  { family: 'Shabnam', path: 'assets/fonts/Shabnam-Bold.woff2', weight: '700' }
+];
 
 export function isActive(settings = cachedSettings) {
   return Boolean(settings && settings.enableFix && settings.fontsEnabled);
@@ -138,6 +153,14 @@ export function scheduleFontSync(callback) {
   }
 }
 
+function stopFontSyncInterval() {
+  if (fontSyncInterval) {
+    clearInterval(fontSyncInterval);
+    fontSyncInterval = null;
+  }
+  pendingFontSync = false;
+}
+
 export function setMessageSelector(selector) {
   messageSelector = selector || '*';
 }
@@ -207,20 +230,26 @@ function ensureFontImports() {
   if (fontImportStyle || !document.head) {
     return;
   }
-  const vazirmatnUrl = resolveRuntimeUrl('assets/fonts/Vazirmatn-VF.woff2');
-  if (!vazirmatnUrl) {
+  const rules = FONT_FACE_DEFINITIONS.map((definition) => {
+    const url = resolveRuntimeUrl(definition.path);
+    if (!url) {
+      return '';
+    }
+    return `
+@font-face {
+  font-family: "${definition.family}";
+  font-style: normal;
+  font-weight: ${definition.weight};
+  font-display: swap;
+  src: url("${url}") format("woff2");
+}
+`;
+  }).filter(Boolean).join('\n');
+  if (!rules) {
     return;
   }
   fontImportStyle = document.createElement('style');
-  fontImportStyle.textContent = `
-@font-face {
-  font-family: "Vazirmatn";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("${vazirmatnUrl}") format("woff2");
-}
-`;
+  fontImportStyle.textContent = rules;
   document.head.appendChild(fontImportStyle);
 }
 

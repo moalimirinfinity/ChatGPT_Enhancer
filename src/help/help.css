@@ -1,11 +1,73 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Vazirmatn:wght@400;700&display=swap");
+@font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/assets/fonts/Inter-Variable-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("/assets/fonts/SourceSans3-Variable-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/assets/fonts/Roboto-Variable-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/assets/fonts/NotoSans-Variable-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Work Sans";
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url("/assets/fonts/WorkSans-Variable-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Vazirmatn";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/assets/fonts/Vazirmatn-VF.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Noto Sans Arabic";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("/assets/fonts/NotoSansArabic-400-600.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Noto Naskh Arabic";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("/assets/fonts/NotoNaskhArabic-400-600.woff2") format("woff2");
+}
 
 @font-face {
     font-family: "Sahel";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2") format("woff2");
+    src: url("/assets/fonts/Sahel-Regular.woff2") format("woff2");
 }
 
 @font-face {
@@ -13,7 +75,23 @@
     font-style: normal;
     font-weight: 700;
     font-display: swap;
-    src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2") format("woff2");
+    src: url("/assets/fonts/Sahel-Bold.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Shabnam";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/assets/fonts/Shabnam-Regular.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Shabnam";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/assets/fonts/Shabnam-Bold.woff2") format("woff2");
 }
 
 :root {
