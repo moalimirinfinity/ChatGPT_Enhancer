@@ -3,48 +3,15 @@
  */
 import { DEFAULT_SETTINGS, FONT_STACKS } from '../../common/config.js';
 
-const FONT_IMPORT_CSS = `
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans:wght@400;600&family=Noto+Sans+Arabic:wght@400;600&family=Noto+Naskh+Arabic:wght@400;600&family=Roboto:wght@400;600&family=Source+Sans+3:wght@400;600&family=Work+Sans:wght@400;600&family=Vazirmatn:wght@400;700&display=swap");
-@font-face {
-  font-family: "Sahel";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Sahel";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Shabnam";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Shabnam";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Bold.woff2") format("woff2");
-}
-`;
-
 const root = document.documentElement;
 let messageSelector = '*';
 const FONT_VARIABLES = ['--font-body'];
 const PERSIAN_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const LATIN_CHAR_REGEX = /[A-Za-z\u00C0-\u024F]/g;
 let fontImportStyle = null;
 let fontObserver = null;
 let fontObserverReconnectTimer = null;
-let fontSyncIntervalId = null;
 let pendingFontSync = false;
-const FONT_SYNC_INTERVAL_MS = 5000;
 let cachedSettings = { ...DEFAULT_SETTINGS };
 
 export function isActive(settings = cachedSettings) {
@@ -93,7 +60,7 @@ export function applyFontsToMessage(element, englishFont, persianFont, options =
   }
   element.classList.add('chatgpt-font-message');
   const textContent = element.textContent || '';
-  const hasPersian = persianRegex.test(textContent);
+  const hasPersian = isPersianDominant(textContent, persianRegex);
   element.classList.toggle('chatgpt-font-persian', hasPersian);
 
   if (englishFont) {
@@ -118,6 +85,8 @@ export function applyFontsToMessage(element, englishFont, persianFont, options =
       element.style.removeProperty(variable);
     });
   }
+
+  resetCodeBlocksToMonospace(element);
 }
 
 export function handleFontMutations(mutations, hooks) {
@@ -128,12 +97,12 @@ export function handleFontMutations(mutations, hooks) {
   const englishFont = root ? root.style.getPropertyValue('--chatgpt-font-english') : null;
   const persianFont = root ? root.style.getPropertyValue('--chatgpt-font-persian') : null;
   const messagesToUpdate = new Set();
-  let shouldRescan = false;
 
   for (const mutation of mutations) {
     if (mutation.type === 'childList') {
-      mutation.addedNodes.forEach((node) => hooks.collectMessageElements(node, messagesToUpdate));
-      shouldRescan = shouldRescan || mutation.addedNodes.length > 0;
+      mutation.addedNodes.forEach((node) =>
+        collectMessageCandidates(node, messagesToUpdate, hooks.messageSelector || messageSelector)
+      );
     } else if (mutation.type === 'characterData') {
       const parent = mutation.target && mutation.target.parentElement;
       if (parent) {
@@ -147,10 +116,6 @@ export function handleFontMutations(mutations, hooks) {
 
   if (messagesToUpdate.size) {
     messagesToUpdate.forEach((message) => hooks.applyFontsToMessage(message, englishFont, persianFont));
-  }
-
-  if (shouldRescan && hooks.scheduleFontSync) {
-    hooks.scheduleFontSync();
   }
 }
 
@@ -206,9 +171,7 @@ export function apply(settings) {
   root.style.setProperty('--chatgpt-font-persian', persianFont);
 
   updateFontsForExistingMessages();
-  scheduleFontSync(updateFontsForExistingMessages);
   connectFontObserver();
-  startFontSyncInterval();
 }
 
 export function update(changes) {
@@ -234,7 +197,6 @@ export const FontManager = {
   apply,
   isActive,
   handleFontMutations,
-  scheduleFontSync,
   resetMessageFontClasses,
   applyFontsToMessage,
   clearGlobalFontVariables,
@@ -245,8 +207,20 @@ function ensureFontImports() {
   if (fontImportStyle || !document.head) {
     return;
   }
+  const vazirmatnUrl = resolveRuntimeUrl('assets/fonts/Vazirmatn-VF.woff2');
+  if (!vazirmatnUrl) {
+    return;
+  }
   fontImportStyle = document.createElement('style');
-  fontImportStyle.textContent = FONT_IMPORT_CSS;
+  fontImportStyle.textContent = `
+@font-face {
+  font-family: "Vazirmatn";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("${vazirmatnUrl}") format("woff2");
+}
+`;
   document.head.appendChild(fontImportStyle);
 }
 
@@ -284,26 +258,6 @@ function disconnectFontObserver() {
   }
 }
 
-function startFontSyncInterval() {
-  if (fontSyncIntervalId || !isActive()) {
-    return;
-  }
-  fontSyncIntervalId = setInterval(() => {
-    if (!isActive()) {
-      stopFontSyncInterval();
-      return;
-    }
-    updateFontsForExistingMessages();
-  }, FONT_SYNC_INTERVAL_MS);
-}
-
-function stopFontSyncInterval() {
-  if (fontSyncIntervalId) {
-    clearInterval(fontSyncIntervalId);
-    fontSyncIntervalId = null;
-  }
-}
-
 function updateFontsForExistingMessages() {
   if (!isActive()) {
     return;
@@ -319,17 +273,61 @@ function collectMessageElements(node, bucket) {
   if (!node) {
     return;
   }
-  if (node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-    node.childNodes.forEach((child) => collectMessageElements(child, bucket));
+  collectMessageCandidates(node, bucket, messageSelector);
+}
+
+function collectMessageCandidates(node, bucket, selector) {
+  if (!node || !bucket || !selector) {
     return;
   }
   if (node.nodeType === Node.ELEMENT_NODE) {
     const element = node;
-    if (element.matches && element.matches('*')) {
+    if (element.matches(selector)) {
       bucket.add(element);
     }
-    if (element.querySelectorAll) {
-      element.querySelectorAll('*').forEach((found) => bucket.add(found));
+    element.querySelectorAll(selector).forEach((match) => bucket.add(match));
+  } else if (node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+    node.childNodes.forEach((child) => collectMessageCandidates(child, bucket, selector));
+  }
+}
+
+function isPersianDominant(text, regex) {
+  if (!text) {
+    return false;
+  }
+  const persianMatches = text.match(regex);
+  const latinMatches = text.match(LATIN_CHAR_REGEX);
+  const persianCount = persianMatches ? persianMatches.length : 0;
+  const latinCount = latinMatches ? latinMatches.length : 0;
+  if (persianCount === 0 && latinCount === 0) {
+    return false;
+  }
+  return persianCount > latinCount;
+}
+
+function resetCodeBlocksToMonospace(message) {
+  if (!(message instanceof HTMLElement)) {
+    return;
+  }
+  const monospace = '"JetBrains Mono", "Fira Code", Menlo, Consolas, monospace';
+  const codeNodes = message.querySelectorAll('pre, code');
+  codeNodes.forEach((node) => {
+    if (node && node.style) {
+      node.style.setProperty('font-family', monospace, 'important');
+      node.style.removeProperty('--font-body');
+      node.style.removeProperty('--chatgpt-font-message-english');
+      node.style.removeProperty('--chatgpt-font-message-persian');
+    }
+  });
+}
+
+function resolveRuntimeUrl(path) {
+  if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+    try {
+      return chrome.runtime.getURL(path);
+    } catch (error) {
+      return path;
     }
   }
+  return path;
 }

@@ -245,24 +245,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateThemeCardAvailability(controls, chatBaseThemeMode);
       }
-      return;
+      if (Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY)) {
+        const { newValue } = changes[PROMPTS_STORAGE_KEY];
+        promptController.synchronizePromptsFromStorage(newValue);
+      }
     }
-    if (area !== 'sync') {
-      return;
+    if (area === 'sync') {
+      const filteredEntries = Object.entries(changes).filter(([key]) => key !== PROMPTS_STORAGE_KEY);
+      if (!filteredEntries.length) {
+        return;
+      }
+      const next = { ...currentSettings };
+      filteredEntries.forEach(([key, { newValue }]) => {
+        next[key] = newValue;
+      });
+      applySettings(next);
     }
-    if (Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY)) {
-      const { newValue } = changes[PROMPTS_STORAGE_KEY];
-      promptController.synchronizePromptsFromStorage(newValue);
-    }
-    const filteredEntries = Object.entries(changes).filter(([key]) => key !== PROMPTS_STORAGE_KEY);
-    if (!filteredEntries.length) {
-      return;
-    }
-    const next = { ...currentSettings };
-    filteredEntries.forEach(([key, { newValue }]) => {
-      next[key] = newValue;
-    });
-    applySettings(next);
   });
 });
 

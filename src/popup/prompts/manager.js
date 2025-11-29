@@ -5,12 +5,12 @@ import { DEFAULT_SETTINGS } from '../../common/config.js';
 
 export const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
 
-function getSyncStorage() {
-  return chrome?.storage?.sync || null;
+function getLocalStorageArea() {
+  return chrome?.storage?.local || null;
 }
 
 export async function loadPrompts() {
-  const storage = getSyncStorage();
+  const storage = getLocalStorageArea();
   if (!storage) {
     return [];
   }
@@ -27,7 +27,7 @@ export async function loadPrompts() {
 }
 
 export async function savePrompts(prompts) {
-  const storage = getSyncStorage();
+  const storage = getLocalStorageArea();
   if (!storage) {
     return;
   }

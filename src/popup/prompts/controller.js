@@ -35,6 +35,20 @@ export function createPromptController(deps) {
   let promptDragState = null;
   let promptDragReordered = false;
 
+  function setDragState(state) {
+    promptDragState = state;
+    promptDragReordered = false;
+  }
+
+  function clearDragState() {
+    promptDragState = null;
+    promptDragReordered = false;
+  }
+
+  function setDragReordered(value) {
+    promptDragReordered = Boolean(value);
+  }
+
   function setPrompts(next) {
     prompts = Array.isArray(next) ? next : [];
   }
@@ -159,7 +173,6 @@ export function createPromptController(deps) {
 
   async function handlePromptFormSubmit({ title, text }) {
     const now = Date.now();
-    const previousPrompts = prompts.slice();
     let nextPrompts;
     let focusId;
     if (editingPromptId) {
@@ -197,8 +210,8 @@ export function createPromptController(deps) {
       clearPromptError();
       return { ok: true, prompts };
     } catch (error) {
-      prompts = previousPrompts;
-      renderPromptsWithCurrentFilter({});
+      showPromptError('Unable to save your prompt. Please try again.');
+      await loadPromptsFromStorage();
       return { ok: false, error };
     }
   }
@@ -348,14 +361,12 @@ export function createPromptController(deps) {
     if (!shouldDelete) {
       return Promise.resolve({ ok: false });
     }
-    const previousPrompts = current.slice();
     const result = deletePromptById(promptId);
     setPrompts(result.prompts);
     renderPromptsWithCurrentFilter();
     const handleFailure = (error) => {
-      setPrompts(previousPrompts);
-      renderPromptsWithCurrentFilter();
       showPromptError('Unable to delete the prompt. Please try again.');
+      loadPromptsFromStorage();
       return { ok: false, error };
     };
     return persistPrompts(result.prompts)
@@ -476,12 +487,8 @@ export function createPromptController(deps) {
     }
     const orderedCards = Array.from(controls.promptList.querySelectorAll('.prompt-card'));
     if (!orderedCards.length) {
-      setPrompts([]);
       renderPromptsWithCurrentFilter();
-      persistPrompts([]);
-      if (promptDragState) {
-        setDragReordered(true);
-      }
+      showPromptError('Unable to read the current prompt order. Please try again.');
       return;
     }
 
@@ -520,7 +527,6 @@ export function createPromptController(deps) {
       return;
     }
 
-    const previousPrompts = currentList.slice();
     setPrompts(next);
     renderPromptsWithCurrentFilter({
       focusId: options.focusId || (promptDragState ? promptDragState.id : null)
@@ -534,9 +540,8 @@ export function createPromptController(deps) {
         clearPromptError();
       })
       .catch(() => {
-        setPrompts(previousPrompts);
-        renderPromptsWithCurrentFilter({ focusId: options.focusId || null });
         showPromptError('Unable to save the new prompt order. Please try again.');
+        loadPromptsFromStorage();
       });
   }
 
@@ -582,7 +587,6 @@ export function createPromptController(deps) {
     if (targetIndex < 0 || targetIndex >= currentList.length) {
       return;
     }
-    const previousPrompts = currentList.slice();
     const next = currentList.slice();
     const [moved] = next.splice(index, 1);
     next.splice(targetIndex, 0, moved);
@@ -593,9 +597,8 @@ export function createPromptController(deps) {
         clearPromptError();
       })
       .catch(() => {
-        setPrompts(previousPrompts);
-        renderPromptsWithCurrentFilter({ focusId: promptId });
         showPromptError('Unable to reorder prompts. Please try again.');
+        loadPromptsFromStorage();
       });
   }
 
@@ -638,28 +641,20 @@ export function createPromptController(deps) {
     getPromptById,
     setPrompts,
     setPromptSearchQuery,
-    setDragState(state) {
-      promptDragState = state;
-      promptDragReordered = false;
-    },
-    clearDragState() {
-      promptDragState = null;
-      promptDragReordered = false;
-    },
     get dragState() {
       return promptDragState;
     },
     get dragReordered() {
       return promptDragReordered;
     },
-    setDragReordered(value) {
-      promptDragReordered = Boolean(value);
-    },
+    setDragReordered,
     get prompts() {
       return prompts;
     },
     get editingPromptId() {
       return editingPromptId;
-    }
+    },
+    setDragState,
+    clearDragState
   };
 }
