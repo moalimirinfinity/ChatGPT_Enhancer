@@ -17,3 +17,9 @@ A [browser extension](https://chromewebstore.google.com/detail/gpt-enhancer-for-
 - **Conversation export** – save the current ChatGPT conversation as PDF, DOCX, JSON, Markdown, CSV, or Image via the pop-up.
 - **In-app help** – slide-in guide (English/Farsi) that explains every toggle.
 
+## Development
+
+- Install dependencies with `npm install` (Node 18+).
+- Dev build: `npm run dev` (CRXJS + Vite writes to `dist`; load `dist` as an unpacked extension).
+- Production build: `npm run build`.
+- Entry points: `src/content/index.js` (content script), `src/export/index.js` (exports), `src/popup/index.html` (popup UI), `src/manifest.json` (manifest), shared assets in `src/assets/`.
