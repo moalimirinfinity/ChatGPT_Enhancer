@@ -670,7 +670,32 @@ function collectAssistantMessages() {
   if (!nodes || !nodes.length) {
     return [];
   }
-  return Array.from(nodes).filter((node) => isAssistantTurn(node));
+  const seen = new Set();
+  const results = [];
+
+  nodes.forEach((node) => {
+    const root = findMessageRoot(node);
+    if (!root || seen.has(root)) {
+      return;
+    }
+    seen.add(root);
+    if (isAssistantTurn(root)) {
+      results.push(root);
+    }
+  });
+
+  return results;
+}
+
+function findMessageRoot(node) {
+  if (!(node instanceof HTMLElement)) {
+    return null;
+  }
+  const root = node.closest(MESSAGE_SELECTOR);
+  if (root && root instanceof HTMLElement) {
+    return root;
+  }
+  return null;
 }
 
 function isAssistantTurn(node) {
