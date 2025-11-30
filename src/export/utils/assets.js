@@ -66,6 +66,50 @@ async function loadHtmlDocxFromSource() {
   throw new Error('html-docx evaluation did not produce a library');
 }
 
+async function loadHtmlDocxViaSandbox() {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.onload = () => {
+      try {
+        const script = iframe.contentDocument.createElement('script');
+        script.src = resolveRuntimeUrl(HTML_DOCX_PATH);
+        script.onload = () => {
+          try {
+            const lib =
+              iframe.contentWindow?.htmlDocx ||
+              iframe.contentDocument?.defaultView?.htmlDocx ||
+              null;
+            if (lib) {
+              resolve(lib);
+            } else {
+              reject(new Error('html-docx not exposed in sandbox'));
+            }
+          } catch (error) {
+            reject(error);
+          } finally {
+            iframe.remove();
+          }
+        };
+        script.onerror = () => {
+          iframe.remove();
+          reject(new Error('Failed to load html-docx in sandbox'));
+        };
+        iframe.contentDocument.head.appendChild(script);
+      } catch (error) {
+        iframe.remove();
+        reject(error);
+      }
+    };
+    iframe.onerror = () => {
+      iframe.remove();
+      reject(new Error('Sandbox iframe load failed'));
+    };
+    document.documentElement.appendChild(iframe);
+  });
+}
+
 export async function ensureHtmlDocxLoaded() {
   if (htmlDocxLib) {
     return htmlDocxLib;
@@ -75,7 +119,14 @@ export async function ensureHtmlDocxLoaded() {
   }
 
   htmlDocxLoadPromise = (async () => {
-    // Prefer fetch + eval inside the content script's world to avoid page CSP/isolation issues.
+    // Prefer sandboxed iframe load first to avoid page CSP/isolation issues.
+    try {
+      htmlDocxLib = await loadHtmlDocxViaSandbox();
+      return htmlDocxLib;
+    } catch (error) {
+      /* fall through to source-based load */
+    }
+
     try {
       htmlDocxLib = await loadHtmlDocxFromSource();
       return htmlDocxLib;
