@@ -29,19 +29,11 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
   clearStyles(codeNodes);
   clearStyles(tableNodes);
 
-  if (katexNodes.length) {
-    if (currentSettings.fixKatex) {
-      applyStyles(katexNodes, {
-        direction: RESET_VALUES.direction,
-        unicodeBidi: RESET_VALUES.unicodeBidi
-      });
-    } else if (currentSettings.fixTables) {
-      // If tables are forced LTR, explicitly neutralize KaTeX so toggling works even inside tables.
-      applyStyles(katexNodes, {
-        direction: 'auto',
-        unicodeBidi: 'normal'
-      });
-    }
+  if (currentSettings.fixTables && tableNodes.length) {
+    applyStyles(tableNodes, {
+      direction: RESET_VALUES.direction,
+      unicodeBidi: RESET_VALUES.unicodeBidi
+    });
   }
 
   if (currentSettings.fixCode && codeNodes.length) {
@@ -52,11 +44,14 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
     });
   }
 
-  if (currentSettings.fixTables && tableNodes.length) {
-    applyStyles(tableNodes, {
-      direction: RESET_VALUES.direction,
-      unicodeBidi: RESET_VALUES.unicodeBidi
-    });
+  // Apply KaTeX last so it wins over table direction inheritance.
+  if (katexNodes.length) {
+    if (currentSettings.fixKatex) {
+      applyStyles(katexNodes, {
+        direction: RESET_VALUES.direction,
+        unicodeBidi: 'isolate'
+      });
+    }
   }
 }
 
