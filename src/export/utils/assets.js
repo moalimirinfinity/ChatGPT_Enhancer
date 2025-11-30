@@ -18,33 +18,11 @@ async function loadHtmlDocxFromSource() {
     throw new Error(`html-docx request failed: ${response.status}`);
   }
   const source = await response.text();
-  const exports = {};
-  const module = { exports };
-  const requireStub = (name) => {
-    if (typeof window !== 'undefined') {
-      return window[name] || null;
-    }
-    return null;
-  };
-  const executor = new Function(
-    'exports',
-    'module',
-    'require',
-    'global',
-    'window',
-    'self',
-    'globalThis',
-    `${source}\nreturn module.exports || exports || globalThis.htmlDocx || null;`
-  );
-  const evaluated = executor(exports, module, requireStub, globalThis, globalThis, globalThis, globalThis);
+  // Execute in the content-script world to avoid page-world isolation.
+  (0, eval)(`${source}\n//# sourceURL=html-docx.min.js`);
   const lib =
-    evaluated ||
-    module.exports ||
-    exports.htmlDocx ||
-    exports.default ||
-    (typeof window !== 'undefined' ? window.htmlDocx : null) ||
     (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null) ||
-    null;
+    (typeof window !== 'undefined' ? window.htmlDocx : null);
   if (!lib) {
     throw new Error('html-docx evaluation did not produce a library');
   }
