@@ -34,23 +34,12 @@ function evaluateHtmlDocxSource(source) {
   }
 }
 
-async function importHtmlDocxAsModule(source) {
-  try {
-    const blobUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
-    const mod = await import(blobUrl);
-    URL.revokeObjectURL(blobUrl);
-    return mod?.default || mod?.htmlDocx || (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null) || null;
-  } catch (error) {
-    return null;
-  }
-}
-
 async function loadHtmlDocxFromSource() {
   const url = resolveRuntimeUrl(HTML_DOCX_PATH);
   if (!url) {
     throw new Error('html-docx URL unavailable');
   }
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-cache' });
   if (!response.ok) {
     throw new Error(`html-docx request failed: ${response.status}`);
   }
@@ -59,55 +48,7 @@ async function loadHtmlDocxFromSource() {
   if (evaluated) {
     return evaluated;
   }
-  const imported = await importHtmlDocxAsModule(source);
-  if (imported) {
-    return imported;
-  }
   throw new Error('html-docx evaluation did not produce a library');
-}
-
-async function loadHtmlDocxViaSandbox() {
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.onload = () => {
-      try {
-        const script = iframe.contentDocument.createElement('script');
-        script.src = resolveRuntimeUrl(HTML_DOCX_PATH);
-        script.onload = () => {
-          try {
-            const lib =
-              iframe.contentWindow?.htmlDocx ||
-              iframe.contentDocument?.defaultView?.htmlDocx ||
-              null;
-            if (lib) {
-              resolve(lib);
-            } else {
-              reject(new Error('html-docx not exposed in sandbox'));
-            }
-          } catch (error) {
-            reject(error);
-          } finally {
-            iframe.remove();
-          }
-        };
-        script.onerror = () => {
-          iframe.remove();
-          reject(new Error('Failed to load html-docx in sandbox'));
-        };
-        iframe.contentDocument.head.appendChild(script);
-      } catch (error) {
-        iframe.remove();
-        reject(error);
-      }
-    };
-    iframe.onerror = () => {
-      iframe.remove();
-      reject(new Error('Sandbox iframe load failed'));
-    };
-    document.documentElement.appendChild(iframe);
-  });
 }
 
 export async function ensureHtmlDocxLoaded() {
@@ -119,14 +60,6 @@ export async function ensureHtmlDocxLoaded() {
   }
 
   htmlDocxLoadPromise = (async () => {
-    // Prefer sandboxed iframe load first to avoid page CSP/isolation issues.
-    try {
-      htmlDocxLib = await loadHtmlDocxViaSandbox();
-      return htmlDocxLib;
-    } catch (error) {
-      /* fall through to source-based load */
-    }
-
     try {
       htmlDocxLib = await loadHtmlDocxFromSource();
       return htmlDocxLib;
@@ -153,9 +86,15 @@ export async function ensureHtmlDocxLoaded() {
           return;
         }
         existing.addEventListener('load', handleResolve, { once: true });
-        existing.addEventListener('error', () => {
-          loadHtmlDocxFromSource().then(resolve).catch(() => reject(new Error('Failed to load html-docx library')));
-        }, { once: true });
+        existing.addEventListener(
+          'error',
+          () => {
+            loadHtmlDocxFromSource()
+              .then(resolve)
+              .catch(() => reject(new Error('Failed to load html-docx library')));
+          },
+          { once: true }
+        );
         return;
       }
 
