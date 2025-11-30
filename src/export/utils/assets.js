@@ -8,6 +8,43 @@ let htmlDocxLib = null;
 let htmlDocxLoadPromise = null;
 let exportFontRegistrationPromise = null;
 
+function evaluateHtmlDocxSource(source) {
+  try {
+    const exports = {};
+    const module = { exports };
+    const requireStub = (name) => {
+      if (typeof globalThis !== 'undefined' && name in globalThis) {
+        return globalThis[name];
+      }
+      return null;
+    };
+    const executor = new Function(
+      'exports',
+      'module',
+      'require',
+      'global',
+      'window',
+      'self',
+      'globalThis',
+      `${source}\nreturn module.exports || exports || globalThis.htmlDocx || (typeof htmlDocx !== 'undefined' ? htmlDocx : null);`
+    );
+    return executor(exports, module, requireStub, globalThis, globalThis, globalThis, globalThis);
+  } catch (error) {
+    return null;
+  }
+}
+
+async function importHtmlDocxAsModule(source) {
+  try {
+    const blobUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
+    const mod = await import(blobUrl);
+    URL.revokeObjectURL(blobUrl);
+    return mod?.default || mod?.htmlDocx || (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null) || null;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function loadHtmlDocxFromSource() {
   const url = resolveRuntimeUrl(HTML_DOCX_PATH);
   if (!url) {
@@ -18,15 +55,15 @@ async function loadHtmlDocxFromSource() {
     throw new Error(`html-docx request failed: ${response.status}`);
   }
   const source = await response.text();
-  // Execute in the content-script world to avoid page-world isolation.
-  (0, eval)(`${source}\n//# sourceURL=html-docx.min.js`);
-  const lib =
-    (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null) ||
-    (typeof window !== 'undefined' ? window.htmlDocx : null);
-  if (!lib) {
-    throw new Error('html-docx evaluation did not produce a library');
+  const evaluated = evaluateHtmlDocxSource(source);
+  if (evaluated) {
+    return evaluated;
   }
-  return lib;
+  const imported = await importHtmlDocxAsModule(source);
+  if (imported) {
+    return imported;
+  }
+  throw new Error('html-docx evaluation did not produce a library');
 }
 
 export async function ensureHtmlDocxLoaded() {
