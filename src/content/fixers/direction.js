@@ -108,7 +108,7 @@ function applyStyles(elements, styles) {
       return;
     }
     Object.entries(styles).forEach(([name, value]) => {
-      element.style.setProperty(name, value);
+      element.style.setProperty(name, value, 'important');
     });
   });
 }
