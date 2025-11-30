@@ -12,7 +12,7 @@ const TOC_ENTRY_ATTR = 'data-chatgpt-toc-target';
 const TOC_ANCHOR_ATTR = 'data-chatgpt-toc-id';
 const TOC_UPDATE_DEBOUNCE_MS = 200;
 const TOC_HIGHLIGHT_DURATION_MS = 1600;
-const TOC_ORIGINAL_HIGHLIGHT_COLOR = '#9ca3af';
+const TOC_ORIGINAL_HIGHLIGHT_COLOR = '#1c46d6';
 const TOC_MAX_TITLE_LENGTH = 120;
 const TOC_MAX_TITLE_WORDS = 10;
 const TOC_PANEL_MIN_GAP = 12;
@@ -854,7 +854,12 @@ function resolveHighlightColor() {
   if (!root) {
     return null;
   }
-  return isCustomThemeActive() ? null : TOC_ORIGINAL_HIGHLIGHT_COLOR;
+  if (isCustomThemeActive()) {
+    return null;
+  }
+  const accent = getComputedStyle(root).getPropertyValue('--chatgpt-theme-accent');
+  const fallback = TOC_ORIGINAL_HIGHLIGHT_COLOR;
+  return (accent && accent.trim()) || fallback;
 }
 
 function highlight(element) {
@@ -873,9 +878,11 @@ function highlight(element) {
     element.style.setProperty('--toc-highlight-color', highlightColor);
   }
   element.classList.add('chatgpt-toc-highlight-active');
+  element.classList.add('chatgpt-toc-highlight-pulse');
   element.setAttribute('data-chatgpt-toc-highlighted', 'true');
   const timer = setTimeout(() => {
     element.classList.remove('chatgpt-toc-highlight-active');
+    element.classList.remove('chatgpt-toc-highlight-pulse');
     element.removeAttribute('data-chatgpt-toc-highlighted');
     element.style.removeProperty('--toc-highlight-color');
     state.highlightTimers.delete(element);
