@@ -8,6 +8,49 @@ let htmlDocxLib = null;
 let htmlDocxLoadPromise = null;
 let exportFontRegistrationPromise = null;
 
+async function loadHtmlDocxFromSource() {
+  const url = resolveRuntimeUrl(HTML_DOCX_PATH);
+  if (!url) {
+    throw new Error('html-docx URL unavailable');
+  }
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`html-docx request failed: ${response.status}`);
+  }
+  const source = await response.text();
+  const exports = {};
+  const module = { exports };
+  const requireStub = (name) => {
+    if (typeof window !== 'undefined') {
+      return window[name] || null;
+    }
+    return null;
+  };
+  const executor = new Function(
+    'exports',
+    'module',
+    'require',
+    'global',
+    'window',
+    'self',
+    'globalThis',
+    `${source}\nreturn module.exports || exports || globalThis.htmlDocx || null;`
+  );
+  const evaluated = executor(exports, module, requireStub, globalThis, globalThis, globalThis, globalThis);
+  const lib =
+    evaluated ||
+    module.exports ||
+    exports.htmlDocx ||
+    exports.default ||
+    (typeof window !== 'undefined' ? window.htmlDocx : null) ||
+    (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null) ||
+    null;
+  if (!lib) {
+    throw new Error('html-docx evaluation did not produce a library');
+  }
+  return lib;
+}
+
 export async function ensureHtmlDocxLoaded() {
   if (htmlDocxLib) {
     return htmlDocxLib;
@@ -17,40 +60,10 @@ export async function ensureHtmlDocxLoaded() {
   }
 
   htmlDocxLoadPromise = (async () => {
+    // Prefer fetch + eval inside the content script's world to avoid page CSP/isolation issues.
     try {
-      const url = resolveRuntimeUrl(HTML_DOCX_PATH);
-      const response = await fetch(url);
-      if (response.ok) {
-        const source = await response.text();
-        try {
-          const exports = {};
-          const module = { exports };
-          const requireStub = (name) => {
-            if (typeof window !== 'undefined') {
-              return window[name] || null;
-            }
-            return null;
-          };
-          const executor = new Function(
-            'exports',
-            'module',
-            'require',
-            'global',
-            'window',
-            'self',
-            'globalThis',
-            `${source}\nreturn module.exports || exports || globalThis.htmlDocx || null;`
-          );
-          const evaluated = executor(exports, module, requireStub, globalThis, globalThis, globalThis, globalThis);
-          htmlDocxLib =
-            evaluated || module.exports || exports.htmlDocx || exports.default || window.htmlDocx || globalThis.htmlDocx || null;
-          if (htmlDocxLib) {
-            return htmlDocxLib;
-          }
-        } catch (evalError) {
-          /* fall through to script tag injection */
-        }
-      }
+      htmlDocxLib = await loadHtmlDocxFromSource();
+      return htmlDocxLib;
     } catch (error) {
       /* fall through to script tag injection */
     }
@@ -58,26 +71,25 @@ export async function ensureHtmlDocxLoaded() {
     return new Promise((resolve, reject) => {
       const existing = document.querySelector('script[data-gpt-enhancer-docx]');
       if (existing) {
-        if (existing.dataset.loaded === 'true') {
-          htmlDocxLib = window.htmlDocx || null;
+        const handleResolve = () => {
+          htmlDocxLib =
+            (typeof window !== 'undefined' ? window.htmlDocx : null) ||
+            (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null);
           if (htmlDocxLib) {
             resolve(htmlDocxLib);
-            return;
+          } else {
+            // As a final fallback, re-fetch and eval to populate in the isolated world.
+            loadHtmlDocxFromSource().then(resolve).catch(reject);
           }
+        };
+        if (existing.dataset.loaded === 'true') {
+          handleResolve();
+          return;
         }
-        existing.addEventListener(
-          'load',
-          () => {
-            htmlDocxLib = window.htmlDocx || null;
-            htmlDocxLib ? resolve(htmlDocxLib) : reject(new Error('htmlDocx library missing after load'));
-          },
-          { once: true }
-        );
-        existing.addEventListener(
-          'error',
-          () => reject(new Error('Failed to load html-docx library')),
-          { once: true }
-        );
+        existing.addEventListener('load', handleResolve, { once: true });
+        existing.addEventListener('error', () => {
+          loadHtmlDocxFromSource().then(resolve).catch(() => reject(new Error('Failed to load html-docx library')));
+        }, { once: true });
         return;
       }
 
@@ -86,14 +98,23 @@ export async function ensureHtmlDocxLoaded() {
       script.src = resolveRuntimeUrl(HTML_DOCX_PATH);
       script.onload = () => {
         script.dataset.loaded = 'true';
-        htmlDocxLib = window.htmlDocx || null;
+        htmlDocxLib =
+          (typeof window !== 'undefined' ? window.htmlDocx : null) ||
+          (typeof globalThis !== 'undefined' ? globalThis.htmlDocx : null);
         if (!htmlDocxLib) {
-          reject(new Error('htmlDocx library missing after load'));
+          // Try fetch/eval in the extension world if page-world injection did not expose the global.
+          loadHtmlDocxFromSource()
+            .then((lib) => resolve(lib))
+            .catch(() => reject(new Error('htmlDocx library missing after load')));
           return;
         }
         resolve(htmlDocxLib);
       };
-      script.onerror = () => reject(new Error('Failed to load html-docx library'));
+      script.onerror = () => {
+        loadHtmlDocxFromSource()
+          .then((lib) => resolve(lib))
+          .catch(() => reject(new Error('Failed to load html-docx library')));
+      };
       (document.head || document.documentElement).appendChild(script);
     });
   })();
