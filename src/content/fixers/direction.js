@@ -20,23 +20,32 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
     return;
   }
 
-  if (currentSettings.fixKatex) {
-    applyStyles(scope.querySelectorAll(SELECTORS.katex), {
+  const katexNodes = Array.from(scope.querySelectorAll(SELECTORS.katex));
+  const codeNodes = Array.from(scope.querySelectorAll(SELECTORS.code));
+  const tableNodes = Array.from(scope.querySelectorAll(SELECTORS.tables));
+
+  // Always clear before reapplying to avoid stale inline values when toggling repeatedly.
+  clearStyles(katexNodes);
+  clearStyles(codeNodes);
+  clearStyles(tableNodes);
+
+  if (currentSettings.fixKatex && katexNodes.length) {
+    applyStyles(katexNodes, {
       direction: RESET_VALUES.direction,
       unicodeBidi: RESET_VALUES.unicodeBidi
     });
   }
 
-  if (currentSettings.fixCode) {
-    applyStyles(scope.querySelectorAll(SELECTORS.code), {
+  if (currentSettings.fixCode && codeNodes.length) {
+    applyStyles(codeNodes, {
       direction: RESET_VALUES.direction,
       unicodeBidi: RESET_VALUES.unicodeBidi,
       textAlign: RESET_VALUES.textAlign
     });
   }
 
-  if (currentSettings.fixTables) {
-    applyStyles(scope.querySelectorAll(SELECTORS.tables), {
+  if (currentSettings.fixTables && tableNodes.length) {
+    applyStyles(tableNodes, {
       direction: RESET_VALUES.direction,
       unicodeBidi: RESET_VALUES.unicodeBidi
     });
