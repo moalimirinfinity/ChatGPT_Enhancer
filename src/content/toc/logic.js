@@ -691,11 +691,17 @@ function findMessageRoot(node) {
   if (!(node instanceof HTMLElement)) {
     return null;
   }
-  const root = node.closest(MESSAGE_SELECTOR);
-  if (root && root instanceof HTMLElement) {
-    return root;
+  let current = node.closest(MESSAGE_SELECTOR);
+  let lastMatch = null;
+  while (current && current instanceof HTMLElement) {
+    lastMatch = current;
+    const parentMatch = current.parentElement ? current.parentElement.closest(MESSAGE_SELECTOR) : null;
+    if (!parentMatch || parentMatch === current) {
+      break;
+    }
+    current = parentMatch;
   }
-  return null;
+  return lastMatch;
 }
 
 function isAssistantTurn(node) {
