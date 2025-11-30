@@ -29,11 +29,19 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
   clearStyles(codeNodes);
   clearStyles(tableNodes);
 
-  if (currentSettings.fixKatex && katexNodes.length) {
-    applyStyles(katexNodes, {
-      direction: RESET_VALUES.direction,
-      unicodeBidi: RESET_VALUES.unicodeBidi
-    });
+  if (katexNodes.length) {
+    if (currentSettings.fixKatex) {
+      applyStyles(katexNodes, {
+        direction: RESET_VALUES.direction,
+        unicodeBidi: RESET_VALUES.unicodeBidi
+      });
+    } else if (currentSettings.fixTables) {
+      // If tables are forced LTR, explicitly neutralize KaTeX so toggling works even inside tables.
+      applyStyles(katexNodes, {
+        direction: 'auto',
+        unicodeBidi: 'normal'
+      });
+    }
   }
 
   if (currentSettings.fixCode && codeNodes.length) {
