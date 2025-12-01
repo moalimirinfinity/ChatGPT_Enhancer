@@ -206,14 +206,10 @@ export function attachSettingsListeners(controls, deps) {
       return;
     }
     input.addEventListener('change', () => {
-      const settings = getCurrentSettings();
       if (deps.isBusy?.()) {
         return;
       }
       updateSetting(key, input.checked);
-      if (key === 'enableFix' && !input.checked && settings.fontsEnabled) {
-        updateSetting('fontsEnabled', false);
-      }
     });
   });
 
@@ -343,14 +339,18 @@ export function applySettingsToUI(controls, settings, deps) {
     controls.tableOfContents.checked = nextSettings.tableOfContents;
   }
   if (controls.fontToggle) {
-    const fontsEnabled = nextSettings.enableFix && nextSettings.fontsEnabled;
-    controls.fontToggle.checked = fontsEnabled;
+    controls.fontToggle.checked = nextSettings.fontsEnabled;
+    controls.fontToggle.disabled = !nextSettings.enableFix;
+    const toggle = controls.fontToggle.closest('.toggle');
+    if (toggle) {
+      toggle.classList.toggle('toggle--disabled', !nextSettings.enableFix);
+    }
   }
 
   updateFontOptionSelection(controls, 'english', nextSettings.fontEnglish, nextSettings, updateSetting);
   updateFontOptionSelection(controls, 'persian', nextSettings.fontPersian, nextSettings, updateSetting);
   setActiveFontTab(controls, currentFontTabRef?.value || FONT_LANGUAGES[0], currentFontTabRef);
-  setFontControlsDisabled(controls, !(nextSettings.enableFix && nextSettings.fontsEnabled));
+  setFontControlsDisabled(controls, !nextSettings.enableFix);
 
   const targetFormat = normalizeExportFormat(nextSettings.exportFormat || DEFAULT_SETTINGS.exportFormat);
   controls.exportFormatRadios?.forEach((input) => {
@@ -374,13 +374,6 @@ export function applySettingsToUI(controls, settings, deps) {
       toggle.classList.toggle('toggle--disabled', dependentsDisabled);
     }
   });
-
-  if (controls.fontToggle && dependentsDisabled) {
-    controls.fontToggle.checked = false;
-    if (nextSettings.fontsEnabled) {
-      updateSetting?.('fontsEnabled', false);
-    }
-  }
 
   if (controls.refreshBtn) {
     controls.refreshBtn.disabled = false;
