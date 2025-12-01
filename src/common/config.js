@@ -1,6 +1,7 @@
 /**
  * Default configuration settings and global constants for the extension.
  */
+
 export const DEFAULT_SETTINGS = {
   enableFix: true,
   fixKatex: true,
@@ -15,7 +16,8 @@ export const DEFAULT_SETTINGS = {
   theme: 'original',
   fontsEnabled: false,
   fontEnglish: 'inter',
-  fontPersian: 'vazirmatn'
+  fontPersian: 'vazirmatn',
+  fontChinese: 'noto-sans-sc'
 };
 
 export const SELECTORS = {
@@ -46,5 +48,9 @@ export const FONT_STACKS = {
     'noto-sans-arabic': '"Noto Sans Arabic", "Vazirmatn", "Tahoma", "Arial", sans-serif',
     sahel: '"Sahel", "Vazirmatn", "Tahoma", "Arial", sans-serif',
     shabnam: '"Shabnam", "Vazirmatn", "Tahoma", "Arial", sans-serif'
+  },
+  chinese: {
+    'noto-sans-sc': '"Noto Sans SC", "Microsoft YaHei", sans-serif',
+    'zcool-kuaile': '"ZCOOL KuaiLe", cursive'
   }
 };
