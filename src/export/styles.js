@@ -1,6 +1,7 @@
 /**
  * CSS styles injected into the export stage for consistent formatting across formats.
  */
+
 import {
   EXPORT_ROOT_CLASS,
   EXPORT_TURN_CLASS,
@@ -119,6 +120,7 @@ export const EXPORT_STYLE_BLOCK = `
   margin-bottom: 16px;
   break-inside: avoid;
   page-break-inside: avoid;
+  table-layout: fixed;
 }
 .${EXPORT_ROOT_CLASS} th,
 .${EXPORT_ROOT_CLASS} td {
@@ -127,6 +129,16 @@ export const EXPORT_STYLE_BLOCK = `
   text-align: left;
   break-inside: avoid;
   page-break-inside: avoid;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.${EXPORT_ROOT_CLASS} td pre,
+.${EXPORT_ROOT_CLASS} th pre {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
 }
 .${EXPORT_ROOT_CLASS} p {
   margin: 0 0 12px;

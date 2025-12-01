@@ -1,6 +1,7 @@
 /**
  * Handles virtualization scrolling and extraction of conversation nodes from the DOM.
  */
+
 import { EXPORT_ROOT_CLASS, EXPORT_TURN_CLASS } from '../constants.js';
 import { delay } from '../utils/time.js';
 import { MESSAGE_SELECTOR } from '../../content/constants.js';
@@ -89,6 +90,9 @@ export function collectConversation(sanitizeFn, hasRenderableContentFn, finalize
   exportRoot.className = EXPORT_ROOT_CLASS;
 
   let nodes = Array.from(document.querySelectorAll(MESSAGE_SELECTOR));
+  nodes = nodes.filter((node, _, collection) => {
+    return !collection.some((other) => other !== node && other.contains(node));
+  });
 
   if (!nodes.length) {
     const main = document.querySelector('main');
