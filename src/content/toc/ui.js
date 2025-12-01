@@ -77,7 +77,7 @@ export function rebuildList(state, assistantMessages, helpers) {
   if (!state.list) {
     return;
   }
-  const { ensureMessageAnchorId, deriveTitle } = helpers || {};
+  const { ensureMessageAnchorId, deriveTitle, getAnchorTarget } = helpers || {};
   state.list.innerHTML = '';
   if (!assistantMessages || !assistantMessages.length) {
     const empty = document.createElement('li');
@@ -89,7 +89,9 @@ export function rebuildList(state, assistantMessages, helpers) {
 
   const fragment = document.createDocumentFragment();
   assistantMessages.forEach((message, index) => {
-    const anchorId = ensureMessageAnchorId ? ensureMessageAnchorId(message) : '';
+    const target = getAnchorTarget ? getAnchorTarget(message) : message;
+    const anchorId =
+      ensureMessageAnchorId && target instanceof HTMLElement ? ensureMessageAnchorId(target) : '';
     if (!anchorId) {
       return;
     }

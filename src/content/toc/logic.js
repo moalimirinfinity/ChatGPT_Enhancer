@@ -204,7 +204,11 @@ function rebuildListInternal() {
     return;
   }
   const assistantMessages = collectAssistantMessages();
-  rebuildList(state, assistantMessages, { ensureMessageAnchorId, deriveTitle });
+  rebuildList(state, assistantMessages, {
+    ensureMessageAnchorId,
+    deriveTitle,
+    getAnchorTarget: getMessageAnchorTarget
+  });
   updatePanelDirection();
   if (state.size || currentSettings.tableOfContentsSize) {
     applySize(currentSettings);
@@ -797,6 +801,17 @@ function formatTitle(text) {
     }
   }
   return candidate || normalized.slice(0, TOC_MAX_TITLE_LENGTH);
+}
+
+function getMessageAnchorTarget(message) {
+  if (!(message instanceof HTMLElement)) {
+    return null;
+  }
+  const markdown = message.querySelector('.markdown');
+  if (markdown instanceof HTMLElement) {
+    return markdown;
+  }
+  return message;
 }
 
 function ensureMessageAnchorId(message) {
