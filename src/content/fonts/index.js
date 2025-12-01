@@ -2,7 +2,7 @@
  * Handles injection and application of custom fonts for English and Persian text.
  */
 
-import { DEFAULT_SETTINGS, FONT_STACKS } from '../../common/config.js';
+import { DEFAULT_SETTINGS, FONT_STACKS, SELECTORS } from '../../common/config.js';
 import { SUPPORTED_LANGUAGES, detectLanguage } from '../../common/languages.js';
 
 const root = document.documentElement;
@@ -112,6 +112,7 @@ export function applyFontsToMessage(element, fontSettings, options = {}) {
     });
   }
   resetCodeBlocksToMonospace(element);
+  protectEquations(element);
 }
 
 // Debounced observer handler keeps streaming from firing per keystroke while scanning the selector once.
@@ -334,6 +335,31 @@ function resolveRuntimeUrl(path) {
     }
   }
   return path;
+}
+
+/**
+ * Prevent extension fonts from leaking into math elements by clearing
+ * every supported font variable and forcing the canonical math stack.
+ */
+function protectEquations(message) {
+  if (!(message instanceof HTMLElement)) {
+    return;
+  }
+  const equations = message.querySelectorAll(SELECTORS.katex);
+  equations.forEach((eq) => {
+    const nodes = [eq, ...eq.querySelectorAll('*')];
+    nodes.forEach((node) => {
+      node.style.setProperty('--font-body', 'initial', 'important');
+      SUPPORTED_LANGUAGES.forEach((lang) => {
+        if (lang.variable) {
+          node.style.setProperty(lang.variable, 'initial', 'important');
+        }
+      });
+      node.style.setProperty('font-family', 'KaTeX_Main, "Times New Roman", serif', 'important');
+      node.style.setProperty('direction', 'ltr', 'important');
+      node.style.setProperty('text-align', 'left', 'important');
+    });
+  });
 }
 
 function buildFontSettings(settings = cachedSettings) {
