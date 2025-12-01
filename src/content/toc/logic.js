@@ -1,6 +1,7 @@
 /**
  * Controller logic for the Table of Contents, handling navigation, state, and positioning.
  */
+
 import { DEFAULT_SETTINGS } from '../../common/config.js';
 import { MESSAGE_SELECTOR } from '../constants.js';
 import { getChatGPTThemeMode, isCustomThemeActive } from '../theme/index.js';
@@ -174,6 +175,7 @@ function scheduleObserverReconnect() {
   if (state.observerRetryTimer) {
     return;
   }
+  // Retry in case ChatGPT has not mounted the main container yet.
   state.observerRetryTimer = setTimeout(() => {
     state.observerRetryTimer = null;
     connectObserver();
@@ -528,10 +530,11 @@ function handlePointerUpOrCancel(event) {
   const measuredWidth = Number.isFinite(panelWidth) ? panelWidth : null;
   cancelDragging();
   if (finalPosition) {
-    const rightGap =
-      measuredWidth != null
-        ? Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - measuredWidth - finalPosition.left)
-        : null;
+  // Keep track of the right spacing so persisted positions honor the dragged width.
+  const rightGap =
+    measuredWidth != null
+      ? Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - measuredWidth - finalPosition.left)
+      : null;
     const position = rightGap != null ? { ...finalPosition, rightGap } : finalPosition;
     savePosition(position);
   }
@@ -679,6 +682,7 @@ function updatePanelDirection() {
     return;
   }
   const content = state.list && state.list.textContent ? state.list.textContent : '';
+  // Flip direction only when the TOC text is predominantly RTL to avoid single-word flips.
   const isRtl = isPanelRtlDominant(content);
   state.isRtlPanel = isRtl;
   const dir = isRtl ? 'rtl' : 'ltr';
@@ -901,6 +905,7 @@ function scrollToMessage(element) {
   if (!(element instanceof HTMLElement)) {
     return;
   }
+  // Prefer scrollIntoView for smooth behavior; fallback to manual scroll offset.
   if (typeof element.scrollIntoView === 'function') {
     element.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
     return;
@@ -924,6 +929,7 @@ function highlight(element) {
   element.classList.remove('chatgpt-toc-highlight-active', 'chatgpt-toc-highlight-pulse');
   element.style.removeProperty('scroll-margin-top');
   void element.offsetWidth;
+  // Add a top margin so highlights stay visible beneath the floating header.
   element.style.setProperty('scroll-margin-top', `${TOC_SCROLL_OFFSET_PX}px`);
   element.classList.add('chatgpt-toc-highlight-active', 'chatgpt-toc-highlight-pulse');
   element.setAttribute('data-chatgpt-toc-highlighted', 'true');
