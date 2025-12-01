@@ -6,13 +6,11 @@ import { MESSAGE_SELECTOR } from '../constants.js';
 import { getChatGPTThemeMode, isCustomThemeActive } from '../theme/index.js';
 import { ensurePanel, rebuildList, teardownPanel, updateCollapseButton } from './ui.js';
 
-const root = document.documentElement;
 const TOC_PANEL_ID = 'chatgpt-enhancer-toc-panel';
 const TOC_ENTRY_ATTR = 'data-chatgpt-toc-target';
 const TOC_ANCHOR_ATTR = 'data-chatgpt-toc-id';
 const TOC_UPDATE_DEBOUNCE_MS = 200;
 const TOC_HIGHLIGHT_DURATION_MS = 1600;
-const TOC_ORIGINAL_HIGHLIGHT_COLOR = '#1c46d6';
 const TOC_MAX_TITLE_LENGTH = 120;
 const TOC_MAX_TITLE_WORDS = 10;
 const TOC_PANEL_MIN_GAP = 12;
@@ -21,7 +19,10 @@ const TOC_PANEL_MAX_WIDTH = 420;
 const TOC_PANEL_MIN_HEIGHT = 220;
 const TOC_PANEL_MAX_HEIGHT = 640;
 const TOC_RTL_CHAR_REGEX =
-  /[\u0590-\u08FF\u200F\u202B\uFB1D-\uFDFD\uFE70-\uFEFC\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+  /[\u0590-\u08FF\u200F\u202B\uFB1D-\uFDFD\uFE70-\uFEFC\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g;
+const TOC_RTL_MIN_RATIO = 0.3;
+const TOC_SCROLL_OFFSET_PX = 88;
+const TOC_OBSERVER_RETRY_DELAY = 400;
 
 const TOC_THEME_TOKEN_PRESETS = {
   light: {
@@ -55,6 +56,7 @@ const state = {
   size: null,
   isRtlPanel: false,
   highlightTimers: new Map(),
+  observerRetryTimer: null,
   ids: {
     panelId: TOC_PANEL_ID,
     entryAttr: TOC_ENTRY_ATTR,
@@ -137,16 +139,19 @@ function teardown() {
     }
   });
   state.highlightTimers.clear();
+  clearObserverRetry();
 }
 
 function connectObserver() {
   if (!isActive()) {
     return;
   }
-  const container = document.querySelector('main') || document.body || document.documentElement;
+  const container = document.querySelector('main');
   if (!container) {
+    scheduleObserverReconnect();
     return;
   }
+  clearObserverRetry();
   if (!state.observer) {
     state.observer = new MutationObserver(handleMutations);
   }
@@ -162,6 +167,25 @@ function disconnectObserver() {
   if (state.observer) {
     state.observer.disconnect();
   }
+  clearObserverRetry();
+}
+
+function scheduleObserverReconnect() {
+  if (state.observerRetryTimer) {
+    return;
+  }
+  state.observerRetryTimer = setTimeout(() => {
+    state.observerRetryTimer = null;
+    connectObserver();
+  }, TOC_OBSERVER_RETRY_DELAY);
+}
+
+function clearObserverRetry() {
+  if (!state.observerRetryTimer) {
+    return;
+  }
+  clearTimeout(state.observerRetryTimer);
+  state.observerRetryTimer = null;
 }
 
 function handleMutations(mutations) {
@@ -498,15 +522,15 @@ function handlePointerUpOrCancel(event) {
   if (typeof state.dragState.pointerId === 'number' && event.pointerId !== state.dragState.pointerId) {
     return;
   }
+  const { lastTop, lastLeft, width: panelWidth } = state.dragState;
   const finalPosition =
-    state.dragState.lastTop != null && state.dragState.lastLeft != null
-      ? { top: state.dragState.lastTop, left: state.dragState.lastLeft }
-      : null;
+    lastTop != null && lastLeft != null ? { top: lastTop, left: lastLeft } : null;
+  const measuredWidth = Number.isFinite(panelWidth) ? panelWidth : null;
   cancelDragging();
   if (finalPosition) {
     const rightGap =
-      state.dragState && Number.isFinite(state.dragState.width)
-        ? Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - state.dragState.width - finalPosition.left)
+      measuredWidth != null
+        ? Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - measuredWidth - finalPosition.left)
         : null;
     const position = rightGap != null ? { ...finalPosition, rightGap } : finalPosition;
     savePosition(position);
@@ -655,7 +679,7 @@ function updatePanelDirection() {
     return;
   }
   const content = state.list && state.list.textContent ? state.list.textContent : '';
-  const isRtl = TOC_RTL_CHAR_REGEX.test(content);
+  const isRtl = isPanelRtlDominant(content);
   state.isRtlPanel = isRtl;
   const dir = isRtl ? 'rtl' : 'ltr';
   if (state.panel.getAttribute('dir') !== dir) {
@@ -667,6 +691,22 @@ function updatePanelDirection() {
     state.heading.textContent = isRtl ? 'فهرست مطالب' : 'Table of contents';
   }
   updateCollapseButton(state, Boolean(currentSettings?.tableOfContentsCollapsed));
+}
+
+function isPanelRtlDominant(text) {
+  if (!text) {
+    return false;
+  }
+  const sanitized = text.replace(/\s+/g, '');
+  const totalLength = sanitized.length;
+  if (!totalLength) {
+    return false;
+  }
+  const matches = sanitized.match(TOC_RTL_CHAR_REGEX) || [];
+  if (!matches.length) {
+    return false;
+  }
+  return matches.length / totalLength >= TOC_RTL_MIN_RATIO;
 }
 
 function collectAssistantMessages() {
@@ -843,8 +883,8 @@ function handleClick(event) {
     return;
   }
   event.preventDefault();
-  scrollIntoView(message);
   highlight(message);
+  scrollToMessage(message);
   if (event.detail && typeof target.blur === 'function') {
     target.blur();
   }
@@ -857,24 +897,20 @@ function escapeAttribute(value) {
   return value.replace(/["\\\]\[]/g, '\\$&');
 }
 
-function scrollIntoView(element) {
-  try {
+function scrollToMessage(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  if (typeof element.scrollIntoView === 'function') {
     element.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-  } catch (error) {
-    element.scrollIntoView(true);
+    return;
   }
-}
-
-function resolveHighlightColor() {
-  if (!root) {
-    return null;
+  if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+    const rect = element.getBoundingClientRect();
+    const currentScroll = window.scrollY || document.documentElement.scrollTop || 0;
+    const targetTop = Math.max(0, currentScroll + rect.top - TOC_SCROLL_OFFSET_PX);
+    window.scrollTo({ top: targetTop, behavior: 'smooth' });
   }
-  if (isCustomThemeActive()) {
-    return null;
-  }
-  const accent = getComputedStyle(root).getPropertyValue('--chatgpt-theme-accent');
-  const fallback = TOC_ORIGINAL_HIGHLIGHT_COLOR;
-  return (accent && accent.trim()) || fallback;
 }
 
 function highlight(element) {
@@ -885,21 +921,16 @@ function highlight(element) {
   if (existingTimer) {
     clearTimeout(existingTimer);
   }
-  element.classList.remove('chatgpt-toc-highlight-active');
-  element.style.removeProperty('--toc-highlight-color');
+  element.classList.remove('chatgpt-toc-highlight-active', 'chatgpt-toc-highlight-pulse');
+  element.style.removeProperty('scroll-margin-top');
   void element.offsetWidth;
-  const highlightColor = resolveHighlightColor();
-  if (highlightColor) {
-    element.style.setProperty('--toc-highlight-color', highlightColor);
-  }
-  element.classList.add('chatgpt-toc-highlight-active');
-  element.classList.add('chatgpt-toc-highlight-pulse');
+  element.style.setProperty('scroll-margin-top', `${TOC_SCROLL_OFFSET_PX}px`);
+  element.classList.add('chatgpt-toc-highlight-active', 'chatgpt-toc-highlight-pulse');
   element.setAttribute('data-chatgpt-toc-highlighted', 'true');
   const timer = setTimeout(() => {
-    element.classList.remove('chatgpt-toc-highlight-active');
-    element.classList.remove('chatgpt-toc-highlight-pulse');
+    element.classList.remove('chatgpt-toc-highlight-active', 'chatgpt-toc-highlight-pulse');
     element.removeAttribute('data-chatgpt-toc-highlighted');
-    element.style.removeProperty('--toc-highlight-color');
+    element.style.removeProperty('scroll-margin-top');
     state.highlightTimers.delete(element);
   }, TOC_HIGHLIGHT_DURATION_MS);
   state.highlightTimers.set(element, timer);
