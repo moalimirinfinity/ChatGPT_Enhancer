@@ -282,14 +282,21 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables table {
   padding: 6px 0 0;
 }
 
+:root {
+  --chatgpt-toc-highlight-color: rgba(148, 163, 184, 0.85);
+}
+
 .chatgpt-toc-highlight-active {
   position: relative;
   border-radius: 18px;
   transition: background-color 0.3s ease;
-  --toc-highlight-color: var(--chatgpt-theme-accent, #1c46d6);
   background-image: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--toc-highlight-color) 20%, transparent),
+    color-mix(
+      in srgb,
+      var(--chatgpt-toc-highlight-color, var(--chatgpt-theme-accent, #1c46d6)) 20%,
+      transparent
+    ),
     transparent
   );
 }
@@ -299,8 +306,18 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables table {
   position: absolute;
   inset: -4px;
   border-radius: inherit;
-  border: 2px solid color-mix(in srgb, var(--toc-highlight-color) 60%, transparent);
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--toc-highlight-color) 32%, rgba(5, 7, 20, 0.25));
+  border: 2px solid
+    color-mix(
+      in srgb,
+      var(--chatgpt-toc-highlight-color, var(--chatgpt-theme-accent, #1c46d6)) 60%,
+      transparent
+    );
+  box-shadow: 0 8px 28px
+    color-mix(
+      in srgb,
+      var(--chatgpt-toc-highlight-color, var(--chatgpt-theme-accent, #1c46d6)) 32%,
+      rgba(5, 7, 20, 0.25)
+    );
   pointer-events: none;
   animation: chatgpt-toc-highlight-pulse 1.6s ease forwards;
 }
@@ -329,11 +346,15 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables table {
 
 @supports not (color: color-mix(in srgb, red 50%, white)) {
   .chatgpt-toc-highlight-active {
-    background-image: linear-gradient(135deg, rgba(33, 87, 255, 0.12), rgba(255, 255, 255, 0));
+    background-image: linear-gradient(
+      135deg,
+      var(--chatgpt-toc-highlight-color, rgba(33, 87, 255, 0.12)),
+      rgba(255, 255, 255, 0)
+    );
   }
 
   .chatgpt-toc-highlight-active::after {
-    border: 2px solid rgba(33, 87, 255, 0.45);
+    border: 2px solid var(--chatgpt-toc-highlight-color, rgba(33, 87, 255, 0.45));
     box-shadow: 0 8px 26px rgba(5, 7, 20, 0.28);
   }
 }
@@ -465,6 +486,7 @@ html.chatgpt-theme-original-light {
   --chatgpt-theme-text: #1f2933;
   --chatgpt-theme-text-muted: rgba(31, 41, 51, 0.72);
   --chatgpt-theme-accent: #2157ff;
+  --chatgpt-toc-highlight-color: #2157ff;
 }
 
 html.chatgpt-theme-original-dark {
@@ -474,6 +496,7 @@ html.chatgpt-theme-original-dark {
   --chatgpt-theme-text: #e5e7eb;
   --chatgpt-theme-text-muted: rgba(229, 231, 235, 0.7);
   --chatgpt-theme-accent: #7aa2ff;
+  --chatgpt-toc-highlight-color: #7aa2ff;
 }
 
 html.chatgpt-theme-midnight {
@@ -483,6 +506,7 @@ html.chatgpt-theme-midnight {
   --chatgpt-theme-text: #dde7ff;
   --chatgpt-theme-text-muted: #8aa0d6;
   --chatgpt-theme-accent: #7aa2ff;
+  --chatgpt-toc-highlight-color: #7aa2ff;
 }
 
 html.chatgpt-theme-aurora {
@@ -492,6 +516,7 @@ html.chatgpt-theme-aurora {
   --chatgpt-theme-text: #d7fff1;
   --chatgpt-theme-text-muted: rgba(193, 248, 221, 0.72);
   --chatgpt-theme-accent: #78f5c7;
+  --chatgpt-toc-highlight-color: #78f5c7;
 }
 
 html.chatgpt-theme-nebula {
@@ -501,6 +526,7 @@ html.chatgpt-theme-nebula {
   --chatgpt-theme-text: #ece9ff;
   --chatgpt-theme-text-muted: rgba(213, 206, 255, 0.7);
   --chatgpt-theme-accent: #b896ff;
+  --chatgpt-toc-highlight-color: #b896ff;
 }
 
 html.chatgpt-theme-paper {
@@ -510,6 +536,7 @@ html.chatgpt-theme-paper {
   --chatgpt-theme-text: #36261c;
   --chatgpt-theme-text-muted: rgba(54, 38, 28, 0.58);
   --chatgpt-theme-accent: #5d360f;
+  --chatgpt-toc-highlight-color: #5d360f;
 }
 
 html.chatgpt-theme-skylight {
@@ -519,6 +546,7 @@ html.chatgpt-theme-skylight {
   --chatgpt-theme-text: #1a2f3a;
   --chatgpt-theme-text-muted: rgba(26, 47, 58, 0.64);
   --chatgpt-theme-accent: #094861;
+  --chatgpt-toc-highlight-color: #094861;
 }
 
 html.chatgpt-theme-midnight,
