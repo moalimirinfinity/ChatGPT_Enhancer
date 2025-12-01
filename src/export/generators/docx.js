@@ -2,22 +2,32 @@
  * Logic for generating and downloading DOCX files using html-docx-js.
  */
 import { DOCX_EXPORT_STYLE_BLOCK } from '../styles.js';
-import { buildFilename, triggerDownload } from '../utils/download.js';
-import { ensureHtmlDocxLoaded } from '../utils/assets.js';
+import { EXPORT_TURN_CLASS } from '../constants.js';
+import { buildFilename } from '../utils/download.js';
+import { ensureDocxRunnerLoaded, requestDocxGeneration } from '../utils/assets.js';
 import { convertKatexToImages } from '../core/equations.js';
 
+const DOCX_METADATA_CLASS = 'gpt-export-metadata';
+const DOCX_METADATA_ITEM_CLASS = 'gpt-export-metadata__item';
+const DOCX_METADATA_LABEL_CLASS = 'gpt-export-metadata__label';
+const DOCX_METADATA_VALUE_CLASS = 'gpt-export-metadata__value';
+const DOCX_METADATA_TITLE_FALLBACK = 'ChatGPT Conversation';
+const DOCX_METADATA_MAX_LENGTH = 220;
+const DOCUMENT_TITLE_SUFFIXES = [' - ChatGPT', ' | ChatGPT', ' · ChatGPT'];
+
 export async function exportAsDocx(_stage, root) {
+  const metadataItems = buildDocxMetadata(root);
+  if (metadataItems) {
+    insertDocxMetadata(root, metadataItems);
+  }
+
   prepareDocxSpecificAdjustments(root);
   await convertKatexToImages(root);
 
-  const htmlDocx = await ensureHtmlDocxLoaded();
-  if (!htmlDocx) {
-    throw new Error('DOCX export failed: html-docx library not available');
-  }
   const filename = buildFilename('docx');
   const htmlContent = wrapForDocx(root.outerHTML);
-  const blob = htmlDocx.asBlob(htmlContent);
-  triggerDownload(blob, filename);
+  await ensureDocxRunnerLoaded();
+  await requestDocxGeneration(htmlContent, filename);
 }
 
 function wrapForDocx(innerHtml) {
@@ -112,4 +122,110 @@ function prepareDocxSpecificAdjustments(root) {
       element.style.setProperty('text-align', dir === 'rtl' ? 'right' : 'left', 'important');
     }
   });
+}
+
+function buildDocxMetadata(root) {
+  if (!root) {
+    return null;
+  }
+  const title = sanitizeMetadataValue(trimDocumentTitle(document.title || DOCX_METADATA_TITLE_FALLBACK));
+  const url =
+    typeof window !== 'undefined' && window.location
+      ? sanitizeMetadataValue(window.location.href, 320)
+      : '';
+  const timestamp = formatExportTimestamp(new Date());
+  const turnCount =
+    typeof root.querySelectorAll === 'function'
+      ? root.querySelectorAll(`.${EXPORT_TURN_CLASS}`).length
+      : 0;
+
+  const items = [];
+  if (title) {
+    items.push({ label: 'Conversation', value: title });
+  }
+  if (timestamp) {
+    items.push({ label: 'Exported', value: timestamp });
+  }
+  if (Number.isFinite(turnCount)) {
+    items.push({ label: 'Turns', value: String(turnCount) });
+  }
+  if (url) {
+    items.push({ label: 'Source', value: url });
+  }
+
+  return items.length ? items : null;
+}
+
+function insertDocxMetadata(root, items) {
+  if (!root || !items || !items.length) {
+    return null;
+  }
+  const container = document.createElement('section');
+  container.className = DOCX_METADATA_CLASS;
+  container.setAttribute('role', 'presentation');
+  container.setAttribute('aria-label', 'Conversation details');
+
+  items.forEach((item) => {
+    if (!item?.value) {
+      return;
+    }
+    const entry = document.createElement('div');
+    entry.className = DOCX_METADATA_ITEM_CLASS;
+    const labelNode = document.createElement('span');
+    labelNode.className = DOCX_METADATA_LABEL_CLASS;
+    labelNode.textContent = `${item.label}:`;
+    const valueNode = document.createElement('span');
+    valueNode.className = DOCX_METADATA_VALUE_CLASS;
+    valueNode.textContent = item.value;
+    entry.appendChild(labelNode);
+    entry.appendChild(valueNode);
+    container.appendChild(entry);
+  });
+
+  const firstChild = root.firstElementChild;
+  if (firstChild) {
+    root.insertBefore(container, firstChild);
+  } else {
+    root.appendChild(container);
+  }
+
+  return container;
+}
+
+function trimDocumentTitle(value) {
+  if (!value || typeof value !== 'string') {
+    return DOCX_METADATA_TITLE_FALLBACK;
+  }
+  let trimmed = value.trim();
+  DOCUMENT_TITLE_SUFFIXES.forEach((suffix) => {
+    if (trimmed.endsWith(suffix)) {
+      trimmed = trimmed.slice(0, -suffix.length).trim();
+    }
+  });
+  return trimmed || DOCX_METADATA_TITLE_FALLBACK;
+}
+
+function sanitizeMetadataValue(value, maxLength = DOCX_METADATA_MAX_LENGTH) {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength - 1).trim()}…`;
+}
+
+function formatExportTimestamp(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  try {
+    return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return date.toISOString();
+  }
 }

@@ -32,7 +32,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/fonts/*.woff2", "assets/fonts/*.ttf", "assets/libs/*.js"],
+      "resources": ["assets/fonts/*.woff2", "assets/fonts/*.ttf", "assets/libs/*.js", "assets/scripts/*.js"],
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"]
     },
     {

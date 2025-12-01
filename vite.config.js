@@ -9,11 +9,11 @@ export default defineConfig({
   root: path.resolve(projectRoot, 'src'),
   publicDir: path.resolve(projectRoot, 'public'),
   plugins: [crx({ manifest })],
-  optimizeDeps: {
-    exclude: ['html-docx-js', 'html-docx-js/dist/html-docx']
-  },
   build: {
     outDir: path.resolve(projectRoot, 'dist'),
-    emptyOutDir: true
+    emptyOutDir: true,
+    commonjsOptions: {
+      include: [/node_modules/, /html-docx-js/]
+    }
   }
 });
