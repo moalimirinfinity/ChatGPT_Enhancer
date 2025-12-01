@@ -235,6 +235,38 @@ body {
   font-size: 13px;
   line-height: 1.55;
 }
+.${EXPORT_ROOT_CLASS} .gpt-export-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+  color: #5b6078;
+}
+.${EXPORT_ROOT_CLASS} .gpt-export-metadata__item {
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.${EXPORT_ROOT_CLASS} .gpt-export-metadata__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  color: #1f1f3a;
+}
+.${EXPORT_ROOT_CLASS} .gpt-export-metadata__value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #111222;
+  word-break: break-word;
+}
+.${EXPORT_ROOT_CLASS} .gpt-export-metadata__value a {
+  color: inherit;
+  text-decoration: underline;
+}
 .${EXPORT_ROOT_CLASS} pre *,
 .${EXPORT_ROOT_CLASS} code,
 .${EXPORT_ROOT_CLASS} code * {
