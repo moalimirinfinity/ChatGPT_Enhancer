@@ -1,6 +1,7 @@
 /**
  * Utilities for traversing the DOM and serializing content into structured data (JSON/Markdown).
  */
+
 import { EXPORT_EQUATION_CLASS, RTL_CHAR_REGEX, LTR_CHAR_REGEX } from '../constants.js';
 
 const JSON_BLOCK_LEVEL_SELECTOR = [
@@ -352,7 +353,8 @@ export function serializeFigureBlock(node, direction) {
 }
 
 export function serializeImageBlock(node, direction, inline = false) {
-  const src = node.getAttribute ? node.getAttribute('src') || node.src || '' : '';
+  const rawSrc = node.getAttribute ? node.getAttribute('src') || node.src || '' : '';
+  const src = sanitizeImageSource(rawSrc);
   const alt = node.getAttribute ? node.getAttribute('alt') || '' : '';
   const title = node.getAttribute ? node.getAttribute('title') || '' : '';
   if (!src && !alt) {
@@ -441,14 +443,14 @@ export function serializeInlineText(element, options = {}) {
 }
 
 function textNodeValue(node) {
-  return (node && node.nodeValue ? node.nodeValue : '').replace(/\u00a0/g, ' ');
+  return stripZeroWidth((node && node.nodeValue ? node.nodeValue : '').replace(/\u00a0/g, ' '));
 }
 
 export function normalizeJsonText(text) {
   if (!text) {
     return '';
   }
-  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripZeroWidth(text).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function buildCsvRows(payload) {
@@ -718,7 +720,7 @@ export function serializeInlineFragments(container) {
         return;
       case 'code':
         if (!element.closest('pre')) {
-          const codeText = normalizeJsonText(element.textContent || '');
+          const codeText = extractInlineCodeText(element);
           if (codeText) {
             appendFragment({ type: 'code', text: codeText });
           }
@@ -736,15 +738,18 @@ export function serializeInlineFragments(container) {
         return;
       }
       case 'img': {
-        const src = element.getAttribute('src') || element.src || '';
-        if (!src) {
+        const rawSrc = element.getAttribute('src') || element.src || '';
+        const src = sanitizeImageSource(rawSrc);
+        const alt = element.getAttribute('alt') || '';
+        const title = element.getAttribute('title') || null;
+        if (!src && !alt && !title) {
           return;
         }
         appendFragment({
           type: 'image',
           src,
-          alt: element.getAttribute('alt') || '',
-          title: element.getAttribute('title') || null
+          alt,
+          title
         });
         return;
       }
@@ -792,16 +797,62 @@ function extractLatex(element) {
   return element.textContent ? element.textContent.trim() : '';
 }
 
+function buildMarkdownMetadata() {
+  const title = typeof document !== 'undefined' && document.title ? document.title.trim() : '';
+  const url = typeof window !== 'undefined' && window.location ? window.location.href : '';
+  const exportedAt = new Date().toISOString();
+
+  const headingText = title ? escapeMarkdownText(title) : 'ChatGPT Conversation';
+  const lines = [`# ${headingText}`];
+
+  const meta = [];
+  if (url) {
+    const escapedUrl = escapeLinkDestination(url);
+    meta.push(`**URL:** [${escapeMarkdownText(url)}](${escapedUrl})`);
+  }
+  meta.push(`**Exported:** ${exportedAt}`);
+
+  lines.push(meta.join('\n\n'));
+  return lines.join('\n\n');
+}
+
+function formatRoleHeading(role, index) {
+  const normalized = typeof role === 'string' ? role.toLowerCase() : '';
+  let label;
+  if (normalized === 'user') {
+    label = 'User';
+  } else if (normalized === 'assistant') {
+    label = 'ChatGPT';
+  } else if (normalized) {
+    label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+  if (!label) {
+    label = `Message ${index + 1}`;
+  }
+  return `### ${escapeMarkdownText(label)}`;
+}
+
 export function serializeExportRootToMarkdown(root) {
-  const segments = [];
-  const context = { listDepth: 0, preserveWhitespace: false, inLink: false };
-  Array.from(root.childNodes).forEach((child) => {
-    const chunk = serializeNodeToMarkdown(child, context);
-    if (chunk && chunk.trim()) {
-      segments.push(chunk.trim());
+  const parts = [];
+  const metadata = buildMarkdownMetadata();
+  if (metadata) {
+    parts.push(metadata);
+  }
+
+  const turns = Array.from(root?.children || []);
+  turns.forEach((turn, index) => {
+    if (!turn || turn.nodeType !== Node.ELEMENT_NODE) {
+      return;
     }
+    const body = serializeBlockChildren(turn, { listDepth: 0, preserveWhitespace: false, inLink: false }).trim();
+    if (!body) {
+      return;
+    }
+    const heading = formatRoleHeading(detectTurnRole(turn), index);
+    parts.push(heading, body);
   });
-  return segments.join('\n\n');
+
+  return parts.join('\n\n');
 }
 
 function serializeNodeToMarkdown(node, context) {
@@ -811,6 +862,10 @@ function serializeNodeToMarkdown(node, context) {
 
   if (node.nodeType !== Node.ELEMENT_NODE) {
     return '';
+  }
+
+  if (isEquationNode(node)) {
+    return serializeEquationMarkdown(node);
   }
 
   const tag = node.tagName.toLowerCase();
@@ -902,6 +957,16 @@ function serializeNodeToMarkdown(node, context) {
     default:
       return serializeGenericMarkdownBlock(node, context);
   }
+}
+
+function serializeEquationMarkdown(node) {
+  const fragment = serializeEquationFragment(node);
+  const latex = fragment?.latex || fragment?.text || '';
+  if (!latex.trim()) {
+    return '';
+  }
+  const content = stripZeroWidth(latex.trim());
+  return fragment?.displayMode ? `\n$$\n${content}\n$$\n` : `$${content}$`;
 }
 
 function serializeGenericMarkdownBlock(node, context) {
@@ -1012,7 +1077,7 @@ function serializeLink(node, context) {
 
 function serializeImage(node) {
   const alt = escapeMarkdownText((node.getAttribute('alt') || '').trim());
-  const src = node.getAttribute('src') || '';
+  const src = sanitizeImageSource(node.getAttribute('src') || '');
   if (!src) {
     return alt ? `![${alt}]()` : '';
   }
@@ -1082,21 +1147,66 @@ function serializeTable(node, context) {
     return '';
   }
 
-  const matrix = rows
-    .map((row) => {
-      const cells = Array.from(row.children).filter((cell) => {
-        if (!cell || cell.nodeType !== Node.ELEMENT_NODE) {
-          return false;
-        }
-        const tagName = cell.tagName.toLowerCase();
-        return tagName === 'td' || tagName === 'th';
-      });
-      if (!cells.length) {
-        return null;
+  const spanTracker = [];
+  const matrix = [];
+  const headerFlags = [];
+
+  rows.forEach((row) => {
+    const cells = Array.from(row.children).filter((cell) => {
+      if (!cell || cell.nodeType !== Node.ELEMENT_NODE) {
+        return false;
       }
-      return cells.map((cell) => escapeTableCell(serializeInlineChildren(cell, context).trim()));
-    })
-    .filter(Boolean);
+      const tagName = cell.tagName.toLowerCase();
+      return tagName === 'td' || tagName === 'th';
+    });
+
+    if (!cells.length) {
+      return;
+    }
+
+    const rowValues = [];
+    let colIndex = 0;
+
+    const advanceThroughSpans = () => {
+      while ((spanTracker[colIndex] || 0) > 0) {
+        rowValues.push('');
+        spanTracker[colIndex] -= 1;
+        colIndex += 1;
+      }
+    };
+
+    advanceThroughSpans();
+
+    cells.forEach((cell) => {
+      advanceThroughSpans();
+
+      const content = escapeTableCell(serializeInlineChildren(cell, context).trim());
+      const colSpan = parseSpanValue(cell.getAttribute('colspan')) || 1;
+      const rowSpan = parseSpanValue(cell.getAttribute('rowspan')) || 1;
+
+      rowValues.push(content);
+      for (let i = 1; i < colSpan; i += 1) {
+        rowValues.push('');
+      }
+
+      if (rowSpan > 1) {
+        const remaining = rowSpan - 1;
+        for (let offset = 0; offset < colSpan; offset += 1) {
+          const targetCol = colIndex + offset;
+          spanTracker[targetCol] = (spanTracker[targetCol] || 0) + remaining;
+        }
+      }
+
+      colIndex += colSpan;
+    });
+
+    advanceThroughSpans();
+
+    if (rowValues.length) {
+      matrix.push(rowValues);
+      headerFlags.push(Boolean(row.querySelector('th')));
+    }
+  });
 
   if (!matrix.length) {
     return '';
@@ -1111,7 +1221,7 @@ function serializeTable(node, context) {
     return copy;
   });
 
-  let headerIndex = rows.findIndex((row) => row.querySelector('th'));
+  let headerIndex = headerFlags.findIndex(Boolean);
   if (headerIndex < 0) {
     headerIndex = 0;
   }
@@ -1159,16 +1269,39 @@ function extractCodeLanguage(className) {
 
 function escapeMarkdownText(text) {
   return text
+    .replace(/\u200c/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/([`*_{}\[\]()#+\-!.>])/g, '\\$1');
 }
 
 function escapeLinkDestination(value) {
   return value
+    .replace(/\u200c/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/\(/g, '\\(')
     .replace(/\)/g, '\\)')
     .replace(/\s/g, '%20');
+}
+
+function stripZeroWidth(value) {
+  if (!value) {
+    return '';
+  }
+  return value.replace(/\u200c/g, '');
+}
+
+function sanitizeImageSource(src) {
+  if (!src) {
+    return '';
+  }
+  const trimmed = src.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (/^data:/i.test(trimmed)) {
+    return '';
+  }
+  return trimmed;
 }
 
 function hasBlockDescendant(node) {
@@ -1194,4 +1327,19 @@ function countDirectionCharacters(text) {
     rtlCount: rtlMatches ? rtlMatches.length : 0,
     ltrCount: ltrMatches ? ltrMatches.length : 0
   };
+}
+
+function extractInlineCodeText(element) {
+  if (!element) {
+    return '';
+  }
+  const raw = element.textContent || '';
+  if (!raw) {
+    return '';
+  }
+  const normalized = raw.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ');
+  if (!/\S/.test(normalized)) {
+    return '';
+  }
+  return normalized.replace(/\n/g, ' ');
 }
