@@ -121,6 +121,8 @@ export const EXPORT_STYLE_BLOCK = `
   break-inside: avoid;
   page-break-inside: avoid;
   table-layout: fixed;
+  zoom: 0.85;
+  font-size: 0.9em;
 }
 .${EXPORT_ROOT_CLASS} th,
 .${EXPORT_ROOT_CLASS} td {
@@ -139,6 +141,10 @@ export const EXPORT_STYLE_BLOCK = `
 .${EXPORT_ROOT_CLASS} th pre {
   white-space: pre-wrap !important;
   word-break: break-all !important;
+}
+
+.${EXPORT_ROOT_CLASS} table .katex {
+  font-size: 0.9em !important;
 }
 .${EXPORT_ROOT_CLASS} p {
   margin: 0 0 12px;
