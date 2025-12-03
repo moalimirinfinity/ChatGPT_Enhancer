@@ -63,6 +63,42 @@ const MARKDOWN_BLOCK_TAGS = new Set([
 
 const MARKDOWN_CODE_LANGUAGE_REGEX = /language-([a-z0-9+-]+)/i;
 
+const SUPERSCRIPT_MAP = {
+  '0': '\u2070',
+  '1': '\u00b9',
+  '2': '\u00b2',
+  '3': '\u00b3',
+  '4': '\u2074',
+  '5': '\u2075',
+  '6': '\u2076',
+  '7': '\u2077',
+  '8': '\u2078',
+  '9': '\u2079',
+  '+': '\u207a',
+  '-': '\u207b',
+  '=': '\u207c',
+  '(': '\u207d',
+  ')': '\u207e'
+};
+
+const SUBSCRIPT_MAP = {
+  '0': '\u2080',
+  '1': '\u2081',
+  '2': '\u2082',
+  '3': '\u2083',
+  '4': '\u2084',
+  '5': '\u2085',
+  '6': '\u2086',
+  '7': '\u2087',
+  '8': '\u2088',
+  '9': '\u2089',
+  '+': '\u208a',
+  '-': '\u208b',
+  '=': '\u208c',
+  '(': '\u208d',
+  ')': '\u208e'
+};
+
 export function serializeExportRootToJson(root) {
   const turns = Array.from(root.children || [])
     .map((turn, index) => serializeTurnNodeToJson(turn, index))
@@ -141,7 +177,8 @@ function isBlockLevel(node) {
   return node.matches(JSON_BLOCK_LEVEL_SELECTOR);
 }
 
-export function serializeChildNodesToBlocks(container) {
+export function serializeChildNodesToBlocks(container, options = {}) {
+  const { skipInlineParagraph = false } = options;
   if (!container) {
     return [];
   }
@@ -156,7 +193,7 @@ export function serializeChildNodesToBlocks(container) {
     const temp = document.createElement('div');
     inlineGroup.forEach((node) => temp.appendChild(node.cloneNode(true)));
     const content = serializeInlineFragments(temp);
-    if (content.length) {
+    if (content.length && !skipInlineParagraph) {
       blocks.push({
         type: 'paragraph',
         content,
@@ -184,6 +221,17 @@ export function serializeChildNodesToBlocks(container) {
     }
 
     if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node;
+      if (element.querySelector && element.querySelector(JSON_BLOCK_LEVEL_SELECTOR)) {
+        flushInlineGroup();
+        const nestedBlocks = serializeChildNodesToBlocks(element, options);
+        nestedBlocks.forEach((block) => {
+          if (block) {
+            blocks.push(block);
+          }
+        });
+        return;
+      }
       inlineGroup.push(node);
     }
   });
@@ -280,12 +328,13 @@ export function serializeListBlock(node, direction, ordered) {
     .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
     .map((item, index) => {
       const content = serializeInlineFragments(item);
-      const nestedBlocks = serializeChildNodesToBlocks(item);
+      const nestedBlocks = serializeChildNodesToBlocks(item, { skipInlineParagraph: true });
       const childLists = nestedBlocks.filter((block) => block && block.type === 'list');
       const otherBlocks = nestedBlocks.filter((block) => block && block.type !== 'list');
+      const effectiveContent = otherBlocks.length ? [] : content;
       return {
         index,
-        content: content.length ? content : undefined,
+        content: effectiveContent.length ? effectiveContent : undefined,
         direction: resolveNodeDirection(item, serializeInlineText(item)),
         children: childLists.length ? childLists : undefined,
         blocks: otherBlocks.length ? otherBlocks : undefined
@@ -454,36 +503,85 @@ export function normalizeJsonText(text) {
 }
 
 export function buildCsvRows(payload) {
-  const rows = [['turn_index', 'role', 'direction', 'block_index', 'block_type', 'text']];
+  const records = [];
+  let maxTableColumns = 0;
+  const baseHeader = ['turn_index', 'role', 'direction', 'block_index', 'block_type', 'text'];
   const turns = payload && Array.isArray(payload.turns) ? payload.turns : [];
-  if (!turns.length) {
-    return rows;
-  }
 
   turns.forEach((turn, turnIdx) => {
     const blocks = Array.isArray(turn && turn.blocks) ? turn.blocks : [];
     const turnIndex = Number.isFinite(turn && turn.index) ? turn.index : turnIdx;
 
     if (!blocks.length) {
-      rows.push([turnIndex, turn?.role || '', turn?.direction || '', '', '', '']);
+      records.push({
+        base: [turnIndex, turn?.role || '', turn?.direction || '', '', '', ''],
+        tableRowIndex: '',
+        cells: {}
+      });
       return;
     }
 
     blocks.forEach((block, blockIdx) => {
+      if (block && block.type === 'table') {
+        const { matrix, columnCount } = materializeTableBlock(block);
+        maxTableColumns = Math.max(maxTableColumns, columnCount);
+
+        if (!matrix.length) {
+          records.push({
+            base: [turnIndex, turn?.role || '', turn?.direction || '', blockIdx + 1, 'table', ''],
+            tableRowIndex: '',
+            cells: {}
+          });
+          return;
+        }
+
+        matrix.forEach((row, rowIndex) => {
+          const cells = {};
+          row.forEach((value, colIdx) => {
+            const name = `table_col_${colIdx + 1}`;
+            cells[name] = value || '';
+          });
+          records.push({
+            base: [turnIndex, turn?.role || '', turn?.direction || '', blockIdx + 1, 'table', ''],
+            tableRowIndex: rowIndex + 1,
+            cells
+          });
+        });
+        return;
+      }
+
       const rawText = blockToPlainText(block, 0);
       const text = typeof rawText === 'string' ? rawText.replace(/\s+$/g, '') : '';
-      rows.push([
-        turnIndex,
-        turn?.role || '',
-        turn?.direction || '',
-        blockIdx + 1,
-        block && block.type ? block.type : '',
-        text
-      ]);
+      records.push({
+        base: [
+          turnIndex,
+          turn?.role || '',
+          turn?.direction || '',
+          blockIdx + 1,
+          block && block.type ? block.type : '',
+          text
+        ],
+        tableRowIndex: '',
+        cells: {}
+      });
     });
   });
 
-  return rows;
+  const tableColumns = [];
+  for (let i = 0; i < maxTableColumns; i += 1) {
+    tableColumns.push(`table_col_${i + 1}`);
+  }
+  const header = maxTableColumns ? [...baseHeader, 'table_row_index', ...tableColumns] : baseHeader;
+
+  const rows = records.map((record) => {
+    if (!maxTableColumns) {
+      return record.base;
+    }
+    const values = tableColumns.map((name) => record.cells[name] || '');
+    return [...record.base, record.tableRowIndex || '', ...values];
+  });
+
+  return [header, ...rows];
 }
 
 export function formatCsvRow(columns) {
@@ -492,11 +590,123 @@ export function formatCsvRow(columns) {
 
 export function escapeCsvValue(value) {
   const stringValue = typeof value === 'string' ? value : String(value);
-  const normalized = stringValue.replace(/\r\n?/g, '\n');
+  const sanitized = sanitizeCsvCell(stringValue);
+  const normalized = sanitized.replace(/\r\n?/g, '\n');
   if (!/[",\n]/.test(normalized)) {
     return normalized;
   }
   return `"${normalized.replace(/"/g, '""')}"`;
+}
+
+function sanitizeCsvCell(raw) {
+  if (!raw) {
+    return '';
+  }
+  const trimmed = raw.replace(/^\s+/, '');
+  const first = trimmed[0];
+  if (first && ['=', '+', '-', '@'].includes(first)) {
+    return `'${raw}`;
+  }
+  return raw;
+}
+
+function materializeTableBlock(block) {
+  const { matrix, columnCount } = buildTableMatrix(block);
+  const width = columnCount;
+  const normalizedMatrix = matrix.map((row) => padRow(row, width));
+  return { matrix: normalizedMatrix, columnCount: width };
+}
+
+function buildTableMatrix(block) {
+  const rows = Array.isArray(block && block.rows) ? block.rows : [];
+  const spanTracker = [];
+  const matrix = [];
+  let columnCount = 0;
+
+  rows.forEach((row) => {
+    const cells = Array.isArray(row && row.cells) ? row.cells : [];
+    const line = [];
+    let colIndex = 0;
+
+    const advanceThroughSpans = () => {
+      while ((spanTracker[colIndex] || 0) > 0) {
+        line.push('');
+        spanTracker[colIndex] -= 1;
+        colIndex += 1;
+      }
+    };
+
+    advanceThroughSpans();
+
+    cells.forEach((cell) => {
+      advanceThroughSpans();
+      const text = extractTableCellText(cell);
+      const colSpan = Number.isFinite(cell?.colSpan) && cell.colSpan > 1 ? cell.colSpan : 1;
+      const rowSpan = Number.isFinite(cell?.rowSpan) && cell.rowSpan > 1 ? cell.rowSpan : 1;
+
+      line.push(text);
+      for (let i = 1; i < colSpan; i += 1) {
+        line.push('');
+      }
+
+      if (rowSpan > 1) {
+        const remaining = rowSpan - 1;
+        for (let offset = 0; offset < colSpan; offset += 1) {
+          const targetCol = colIndex + offset;
+          spanTracker[targetCol] = (spanTracker[targetCol] || 0) + remaining;
+        }
+      }
+
+      colIndex += colSpan;
+    });
+
+    advanceThroughSpans();
+
+    columnCount = Math.max(columnCount, line.length);
+    matrix.push(line);
+  });
+
+  return { matrix, columnCount };
+}
+
+function extractTableCellText(cell) {
+  const fragments = cell && Array.isArray(cell.content) ? cell.content : [];
+  const raw = inlineFragmentsToPlainText(fragments, { preserveWhitespace: true });
+  return normalizeJsonText(raw);
+}
+
+function padRow(row, width) {
+  const copy = Array.isArray(row) ? row.slice() : [];
+  for (let i = copy.length; i < width; i += 1) {
+    copy.push('');
+  }
+  return copy;
+}
+
+function renderSuperscriptText(text) {
+  if (!text) {
+    return '';
+  }
+  const mapped = Array.from(text)
+    .map((char) => SUPERSCRIPT_MAP[char] || char)
+    .join('');
+  if (mapped !== text) {
+    return mapped;
+  }
+  return `^${text}`;
+}
+
+function renderSubscriptText(text) {
+  if (!text) {
+    return '';
+  }
+  const mapped = Array.from(text)
+    .map((char) => SUBSCRIPT_MAP[char] || char)
+    .join('');
+  if (mapped !== text) {
+    return mapped;
+  }
+  return `_${text}`;
 }
 
 export function blocksToPlainText(blocks, depth = 0) {
@@ -616,36 +826,110 @@ export function blockToPlainText(block, depth = 0) {
   }
 }
 
-export function inlineFragmentsToPlainText(fragments) {
+export function inlineFragmentsToPlainText(fragments, options = {}) {
+  const { preserveWhitespace = false } = options;
   if (!Array.isArray(fragments)) {
     return '';
   }
-  const pieces = fragments
-    .map((fragment) => {
-      if (!fragment || typeof fragment !== 'object') {
-        return '';
-      }
-      switch (fragment.type) {
-        case 'text':
-          return (fragment.text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ');
-        case 'linebreak':
-          return '\n';
-        case 'strong':
-        case 'em':
-        case 'link':
-          return inlineFragmentsToPlainText(fragment.content || []);
-        case 'code':
-          return fragment.text || '';
-        case 'image':
-          return fragment.alt || fragment.title || fragment.src || '[image]';
-        case 'equation':
-          return fragment.latex || fragment.text || '';
-        default:
-          return '';
-      }
-    })
-    .filter(Boolean);
+
+  const pieces = [];
+
+  const appendChunk = (chunk, previous, previousType, currentType) => {
+    if (!chunk && chunk !== '') {
+      return { text: previous, type: previousType };
+    }
+    if (!preserveWhitespace && shouldInsertSpace(previous, chunk, previousType, currentType)) {
+      pieces.push(' ');
+    }
+    pieces.push(chunk);
+    return { text: chunk, type: currentType };
+  };
+
+  let previous = { text: '', type: null };
+
+  fragments.forEach((fragment) => {
+    if (!fragment || typeof fragment !== 'object') {
+      return;
+    }
+    const chunk = inlineFragmentToText(fragment, options);
+    if (chunk === null || chunk === undefined) {
+      return;
+    }
+    previous = appendChunk(chunk, previous.text, previous.type, fragment.type);
+  });
+
   return pieces.join('');
+}
+
+function inlineFragmentToText(fragment, options) {
+  switch (fragment.type) {
+    case 'text':
+      return normalizeInlineText(fragment.text || '', options);
+    case 'linebreak':
+      return '\n';
+    case 'strong':
+    case 'em':
+    case 'link':
+      return inlineFragmentsToPlainText(fragment.content || [], options);
+    case 'code':
+      return fragment.text || '';
+    case 'superscript':
+      return renderSuperscriptText(
+        fragment.text || inlineFragmentsToPlainText(fragment.content || [], options)
+      );
+    case 'subscript':
+      return renderSubscriptText(
+        fragment.text || inlineFragmentsToPlainText(fragment.content || [], options)
+      );
+    case 'image':
+      return fragment.alt || fragment.title || fragment.src || '[image]';
+    case 'equation':
+      return fragment.latex || fragment.text || '';
+    default:
+      return '';
+  }
+}
+
+function normalizeInlineText(text, options) {
+  const { preserveWhitespace = false } = options || {};
+  if (!text) {
+    return '';
+  }
+  const base = text.replace(/\u00a0/g, ' ');
+  if (preserveWhitespace) {
+    return base;
+  }
+  return base.replace(/\s+/g, ' ');
+}
+
+function shouldInsertSpace(previous, next, previousType, nextType) {
+  if (!previous || !next) {
+    return false;
+  }
+  if (
+    previousType === 'superscript' ||
+    nextType === 'superscript' ||
+    previousType === 'subscript' ||
+    nextType === 'subscript'
+  ) {
+    return false;
+  }
+  const prevEnd = previous[previous.length - 1];
+  const nextStart = next[0];
+  if (!prevEnd || !nextStart) {
+    return false;
+  }
+  if (/\s/.test(prevEnd) || /\s/.test(nextStart)) {
+    return false;
+  }
+  if (isPunctuation(prevEnd) || isPunctuation(nextStart)) {
+    return false;
+  }
+  return true;
+}
+
+function isPunctuation(char) {
+  return /[.,!?;:()[\]{}<>]/.test(char);
 }
 
 function isEquationNode(node) {
@@ -753,6 +1037,24 @@ export function serializeInlineFragments(container) {
         });
         return;
       }
+      case 'sup': {
+        const content = serializeInlineFragments(element);
+        appendFragment({
+          type: 'superscript',
+          text: inlineFragmentsToPlainText(content),
+          content
+        });
+        return;
+      }
+      case 'sub': {
+        const content = serializeInlineFragments(element);
+        appendFragment({
+          type: 'subscript',
+          text: inlineFragmentsToPlainText(content),
+          content
+        });
+        return;
+      }
       default: {
         serializeInlineFragments(element).forEach(appendFragment);
       }
@@ -763,7 +1065,7 @@ export function serializeInlineFragments(container) {
 
   return fragments.filter((fragment) => {
     if (fragment.type === 'text') {
-      return Boolean(normalizeJsonText(fragment.text));
+      return typeof fragment.text === 'string';
     }
     return true;
   });
