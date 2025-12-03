@@ -1,6 +1,7 @@
 /**
  * Cleans the exported DOM by removing interactive elements and unwanted metadata.
  */
+
 import { EXPORT_EQUATION_CLASS } from '../constants.js';
 
 export function sanitizeExportNode(node) {
@@ -36,6 +37,16 @@ export function removeTrailingWhitespace(root) {
   while (walker.nextNode()) {
     const textNode = walker.currentNode;
     if (textNode.nodeValue) {
+      const parent = textNode.parentNode;
+      if (!parent || !isBlockElement(parent)) {
+        continue;
+      }
+
+      const nextSibling = textNode.nextSibling;
+      if (nextSibling && !isBlockElement(nextSibling)) {
+        continue;
+      }
+
       const trimmed = textNode.nodeValue.trimEnd();
       if (trimmed.length !== textNode.nodeValue.length) {
         toTrim.push({ node: textNode, value: trimmed });
@@ -45,6 +56,15 @@ export function removeTrailingWhitespace(root) {
   toTrim.forEach(({ node, value }) => {
     node.nodeValue = value;
   });
+}
+
+function isBlockElement(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  const computed = window.getComputedStyle(node);
+  const display = computed ? computed.display : '';
+  return ['block', 'flex', 'grid', 'table', 'flow-root', 'list-item'].includes(display) || node.tagName === 'BR';
 }
 
 export function hasRenderableContent(node) {

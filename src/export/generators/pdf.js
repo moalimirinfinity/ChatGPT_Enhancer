@@ -1,6 +1,7 @@
 /**
  * Handles PDF generation via the browser's native print dialog.
  */
+
 import { EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from '../constants.js';
 
 export async function exportAsPdf(stage) {
