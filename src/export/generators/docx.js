@@ -16,10 +16,7 @@ const DOCX_METADATA_MAX_LENGTH = 220;
 const DOCUMENT_TITLE_SUFFIXES = [' - ChatGPT', ' | ChatGPT', ' · ChatGPT'];
 
 export async function exportAsDocx(_stage, root) {
-  const metadataItems = buildDocxMetadata(root);
-  if (metadataItems) {
-    insertDocxMetadata(root, metadataItems);
-  }
+  stripDocxMetadata(root);
 
   prepareDocxSpecificAdjustments(root);
   await convertKatexToImages(root);
@@ -44,6 +41,14 @@ function wrapForDocx(innerHtml) {
     '</body>',
     '</html>'
   ].join('');
+}
+
+function stripDocxMetadata(root) {
+  if (!root) {
+    return;
+  }
+  const metadataNodes = root.querySelectorAll(`.${DOCX_METADATA_CLASS}`);
+  metadataNodes.forEach((node) => node.remove());
 }
 
 function prepareDocxSpecificAdjustments(root) {
