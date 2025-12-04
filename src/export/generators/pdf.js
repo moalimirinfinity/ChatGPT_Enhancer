@@ -1,8 +1,9 @@
 /**
  * Handles PDF generation via the browser's native print dialog.
  */
-
 import { EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from '../constants.js';
+
+const PRINT_CLEANUP_FALLBACK_MS = 1500;
 
 export async function exportAsPdf(stage) {
   const printStyle = document.createElement('style');
@@ -22,6 +23,10 @@ export async function exportAsPdf(stage) {
     }
 
     @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       body > *:not(.${EXPORT_STAGE_CLASS}) {
         display: none !important;
       }
@@ -48,6 +53,22 @@ export async function exportAsPdf(stage) {
     }
   `;
   document.head.appendChild(printStyle);
+
+  let cleanupTimer = null;
+  const cleanup = () => {
+    if (cleanupTimer) {
+      window.clearTimeout(cleanupTimer);
+      cleanupTimer = null;
+    }
+    if (printStyle.parentNode) {
+      printStyle.parentNode.removeChild(printStyle);
+    }
+    window.removeEventListener('afterprint', cleanup);
+  };
+
+  // Ensure cleanup runs even if the print dialog is blocked or never returns.
+  cleanupTimer = window.setTimeout(cleanup, PRINT_CLEANUP_FALLBACK_MS);
+  window.addEventListener('afterprint', cleanup);
+
   window.print();
-  document.head.removeChild(printStyle);
 }

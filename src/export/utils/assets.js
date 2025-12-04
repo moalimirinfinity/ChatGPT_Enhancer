@@ -19,11 +19,13 @@ export function ensureDocxRunnerLoaded() {
 
   docxRunnerReadyPromise = new Promise((resolve, reject) => {
     if (document.querySelector(`script[${DOCX_RUNNER_ATTR}]`)) {
-      resolve();
+      // If the runner script is already present, still verify the docx lib is available.
+      verifyDocxLibraryReady().then(resolve).catch(reject);
       return;
     }
 
     injectHtmlDocxScript()
+      .then(verifyDocxLibraryReady)
       .then(() => injectDocxRunnerScript())
       .then(resolve)
       .catch(reject);
@@ -66,7 +68,25 @@ function injectDocxRunnerScript() {
   });
 }
 
-export function requestDocxGeneration(htmlContent, filename, timeoutMs = 20000) {
+function verifyDocxLibraryReady() {
+  // Fail fast if the html-docx lib is blocked (CSP) and never exposes its global.
+  return new Promise((resolve, reject) => {
+    if (window && window.htmlDocx) {
+      resolve();
+      return;
+    }
+    // Give the browser a tick to attach the global in case onload fired before the assignment.
+    window.setTimeout(() => {
+      if (window && window.htmlDocx) {
+        resolve();
+      } else {
+        reject(new Error('DOCX library did not initialize; export cannot proceed.'));
+      }
+    }, 0);
+  });
+}
+
+export function requestDocxGeneration(htmlContent, filename, timeoutMs = 15000) {
   if (!htmlContent || !filename) {
     return Promise.reject(new Error('DOCX payload is incomplete'));
   }
