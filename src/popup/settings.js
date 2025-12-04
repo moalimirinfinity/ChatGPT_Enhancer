@@ -350,7 +350,8 @@ export function applySettingsToUI(controls, settings, deps) {
   updateFontOptionSelection(controls, 'english', nextSettings.fontEnglish, nextSettings, updateSetting);
   updateFontOptionSelection(controls, 'persian', nextSettings.fontPersian, nextSettings, updateSetting);
   setActiveFontTab(controls, currentFontTabRef?.value || FONT_LANGUAGES[0], currentFontTabRef);
-  setFontControlsDisabled(controls, !nextSettings.enableFix);
+  // Disable font controls when the extension is off or fonts are toggled off.
+  setFontControlsDisabled(controls, !(nextSettings.enableFix && nextSettings.fontsEnabled));
 
   const targetFormat = normalizeExportFormat(nextSettings.exportFormat || DEFAULT_SETTINGS.exportFormat);
   controls.exportFormatRadios?.forEach((input) => {

@@ -44,6 +44,16 @@ html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-prot
   text-align: center !important;
 }
 
+/* Even when KaTeX protection is disabled, keep math using the KaTeX stack so fonts never bleed in. */
+html.chatgpt-font-control-enabled .chatgpt-font-message .katex,
+html.chatgpt-font-control-enabled .chatgpt-font-message .katex *,
+html.chatgpt-font-control-enabled .chatgpt-font-message .katex-display,
+html.chatgpt-font-control-enabled .chatgpt-font-message .katex-display *,
+html.chatgpt-font-control-enabled .chatgpt-font-message .katex-html,
+html.chatgpt-font-control-enabled .chatgpt-font-message .katex-html * {
+  font-family: KaTeX_Main, "Times New Roman", serif !important;
+}
+
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code main [data-message-author-role] pre,
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
   main
