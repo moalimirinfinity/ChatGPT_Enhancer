@@ -1,9 +1,12 @@
 /**
  * Handles fetching and inlining of external images as Base64 data.
  */
+
 import * as htmlToImage from 'html-to-image';
 
+// Keep concurrent fetches low to avoid hammering storage buckets or hitting request caps.
 const INLINE_CONCURRENCY = 4;
+// Bound fetches so one slow image does not stall the entire export.
 const FETCH_TIMEOUT_MS = 8000;
 
 export async function inlineImages(root) {
@@ -71,6 +74,7 @@ async function rasterizeImageElement(img) {
   wrapper.style.display = 'inline-block';
   wrapper.style.background = '#ffffff';
   wrapper.appendChild(clone);
+  // Rasterize a same-origin clone to avoid CORS taint; keep it small to cap memory.
   return htmlToImage.toPng(wrapper, {
     pixelRatio: 2,
     cacheBust: true,

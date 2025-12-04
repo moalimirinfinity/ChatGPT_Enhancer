@@ -1,6 +1,12 @@
 /**
  * Main orchestrator for the export pipeline, managing the lifecycle from request to download.
+ *
+ * Responsibilities:
+ * - Gate exports to single-flight per tab and clean up orphaned stages/styles.
+ * - Coordinate preload steps (virtualized scrape, normalization, fonts, images).
+ * - Route to format-specific generators and emit progress/error events for the UI.
  */
+
 import { EXPORT_MESSAGE_TYPE, EXPORT_STAGE_CLASS } from './constants.js';
 import { EXPORT_STYLE_BLOCK } from './styles.js';
 import { ensureExportFontsLoaded } from './utils/assets.js';
@@ -14,7 +20,9 @@ import {
 import { inlineImages } from './core/images.js';
 import { getGenerator } from './generators/index.js';
 
+// UI progress bridge; consumed by content script to show toast updates.
 const PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
+// Single-flight guard to prevent overlapping exports in the same tab.
 let activeExportRun = null;
 
 function normalizeExportFormat(format) {
@@ -64,6 +72,7 @@ function dispatchExportSuccessEvent() {
 
 async function handleExportRequest(format) {
   if (activeExportRun) {
+    // Enforce single-flight: returning early avoids stage DOM conflicts and double work.
     throw new Error('An export is already in progress. Please wait for it to finish.');
   }
 

@@ -237,7 +237,7 @@ function buildExportToastMessage(status, detail) {
     case 'generating':
       return detail?.format ? `Generating ${detail.format.toUpperCase()}…` : 'Generating export…';
     case 'done':
-      return 'Export ready.';
+      return null;
     case 'cleanup':
       return null;
     case 'aborted':

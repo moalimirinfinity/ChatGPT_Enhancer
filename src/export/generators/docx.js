@@ -1,6 +1,12 @@
 /**
  * Logic for generating and downloading DOCX files using html-docx-js.
+ *
+ * Responsibilities:
+ * - Prepare DOM for DOCX fidelity (code/table tweaks, direction, image normalization).
+ * - Convert KaTeX to images when needed and dispatch IPC to the injected runner.
+ * - Strip metadata cruft and inject DOCX-specific styles around the export root.
  */
+
 import { DOCX_EXPORT_STYLE_BLOCK } from '../styles.js';
 import { EXPORT_TURN_CLASS } from '../constants.js';
 import { buildFilename } from '../utils/download.js';
@@ -19,6 +25,7 @@ export async function exportAsDocx(_stage, root) {
   stripDocxMetadata(root);
 
   prepareDocxSpecificAdjustments(root);
+  normalizeImagesForDocx(root);
   await convertKatexToImages(root);
 
   const filename = buildFilename('docx');
@@ -195,6 +202,128 @@ function insertDocxMetadata(root, items) {
   }
 
   return container;
+}
+
+// Makes images DOCX-friendly and mitigates duplicated renders (e.g., DALL-E placeholders).
+function normalizeImagesForDocx(root) {
+  if (!root) {
+    return;
+  }
+  stripPictureSources(root);
+  removeHiddenImages(root);
+  dedupeSequentialImages(root);
+  dedupePerTurn(root);
+}
+
+function stripPictureSources(root) {
+  const pictures = root.querySelectorAll('picture');
+  pictures.forEach((picture) => {
+    const sources = picture.querySelectorAll('source');
+    sources.forEach((source) => source.remove());
+  });
+}
+
+function removeHiddenImages(root) {
+  const images = root.querySelectorAll('img');
+  images.forEach((img) => {
+    try {
+      // DOCX export does not carry over ChatGPT's CSS that hides placeholders; remove them manually.
+      const computed = window.getComputedStyle(img);
+      const displayNone = computed.display === 'none';
+      const visibilityHidden = computed.visibility === 'hidden';
+      const zeroArea =
+        (parseFloat(computed.width) || img.offsetWidth) <= 1 || (parseFloat(computed.height) || img.offsetHeight) <= 1;
+      const ariaHidden = img.getAttribute('aria-hidden') === 'true' || img.hasAttribute('hidden');
+      if (displayNone || visibilityHidden || zeroArea || ariaHidden) {
+        img.remove();
+      }
+    } catch (error) {
+      /* ignore */
+    }
+  });
+}
+
+// Removes immediately repeated images (same src/alt/title/srcset) to avoid multiplying layers.
+function dedupeSequentialImages(container) {
+  if (!container || !container.childNodes) {
+    return;
+  }
+  let lastSignature = null;
+
+  Array.from(container.childNodes).forEach((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node;
+      const tag = el.tagName ? el.tagName.toLowerCase() : '';
+      if (tag === 'img') {
+        const signature = buildImageSignature(el);
+        if (signature && signature === lastSignature) {
+          el.remove();
+          return;
+        }
+        lastSignature = signature;
+      } else if (tag !== 'br') {
+        if (hasMeaningfulContent(el)) {
+          lastSignature = null;
+        }
+      }
+      dedupeSequentialImages(el);
+    } else if (node.nodeType === Node.TEXT_NODE) {
+      if (node.nodeValue && node.nodeValue.trim()) {
+        lastSignature = null;
+      }
+    }
+  });
+}
+
+// Removes duplicate images within the same turn, even if separated by other elements,
+// keeping the first occurrence of each unique src/srcset/alt/title combination.
+function dedupePerTurn(root) {
+  const turns = root.querySelectorAll(`.${EXPORT_TURN_CLASS}`) || [];
+  turns.forEach((turn) => {
+    const seen = new Set();
+    Array.from(turn.querySelectorAll('img')).forEach((img) => {
+      const signature = buildImageSignature(img);
+      if (!signature) {
+        return;
+      }
+      // Collapse repeated layers (placeholder + real image) within a single turn.
+      if (seen.has(signature)) {
+        img.remove();
+        return;
+      }
+      seen.add(signature);
+    });
+  });
+}
+
+function buildImageSignature(el) {
+  const src = el.getAttribute ? el.getAttribute('src') || el.src || '' : '';
+  const srcset = el.getAttribute ? el.getAttribute('srcset') || '' : '';
+  const alt = el.getAttribute ? el.getAttribute('alt') || '' : '';
+  const title = el.getAttribute ? el.getAttribute('title') || '' : '';
+  if (!src && !srcset) {
+    return null;
+  }
+  return [src, srcset, alt, title].join('::');
+}
+
+function hasMeaningfulContent(element) {
+  if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  const text = element.textContent ? element.textContent.trim() : '';
+  if (text) {
+    return true;
+  }
+  return Array.from(element.childNodes || []).some((child) => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      return child.nodeValue && child.nodeValue.trim();
+    }
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      return hasMeaningfulContent(child);
+    }
+    return false;
+  });
 }
 
 function trimDocumentTitle(value) {

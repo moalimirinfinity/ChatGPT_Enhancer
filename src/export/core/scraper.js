@@ -1,5 +1,10 @@
 /**
  * Handles virtualization scrolling and extraction of conversation nodes from the DOM.
+ *
+ * Responsibilities:
+ * - Drive virtualized ChatGPT threads to load all turns (sentinels + mutation observation).
+ * - Collect message nodes, sanitize/normalize them, and assemble an export root.
+ * - Fall back gracefully when selectors change, while avoiding scroll fights with the user.
  */
 
 import { EXPORT_ROOT_CLASS, EXPORT_TURN_CLASS } from '../constants.js';

@@ -1,6 +1,7 @@
 /**
  * Helper functions for creating blobs and triggering browser downloads.
  */
+
 export function resolveRuntimeUrl(path) {
   if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
     try {

@@ -2,6 +2,7 @@
  * Manages KaTeX copy-to-clipboard and rendering protection in one place.
  * Protection is class-based (no inline overrides) so toggling the feature is idempotent.
  */
+
 import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
 
 const PROTECTION_CLASS = 'gpt-enhancer-katex-protected';

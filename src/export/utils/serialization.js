@@ -1,9 +1,21 @@
 /**
- * Utilities for traversing the DOM and serializing content into structured data (JSON/Markdown).
+ * Serialization helpers for exports.
+ *
+ * Responsibilities:
+ * - Traverse the sanitized export DOM and emit structured JSON/Markdown/CSV representations.
+ * - Preserve layout semantics (blocks, lists, tables, equations, RTL) even when ChatGPT's DOM shifts.
+ * - Normalize text (strip zero-width chars, collapse whitespace) for stable downstream formatting.
+ * - Handle block/inline nuances (code, images, tables, equations) and flatten tables for CSV.
+ *
+ * Key considerations:
+ * - JSON_BLOCK_LEVEL_SELECTOR + display heuristics keep paragraphs separate across DOM variants.
+ * - blockToPlainText/blocksToPlainText are used by CSV/text exporters; keep changes compatible.
+ * - Equation nodes and images are sanitized earlier; serializers avoid mutating the DOM.
  */
 
 import { EXPORT_EQUATION_CLASS, RTL_CHAR_REGEX, LTR_CHAR_REGEX } from '../constants.js';
 
+// Broader block selector helps preserve structure when ChatGPT wraps text in generic containers.
 const JSON_BLOCK_LEVEL_SELECTOR = [
   'p',
   'div',
@@ -184,6 +196,8 @@ function isBlockLevel(node) {
   return isDisplayBlock(node);
 }
 
+// Treats visually blocky elements as block-level even if tags change,
+// so A/B DOM variants don't collapse paragraphs into inline runs.
 function isDisplayBlock(node) {
   if (!node || node.nodeType !== Node.ELEMENT_NODE) {
     return false;
