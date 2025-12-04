@@ -69,13 +69,12 @@ function injectDocxRunnerScript() {
 }
 
 function verifyDocxLibraryReady() {
-  // Fail fast if the html-docx lib is blocked (CSP) and never exposes its global.
+  // Fast-fail if CSP blocks the html-docx library and the global never appears.
   return new Promise((resolve, reject) => {
     if (window && window.htmlDocx) {
       resolve();
       return;
     }
-    // Give the browser a tick to attach the global in case onload fired before the assignment.
     window.setTimeout(() => {
       if (window && window.htmlDocx) {
         resolve();
