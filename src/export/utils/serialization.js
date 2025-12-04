@@ -241,7 +241,11 @@ export function serializeChildNodesToBlocks(container, options = {}) {
       flushInlineGroup();
       const block = serializeBlockToJson(node);
       if (block) {
-        blocks.push(block);
+        if (block.type === 'container' && block.tag === 'div' && Array.isArray(block.blocks)) {
+          blocks.push(...block.blocks);
+        } else {
+          blocks.push(block);
+        }
       }
       return;
     }
@@ -258,9 +262,11 @@ export function serializeChildNodesToBlocks(container, options = {}) {
       if (element.querySelector && element.querySelector(JSON_BLOCK_LEVEL_SELECTOR)) {
         flushInlineGroup();
         const nestedBlocks = serializeChildNodesToBlocks(element, options);
-        nestedBlocks.forEach((block) => {
-          if (block) {
-            blocks.push(block);
+        nestedBlocks.forEach((nested) => {
+          if (nested && nested.type === 'container' && nested.tag === 'div' && Array.isArray(nested.blocks)) {
+            blocks.push(...nested.blocks);
+          } else if (nested) {
+            blocks.push(nested);
           }
         });
         return;
@@ -1007,7 +1013,8 @@ export function serializeInlineFragments(container) {
       return;
     }
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = textNodeValue(node);
+      let text = (node.nodeValue || '').replace(/[\r\n\t]+/g, ' ').replace(/\u00a0/g, ' ');
+      text = stripZeroWidth(text);
       if (text) {
         appendFragment({ type: 'text', text });
       }
@@ -1106,9 +1113,17 @@ export function serializeInlineFragments(container) {
 
   Array.from(container.childNodes || []).forEach(walk);
 
+  // Trim leading/trailing text fragments.
+  if (fragments.length > 0 && fragments[0].type === 'text') {
+    fragments[0].text = fragments[0].text.trimStart();
+  }
+  if (fragments.length > 0 && fragments[fragments.length - 1].type === 'text') {
+    fragments[fragments.length - 1].text = fragments[fragments.length - 1].text.trimEnd();
+  }
+
   return fragments.filter((fragment) => {
     if (fragment.type === 'text') {
-      return typeof fragment.text === 'string';
+      return typeof fragment.text === 'string' && fragment.text.length > 0;
     }
     return true;
   });
