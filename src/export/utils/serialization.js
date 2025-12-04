@@ -1311,7 +1311,11 @@ function serializeEquationMarkdown(node) {
     return '';
   }
   const content = stripZeroWidth(latex.trim());
-  return fragment?.displayMode ? `\n$$\n${content}\n$$\n` : `$${content}$`;
+  const isBlock = fragment?.displayMode || content.includes('\\begin{') || content.includes('\\[');
+  if (isBlock) {
+    return `\n\n$$\n${content}\n$$\n\n`;
+  }
+  return `$${content}$`;
 }
 
 function serializeGenericMarkdownBlock(node, context) {
@@ -1613,19 +1617,42 @@ function extractCodeLanguage(className) {
 }
 
 function escapeMarkdownText(text) {
+  if (!text) {
+    return '';
+  }
   return text
-    .replace(/\u200c/g, '')
+    // 1) Escape backslashes first to avoid double-escaping later.
     .replace(/\\/g, '\\\\')
-    .replace(/([`*_{}\[\]()#+\-!.>])/g, '\\$1');
+    // 2) Escape emphasis/code markers globally.
+    .replace(/`/g, '\\`')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/~/g, '\\~')
+    // 3) Escape link brackets.
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    // 4) Escape angle brackets to avoid raw HTML.
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // 5) Contextual escapes: only when markers start a line.
+    .replace(/^(\s*)([-+*])(\s)/gm, '$1\\$2$3') // unordered lists
+    .replace(/^(\s*\d+)\.(\s)/gm, '$1\\.$2') // ordered lists
+    .replace(/^(\s*)#+/gm, (match) => match.replace(/#/g, '\\#')) // headers
+    .replace(/^(\s*)>/gm, '$1\\>'); // blockquotes
 }
 
 function escapeLinkDestination(value) {
-  return value
-    .replace(/\u200c/g, '')
-    .replace(/\\/g, '\\\\')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)')
-    .replace(/\s/g, '%20');
+  if (!value) {
+    return '';
+  }
+  const cleanValue = value.replace(/\u200c/g, '');
+
+  try {
+    // Preserve structure, encode spaces/specials; tolerate already-encoded input.
+    return encodeURI(decodeURI(cleanValue));
+  } catch (error) {
+    return cleanValue.replace(/\s/g, '%20');
+  }
 }
 
 function stripZeroWidth(value) {
