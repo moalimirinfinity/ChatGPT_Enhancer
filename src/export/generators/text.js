@@ -15,7 +15,8 @@ export function exportAsCsv(root) {
   const payload = serializeExportRootToJson(root);
   const rows = buildCsvRows(payload);
   const csv = rows.map(formatCsvRow).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  // Prepend UTF-8 BOM so Excel detects encoding correctly (avoids mojibake for non-ASCII text).
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
   triggerDownload(blob, buildFilename('csv'));
 }
 
