@@ -14,7 +14,7 @@ import {
 import { DirectionFixer } from './fixers/direction.js';
 import { FontManager } from './fonts/index.js';
 import { TocManager } from './toc/index.js';
-import { KatexCopyFixer } from './fixers/katex.js';
+import { KatexManager } from './fixers/katex.js';
 import { MESSAGE_SELECTOR } from './constants.js';
 
 const root = document.documentElement;
@@ -29,10 +29,13 @@ const THEME_ATTRIBUTE_FILTER = [
   'data-theme-mode',
   'data-app-theme'
 ];
+const FIXER_OBSERVER_CONFIG = { childList: true, subtree: true, characterData: true };
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let pendingThemeSync = null;
 let suppressThemeObserver = false;
+let fixerObserver = null;
+let fixerObserverReconnectTimer = null;
 
 setThemeManagerEnabled(true);
 setFixerManagerEnabled(true);
@@ -62,7 +65,8 @@ function initializeManagers(settings) {
   DirectionFixer.init(settings);
   FontManager.init(settings);
   TocManager.init(settings);
-  KatexCopyFixer.init(settings);
+  KatexManager.init(settings);
+  syncFixerObserver();
   scheduleObserverRelease();
 }
 
@@ -107,7 +111,8 @@ function handleStorageChanges(changes, areaName) {
   DirectionFixer.update(picked);
   FontManager.update(picked);
   TocManager.update(picked);
-  KatexCopyFixer.update(picked);
+  KatexManager.update(picked);
+  syncFixerObserver();
   scheduleObserverRelease();
 }
 
@@ -236,4 +241,67 @@ function scheduleObserverRelease() {
   release(() => {
     suppressThemeObserver = false;
   });
+}
+
+function getConversationRoot() {
+  return document.querySelector('main') || document.body || document.documentElement;
+}
+
+/**
+ * Central MutationObserver so fixers don't register separate observers.
+ * Delegates to individual managers that handle their own debouncing.
+ */
+function attachFixerObserver() {
+  const target = getConversationRoot();
+  if (!target) {
+    scheduleFixerObserverReconnect();
+    return;
+  }
+  if (fixerObserverReconnectTimer) {
+    clearTimeout(fixerObserverReconnectTimer);
+    fixerObserverReconnectTimer = null;
+  }
+  if (!fixerObserver) {
+    fixerObserver = new MutationObserver(handleFixerMutations);
+  }
+  fixerObserver.disconnect();
+  fixerObserver.observe(target, FIXER_OBSERVER_CONFIG);
+}
+
+function detachFixerObserver() {
+  if (fixerObserver) {
+    fixerObserver.disconnect();
+  }
+  if (fixerObserverReconnectTimer) {
+    clearTimeout(fixerObserverReconnectTimer);
+    fixerObserverReconnectTimer = null;
+  }
+}
+
+function scheduleFixerObserverReconnect() {
+  if (fixerObserverReconnectTimer) {
+    return;
+  }
+  fixerObserverReconnectTimer = setTimeout(() => {
+    fixerObserverReconnectTimer = null;
+    if (currentSettings.enableFix) {
+      attachFixerObserver();
+    }
+  }, 500);
+}
+
+function handleFixerMutations(mutations) {
+  FontManager.handleFontMutations(mutations);
+  if (typeof DirectionFixer.handleMutations === 'function') {
+    DirectionFixer.handleMutations(mutations);
+  }
+  KatexManager.handleMutations(mutations);
+}
+
+function syncFixerObserver() {
+  if (currentSettings.enableFix) {
+    attachFixerObserver();
+  } else {
+    detachFixerObserver();
+  }
 }
