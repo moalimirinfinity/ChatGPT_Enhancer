@@ -6,6 +6,10 @@ import { EXPORT_EQUATION_CLASS, RTL_CHAR_REGEX, LTR_CHAR_REGEX } from '../consta
 
 const JSON_BLOCK_LEVEL_SELECTOR = [
   'p',
+  'div',
+  'section',
+  'article',
+  'main',
   'h1',
   'h2',
   'h3',
@@ -174,7 +178,22 @@ function isBlockLevel(node) {
   if (!node || node.nodeType !== Node.ELEMENT_NODE) {
     return false;
   }
-  return node.matches(JSON_BLOCK_LEVEL_SELECTOR);
+  if (node.matches(JSON_BLOCK_LEVEL_SELECTOR)) {
+    return true;
+  }
+  return isDisplayBlock(node);
+}
+
+function isDisplayBlock(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  try {
+    const computed = window.getComputedStyle(node);
+    return ['block', 'flex', 'grid', 'table', 'flow-root', 'list-item'].includes(computed.display);
+  } catch (error) {
+    return false;
+  }
 }
 
 export function serializeChildNodesToBlocks(container, options = {}) {
@@ -355,14 +374,20 @@ export function serializeTableBlock(table, direction) {
     .map((row) => {
       const cells = Array.from(row.children || [])
         .filter((cell) => cell.tagName && ['td', 'th'].includes(cell.tagName.toLowerCase()))
-        .map((cell) => ({
-          type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
-          content: serializeInlineFragments(cell),
-          colSpan: parseSpanValue(cell.getAttribute('colspan')),
-          rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
-          direction: resolveNodeDirection(cell)
-        }))
-        .filter((cell) => (cell.content && cell.content.length) || cell.colSpan || cell.rowSpan);
+        .map((cell) => {
+          const content = serializeInlineFragments(cell);
+          // Capture nested structures inside table cells (lists, code blocks) so we do not lose structure.
+          const nestedBlocks = serializeChildNodesToBlocks(cell, { skipInlineParagraph: true });
+          return {
+            type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
+            content: content && content.length ? content : undefined,
+            blocks: nestedBlocks && nestedBlocks.length ? nestedBlocks : undefined,
+            colSpan: parseSpanValue(cell.getAttribute('colspan')),
+            rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
+            direction: resolveNodeDirection(cell)
+          };
+        })
+        .filter((cell) => (cell.content && cell.content.length) || (cell.blocks && cell.blocks.length) || cell.colSpan || cell.rowSpan);
       if (!cells.length) {
         return null;
       }
@@ -592,10 +617,11 @@ export function escapeCsvValue(value) {
   const stringValue = typeof value === 'string' ? value : String(value);
   const sanitized = sanitizeCsvCell(stringValue);
   const normalized = sanitized.replace(/\r\n?/g, '\n');
-  if (!/[",\n]/.test(normalized)) {
-    return normalized;
+  const crlfNormalized = normalized.replace(/\n/g, '\r\n');
+  if (!/[",\r\n]/.test(crlfNormalized)) {
+    return crlfNormalized;
   }
-  return `"${normalized.replace(/"/g, '""')}"`;
+  return `"${crlfNormalized.replace(/"/g, '""')}"`;
 }
 
 function sanitizeCsvCell(raw) {
@@ -671,8 +697,11 @@ function buildTableMatrix(block) {
 
 function extractTableCellText(cell) {
   const fragments = cell && Array.isArray(cell.content) ? cell.content : [];
-  const raw = inlineFragmentsToPlainText(fragments, { preserveWhitespace: true });
-  return normalizeJsonText(raw);
+  const nestedBlocks = Array.isArray(cell && cell.blocks) ? cell.blocks : [];
+  const rawInline = inlineFragmentsToPlainText(fragments, { preserveWhitespace: true });
+  const nestedText = blocksToPlainText(nestedBlocks, 0);
+  const combined = [rawInline, nestedText].filter((value) => value && value.trim()).join('\n');
+  return normalizeJsonText(combined || rawInline);
 }
 
 function padRow(row, width) {

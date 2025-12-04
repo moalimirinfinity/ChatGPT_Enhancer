@@ -18,6 +18,7 @@ import { KatexManager } from './fixers/katex.js';
 import { MESSAGE_SELECTOR } from './constants.js';
 
 const root = document.documentElement;
+const EXPORT_PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
 const THEME_MANAGER_FLAG = '__CHATGPT_ENHANCER_THEME_MANAGER_ENABLED';
 const FIXER_MANAGER_FLAG = '__CHATGPT_ENHANCER_FIXER_MANAGER_ENABLED';
 const THEME_ATTRIBUTE_FILTER = [
@@ -36,6 +37,8 @@ let pendingThemeSync = null;
 let suppressThemeObserver = false;
 let fixerObserver = null;
 let fixerObserverReconnectTimer = null;
+let exportToastNode = null;
+let exportToastTimer = null;
 
 setThemeManagerEnabled(true);
 setFixerManagerEnabled(true);
@@ -68,6 +71,7 @@ function initializeManagers(settings) {
   KatexManager.init(settings);
   syncFixerObserver();
   scheduleObserverRelease();
+  attachExportProgressListener();
 }
 
 function setThemeManagerEnabled(enabled) {
@@ -196,6 +200,87 @@ function attachColorSchemeListener() {
   } catch (error) {
     console.error('[GPT Enhancer] Unable to attach color scheme listener.', error);
   }
+}
+
+function attachExportProgressListener() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  // Surface export progress/error events from the content script into a lightweight toast for users.
+  document.addEventListener(EXPORT_PROGRESS_EVENT, (event) => {
+    const detail = event?.detail || {};
+    handleExportProgress(detail);
+  });
+}
+
+function handleExportProgress(detail) {
+  const status = detail?.status || '';
+  const message = buildExportToastMessage(status, detail);
+  if (!message) {
+    return;
+  }
+  showExportToast(message);
+}
+
+function buildExportToastMessage(status, detail) {
+  switch (status) {
+    case 'starting':
+      return 'Preparing export…';
+    case 'loading-content':
+      return 'Loading conversation…';
+    case 'normalizing':
+      return 'Cleaning conversation…';
+    case 'fonts':
+      return 'Loading export fonts…';
+    case 'images':
+      return 'Inlining images…';
+    case 'generating':
+      return detail?.format ? `Generating ${detail.format.toUpperCase()}…` : 'Generating export…';
+    case 'done':
+      return 'Export ready.';
+    case 'cleanup':
+      return null;
+    case 'aborted':
+      return 'Export stopped (tab hidden or closed).';
+    case 'error': {
+      const raw = (detail && detail.message) || '';
+      if (raw.includes('export-interrupted')) {
+        return 'Export paused because the page was scrolled. Please retry when idle.';
+      }
+      return raw || 'Export failed. Please retry.';
+    }
+    default:
+      return null;
+  }
+}
+
+function showExportToast(message) {
+  if (!document.body) {
+    return;
+  }
+
+  if (!exportToastNode) {
+    exportToastNode = document.createElement('div');
+    exportToastNode.className = 'gpt-export-toast';
+    document.body.appendChild(exportToastNode);
+  }
+
+  exportToastNode.textContent = message;
+  exportToastNode.classList.add('is-visible');
+
+  exportToastNode.style.left = '50%';
+  exportToastNode.style.top = '24px';
+  exportToastNode.style.transform = 'translate(-50%, 0)';
+
+  if (exportToastTimer) {
+    clearTimeout(exportToastTimer);
+  }
+
+  exportToastTimer = setTimeout(() => {
+    if (exportToastNode) {
+      exportToastNode.classList.remove('is-visible');
+    }
+  }, 2200);
 }
 
 function scheduleThemeSync(environmentMode) {

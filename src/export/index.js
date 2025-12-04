@@ -40,9 +40,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return undefined;
   }
 
-  handleExportRequest(message.format || 'pdf')
+  const format = message.format || 'pdf';
+  handleExportRequest(format)
     .then(() => sendResponse({ ok: true }))
     .catch((error) => {
+      dispatchProgress('error', {
+        format: normalizeExportFormat(format),
+        message: error instanceof Error ? error.message : String(error)
+      });
       sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
     });
 
