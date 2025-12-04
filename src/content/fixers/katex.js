@@ -1,12 +1,104 @@
 /**
- * Enables click-to-copy functionality for KaTeX mathematical formulas.
+ * Manages KaTeX copy-to-clipboard and rendering protection in one place.
+ * Protection is class-based (no inline overrides) so toggling the feature is idempotent.
  */
-import { DEFAULT_SETTINGS } from '../../common/config.js';
+import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
+
+const PROTECTION_CLASS = 'gpt-enhancer-katex-protected';
+const LEGACY_INLINE_PROPS = [
+  'direction',
+  'unicode-bidi',
+  'unicodeBidi',
+  'text-align',
+  'textAlign',
+  'font-family',
+  '--font-body'
+];
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isCopyListenerActive = false;
 let toastNode = null;
 let toastTimer = null;
+
+function isProtectionEnabled(settings = currentSettings) {
+  return Boolean(settings?.enableFix && settings?.fixKatex);
+}
+
+function shouldListen(settings = currentSettings) {
+  return Boolean(settings?.enableFix && settings?.copyKatex);
+}
+
+/**
+ * Remove legacy inline overrides that older fixers injected on math nodes.
+ * This clears stale state when toggling protection off/on.
+ */
+function cleanupLegacyInlineStyles(scope = document) {
+  const katexNodes = scope?.querySelectorAll?.(SELECTORS.katex);
+  if (!katexNodes || !katexNodes.length) {
+    return;
+  }
+  katexNodes.forEach((node) => {
+    const targets = [node, ...node.querySelectorAll('*')];
+    targets.forEach((el) => {
+      if (!(el instanceof HTMLElement)) {
+        return;
+      }
+      LEGACY_INLINE_PROPS.forEach((prop) => el.style.removeProperty(prop));
+      // Clear any inline ChatGPT font variables that can leak into math.
+      Array.from(el.style)
+        .filter((prop) => prop.startsWith('--chatgpt-font-'))
+        .forEach((prop) => el.style.removeProperty(prop));
+    });
+  });
+}
+
+function applyProtection(scope = document) {
+  if (!isProtectionEnabled() || !scope?.querySelectorAll) {
+    return;
+  }
+  cleanupLegacyInlineStyles(scope);
+  const nodes = scope.querySelectorAll(SELECTORS.katex);
+  nodes.forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.classList.add(PROTECTION_CLASS);
+    }
+  });
+}
+
+function clearProtection(scope = document) {
+  if (!scope?.querySelectorAll) {
+    return;
+  }
+  const nodes = scope.querySelectorAll(`.${PROTECTION_CLASS}`);
+  nodes.forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.classList.remove(PROTECTION_CLASS);
+    }
+  });
+}
+
+/**
+ * Mutation hook to be used by the central observer — re-scan only when new nodes appear.
+ */
+function handleMutations(mutations) {
+  if (!isProtectionEnabled() || !mutations?.length) {
+    return;
+  }
+  const shouldRescan = mutations.some((mutation) => {
+    if (mutation.type !== 'childList') {
+      return false;
+    }
+    return Array.from(mutation.addedNodes || []).some((node) => {
+      if (!(node instanceof Element)) {
+        return false;
+      }
+      return node.matches?.(SELECTORS.katex) || node.querySelector?.(SELECTORS.katex);
+    });
+  });
+  if (shouldRescan) {
+    applyProtection();
+  }
+}
 
 function extractLatex(element) {
   const preferred = element.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
@@ -114,7 +206,7 @@ async function handleEquationClick(event) {
     return;
   }
 
-  const katexElement = target.closest('.katex, .katex-display');
+  const katexElement = target.closest(SELECTORS.katex);
   if (!katexElement) {
     return;
   }
@@ -127,10 +219,6 @@ async function handleEquationClick(event) {
   } catch (error) {
     showToast('Unable to copy equation');
   }
-}
-
-function shouldListen(settings = currentSettings) {
-  return Boolean(settings?.enableFix && settings?.copyKatex);
 }
 
 function syncListener() {
@@ -150,6 +238,11 @@ function syncListener() {
 function init(settings) {
   currentSettings = { ...currentSettings, ...(settings || {}) };
   syncListener();
+  if (isProtectionEnabled()) {
+    applyProtection();
+  } else {
+    clearProtection();
+  }
 }
 
 function update(changes) {
@@ -157,16 +250,25 @@ function update(changes) {
     return;
   }
   const next = { ...currentSettings };
-  ['enableFix', 'copyKatex'].forEach((key) => {
+  ['enableFix', 'fixKatex', 'copyKatex'].forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(changes, key) && changes[key]) {
       next[key] = changes[key].newValue;
     }
   });
   currentSettings = next;
   syncListener();
+  if (isProtectionEnabled()) {
+    applyProtection();
+  } else {
+    clearProtection();
+  }
 }
 
-export const KatexCopyFixer = {
+export const KatexManager = {
   init,
-  update
+  update,
+  apply: applyProtection,
+  clear: clearProtection,
+  handleMutations,
+  cleanupLegacyInlineStyles
 };

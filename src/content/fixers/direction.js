@@ -1,6 +1,8 @@
 /**
  * Monitors and corrects text direction (RTL/LTR) for code blocks, tables, and mixed content.
+ * KaTeX direction protection lives in KatexManager to avoid overlapping inline fixes.
  */
+
 import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
 
 const root = document.documentElement;
@@ -11,8 +13,6 @@ const RESET_VALUES = {
 };
 
 let currentSettings = { ...DEFAULT_SETTINGS };
-let observer = null;
-let reconnectTimer = null;
 let pendingApply = null;
 
 export function applyDirectionFixes(scope = getConversationRoot()) {
@@ -20,12 +20,10 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
     return;
   }
 
-  const katexNodes = Array.from(scope.querySelectorAll(SELECTORS.katex));
   const codeNodes = Array.from(scope.querySelectorAll(SELECTORS.code));
   const tableNodes = Array.from(scope.querySelectorAll(SELECTORS.tables));
 
   // Always clear before reapplying to avoid stale inline values when toggling repeatedly.
-  clearStyles(katexNodes);
   clearStyles(codeNodes);
   clearStyles(tableNodes);
 
@@ -43,23 +41,12 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
       textAlign: RESET_VALUES.textAlign
     });
   }
-
-  // Apply KaTeX last so it wins over table direction inheritance.
-  if (katexNodes.length) {
-    if (currentSettings.fixKatex) {
-      applyStyles(katexNodes, {
-        direction: RESET_VALUES.direction,
-        unicodeBidi: 'isolate'
-      });
-    }
-  }
 }
 
 export function clearDirectionFixes(scope = getConversationRoot()) {
   if (!scope) {
     return;
   }
-  clearStyles(scope.querySelectorAll(SELECTORS.katex));
   clearStyles(scope.querySelectorAll(SELECTORS.code));
   clearStyles(scope.querySelectorAll(SELECTORS.tables));
 }
@@ -70,9 +57,7 @@ export function init(settings) {
   if (isEnabled()) {
     clearDisabledFeatures({}, currentSettings);
     applyDirectionFixes();
-    ensureObserver();
   } else {
-    teardownObserver();
     clearDirectionFixes();
   }
 }
@@ -93,9 +78,7 @@ export function update(changes) {
   if (isEnabled()) {
     clearDisabledFeatures(previous, next);
     applyDirectionFixes();
-    ensureObserver();
   } else {
-    teardownObserver();
     clearDirectionFixes();
   }
 }
@@ -104,7 +87,8 @@ export const DirectionFixer = {
   init,
   update,
   apply: applyDirectionFixes,
-  clear: clearDirectionFixes
+  clear: clearDirectionFixes,
+  handleMutations
 };
 
 function isEnabled(settings = currentSettings) {
@@ -139,37 +123,6 @@ function clearStyles(elements) {
   });
 }
 
-function ensureObserver() {
-  const target = getConversationRoot();
-  if (!target) {
-    scheduleReconnect();
-    return;
-  }
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
-  if (!observer) {
-    observer = new MutationObserver(handleMutations);
-  }
-  observer.disconnect();
-  observer.observe(target, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-}
-
-function teardownObserver() {
-  if (observer) {
-    observer.disconnect();
-  }
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
-}
-
 function handleMutations(mutations) {
   if (!isEnabled()) {
     return;
@@ -198,25 +151,12 @@ function scheduleApply() {
   }
 }
 
-function scheduleReconnect() {
-  if (reconnectTimer) {
-    return;
-  }
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    if (isEnabled()) {
-      ensureObserver();
-    }
-  }, 500);
-}
-
 function syncRootClasses() {
   if (!root) {
     return;
   }
   const enabled = isEnabled();
   root.classList.toggle('chatgpt-direction-fix-enabled', enabled);
-  root.classList.toggle('chatgpt-direction-fix-katex', enabled && currentSettings.fixKatex);
   root.classList.toggle('chatgpt-direction-fix-code', enabled && currentSettings.fixCode);
   root.classList.toggle('chatgpt-direction-fix-tables', enabled && currentSettings.fixTables);
 }
@@ -232,9 +172,6 @@ function clearDisabledFeatures(previous, next) {
   const scope = getConversationRoot();
   if (!scope) {
     return;
-  }
-  if (previous.fixKatex && !next.fixKatex) {
-    clearStyles(scope.querySelectorAll(SELECTORS.katex));
   }
   if (previous.fixCode && !next.fixCode) {
     clearStyles(scope.querySelectorAll(SELECTORS.code));

@@ -2,15 +2,13 @@
  * Handles injection and application of custom fonts for English and Persian text.
  */
 
-import { DEFAULT_SETTINGS, FONT_STACKS, SELECTORS } from '../../common/config.js';
+import { DEFAULT_SETTINGS, FONT_STACKS } from '../../common/config.js';
 import { SUPPORTED_LANGUAGES, detectLanguage } from '../../common/languages.js';
 
 const root = document.documentElement;
 let messageSelector = '*';
 const FONT_VARIABLES = ['--font-body'];
 let fontImportStyle = null;
-let fontObserver = null;
-let fontObserverReconnectTimer = null;
 let pendingFontSync = false;
 let fontSyncInterval = null;
 let cachedSettings = { ...DEFAULT_SETTINGS };
@@ -112,7 +110,6 @@ export function applyFontsToMessage(element, fontSettings, options = {}) {
     });
   }
   resetCodeBlocksToMonospace(element);
-  protectEquations(element);
 }
 
 // Debounced observer handler keeps streaming from firing per keystroke while scanning the selector once.
@@ -188,7 +185,6 @@ export function apply(settings) {
       root.style.removeProperty(lang.variable);
     });
     clearGlobalFontVariables(FONT_VARIABLES);
-    disconnectFontObserver();
     resetMessageFontClasses(messageSelector, FONT_VARIABLES);
     stopFontSyncInterval();
     cancelPendingFontUpdate();
@@ -201,7 +197,6 @@ export function apply(settings) {
   setGlobalFontVariables(fontSettings.english);
   applyRootFontVariables(fontSettings);
   updateFontsForExistingMessages(fontSettings);
-  connectFontObserver();
 }
 
 export function update(changes) {
@@ -262,42 +257,6 @@ function ensureFontImports() {
   document.head.appendChild(fontImportStyle);
 }
 
-function connectFontObserver() {
-  // Observe the rendered chat container (retry if ChatGPT hasn't mounted yet).
-  const conversationRoot = document.querySelector('main') || document.body || document.documentElement;
-  if (fontObserverReconnectTimer) {
-    clearTimeout(fontObserverReconnectTimer);
-    fontObserverReconnectTimer = null;
-  }
-  if (!conversationRoot) {
-    disconnectFontObserver();
-    if (isActive()) {
-      fontObserverReconnectTimer = setTimeout(connectFontObserver, 500);
-    }
-    return;
-  }
-  if (!fontObserver) {
-    fontObserver = new MutationObserver((mutations) => handleFontMutations(mutations));
-  }
-  fontObserver.disconnect();
-  fontObserver.observe(conversationRoot, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-}
-
-function disconnectFontObserver() {
-  cancelPendingFontUpdate();
-  if (fontObserver) {
-    fontObserver.disconnect();
-  }
-  if (fontObserverReconnectTimer) {
-    clearTimeout(fontObserverReconnectTimer);
-    fontObserverReconnectTimer = null;
-  }
-}
-
 function updateFontsForExistingMessages(fontSettings) {
   if (!isActive()) {
     return;
@@ -335,31 +294,6 @@ function resolveRuntimeUrl(path) {
     }
   }
   return path;
-}
-
-/**
- * Prevent extension fonts from leaking into math elements by clearing
- * every supported font variable and forcing the canonical math stack.
- */
-function protectEquations(message) {
-  if (!(message instanceof HTMLElement)) {
-    return;
-  }
-  const equations = message.querySelectorAll(SELECTORS.katex);
-  equations.forEach((eq) => {
-    const nodes = [eq, ...eq.querySelectorAll('*')];
-    nodes.forEach((node) => {
-      node.style.setProperty('--font-body', 'initial', 'important');
-      SUPPORTED_LANGUAGES.forEach((lang) => {
-        if (lang.variable) {
-          node.style.setProperty(lang.variable, 'initial', 'important');
-        }
-      });
-      node.style.setProperty('font-family', 'KaTeX_Main, "Times New Roman", serif', 'important');
-      node.style.setProperty('direction', 'ltr', 'important');
-      node.style.setProperty('text-align', 'left', 'important');
-    });
-  });
 }
 
 function buildFontSettings(settings = cachedSettings) {

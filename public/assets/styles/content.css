@@ -21,28 +21,17 @@ html.chatgpt-font-control-enabled .chatgpt-font-message code * {
   font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace !important;
 }
 
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex main [data-message-author-role] .katex,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
-  main
-  [data-message-author-role]
-  .katex-display,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
-  main
-  [data-testid='conversation-turn']
-  .katex,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex
-  main
-  [data-testid='conversation-turn']
-  .katex-display {
-  direction: ltr;
-  unicode-bidi: isolate;
+/* Math protection: one class controls direction and font to avoid inline mutations. */
+.gpt-enhancer-katex-protected {
+  direction: ltr !important;
+  unicode-bidi: isolate !important;
+  font-family: KaTeX_Main, "Times New Roman", serif !important;
 }
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex [data-message-author-role] .katex,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex [data-message-author-role] .katex-display,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex .katex,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-katex .katex-display {
-  direction: ltr;
-  unicode-bidi: isolate;
+
+.gpt-enhancer-katex-protected * {
+  direction: ltr !important;
+  unicode-bidi: isolate !important;
+  font-family: inherit !important;
 }
 
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code main [data-message-author-role] pre,
