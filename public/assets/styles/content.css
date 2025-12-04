@@ -34,6 +34,16 @@ html.chatgpt-font-control-enabled .chatgpt-font-message code * {
   font-family: inherit !important;
 }
 
+/* Higher specificity so font overrides on messages cannot bleed into math; keep display math centered. */
+html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-protected,
+html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-protected * {
+  font-family: KaTeX_Main, "Times New Roman", serif !important;
+}
+
+html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-protected.katex-display {
+  text-align: center !important;
+}
+
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code main [data-message-author-role] pre,
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code
   main

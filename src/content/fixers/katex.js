@@ -5,15 +5,7 @@
 import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
 
 const PROTECTION_CLASS = 'gpt-enhancer-katex-protected';
-const LEGACY_INLINE_PROPS = [
-  'direction',
-  'unicode-bidi',
-  'unicodeBidi',
-  'text-align',
-  'textAlign',
-  'font-family',
-  '--font-body'
-];
+const LEGACY_INLINE_PROPS = ['direction', 'unicode-bidi', 'font-family', '--font-body'];
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let isCopyListenerActive = false;
@@ -42,6 +34,11 @@ function cleanupLegacyInlineStyles(scope = document) {
     targets.forEach((el) => {
       if (!(el instanceof HTMLElement)) {
         return;
+      }
+      // Only strip text-align if it matches legacy left overrides; keep center if the page set it.
+      const textAlign = el.style.getPropertyValue('text-align') || el.style.textAlign;
+      if (!textAlign || textAlign.trim().toLowerCase() === 'left') {
+        el.style.removeProperty('text-align');
       }
       LEGACY_INLINE_PROPS.forEach((prop) => el.style.removeProperty(prop));
       // Clear any inline ChatGPT font variables that can leak into math.
