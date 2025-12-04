@@ -28,6 +28,10 @@ function normalizeExportFormat(format) {
   return 'pdf';
 }
 
+function isTextExportFormat(format) {
+  return format === 'json' || format === 'markdown' || format === 'csv';
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== EXPORT_MESSAGE_TYPE) {
     return undefined;
@@ -56,9 +60,13 @@ async function handleExportRequest(format) {
   try {
     normalizeUnsupportedColors(root);
     ensureDirectionalConsistency(root);
-    insertRtlWeightBoundaries(root);
+    if (!isTextExportFormat(exportFormat)) {
+      insertRtlWeightBoundaries(root);
+    }
     await ensureExportFontsLoaded();
-    await inlineImages(root);
+    if (!isTextExportFormat(exportFormat)) {
+      await inlineImages(root);
+    }
 
     const generator = getGenerator(exportFormat);
     if (!generator) {
