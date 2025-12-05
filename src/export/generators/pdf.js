@@ -30,6 +30,12 @@ export async function exportAsPdf(stage) {
         position: static !important;
         z-index: 9999 !important;
       }
+      /* Override table styles to allow edge alignment based on direction */
+      .${EXPORT_ROOT_CLASS} table {
+        width: auto !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+      }
       .${EXPORT_ROOT_CLASS} .katex {
         display: inline-flex !important;
         align-items: center;
