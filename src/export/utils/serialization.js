@@ -38,6 +38,8 @@ const JSON_BLOCK_LEVEL_SELECTOR = [
   '.katex',
   '.' + EXPORT_EQUATION_CLASS
 ].join(', ');
+const KATEX_DISPLAY_SELECTOR = '.katex-display';
+const BLOCK_EQUATION_TAGS = new Set(['div']);
 
 const MARKDOWN_BLOCK_TAGS = new Set([
   'address',
@@ -470,11 +472,12 @@ export function serializeEquationBlock(node, direction) {
   if (!latex && !text) {
     return null;
   }
+  const displayMode = isEquationDisplayNode(node);
   return {
     type: 'equation',
     latex: latex || null,
     text,
-    displayMode: node.classList.contains('katex-display'),
+    displayMode,
     direction
   };
 }
@@ -988,6 +991,20 @@ function isEquationNode(node) {
   return node.classList.contains(EXPORT_EQUATION_CLASS) || node.classList.contains('katex');
 }
 
+function isEquationDisplayNode(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  if (node.classList.contains('katex-display')) {
+    return true;
+  }
+  if (typeof node.closest === 'function' && node.closest(KATEX_DISPLAY_SELECTOR)) {
+    return true;
+  }
+  const tag = node.tagName ? node.tagName.toLowerCase() : '';
+  return BLOCK_EQUATION_TAGS.has(tag);
+}
+
 export function serializeInlineFragments(container) {
   const fragments = [];
 
@@ -1136,11 +1153,12 @@ export function serializeEquationFragment(node) {
   if (!latex && !text) {
     return null;
   }
+  const displayMode = isEquationDisplayNode(node);
   return {
     type: 'equation',
     latex: latex || null,
     text,
-    displayMode: node.classList.contains('katex-display'),
+    displayMode,
     direction
   };
 }
