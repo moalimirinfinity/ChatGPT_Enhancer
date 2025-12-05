@@ -57,21 +57,6 @@ export async function exportAsPng(stage, root) {
   stage.appendChild(wrapper);
 
   try {
-    const images = Array.from(wrapper.querySelectorAll('img'));
-    if (images.length > 0) {
-      // Wait until each image is decoded so layout measurements include their natural size.
-      await Promise.all(
-        images.map((img) => {
-          if (img.complete) {
-            return Promise.resolve();
-          }
-          return img.decode().catch(() => Promise.resolve());
-        })
-      );
-      // Allow a short pause for layout to settle after decoding finishes.
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-
     const rect = wrapper.getBoundingClientRect();
     const measuredWidth = Math.max(rect.width, wrapper.scrollWidth);
     const measuredHeight = Math.max(rect.height, wrapper.scrollHeight);
