@@ -10,7 +10,14 @@ const INLINE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 8000;
 
 export async function inlineImages(root) {
-  const images = Array.from(root.querySelectorAll('img')).filter((img) => {
+  const allImages = Array.from(root.querySelectorAll('img'));
+  // Force eager loading so lazily-loaded user attachments render in the hidden export stage.
+  allImages.forEach((img) => {
+    img.removeAttribute('loading');
+    img.setAttribute('loading', 'eager');
+  });
+
+  const images = allImages.filter((img) => {
     const src = img.getAttribute('src') || '';
     return src && !src.startsWith('data:');
   });
