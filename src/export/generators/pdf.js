@@ -36,6 +36,14 @@ export async function exportAsPdf(stage) {
         max-width: 100% !important;
         table-layout: auto !important;
       }
+      /* Force code blocks to retain dark styling when printing */
+      .${EXPORT_ROOT_CLASS} pre {
+        background-color: #000 !important;
+        color: #fff !important;
+        border-radius: 6px !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
+      }
       .${EXPORT_ROOT_CLASS} .katex {
         display: inline-flex !important;
         align-items: center;
