@@ -3,7 +3,8 @@
  * Protection is class-based (no inline overrides) so toggling the feature is idempotent.
  */
 
-import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
+import { DEFAULT_SETTINGS } from '../../common/config.js';
+import { SELECTORS, selectKatexNodes } from '../selectors.js';
 
 const PROTECTION_CLASS = 'gpt-enhancer-katex-protected';
 const LEGACY_INLINE_PROPS = ['direction', 'unicode-bidi', 'font-family', '--font-body'];
@@ -26,7 +27,7 @@ function shouldListen(settings = currentSettings) {
  * This clears stale state when toggling protection off/on.
  */
 function cleanupLegacyInlineStyles(scope = document) {
-  const katexNodes = scope?.querySelectorAll?.(SELECTORS.katex);
+  const katexNodes = selectKatexNodes(scope).nodes;
   if (!katexNodes || !katexNodes.length) {
     return;
   }
@@ -55,7 +56,7 @@ function applyProtection(scope = document) {
     return;
   }
   cleanupLegacyInlineStyles(scope);
-  const nodes = scope.querySelectorAll(SELECTORS.katex);
+  const nodes = selectKatexNodes(scope).nodes;
   nodes.forEach((node) => {
     if (node instanceof HTMLElement) {
       node.classList.add(PROTECTION_CLASS);

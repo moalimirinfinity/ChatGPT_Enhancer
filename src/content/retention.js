@@ -7,9 +7,9 @@ import {
   LANGUAGE_DETECTION_MAX_MESSAGES,
   LANGUAGE_HINT_DEFAULT,
   LANGUAGE_HINT_MESSAGE_TYPE,
-  MESSAGE_SELECTOR,
   PERSIAN_CHAR_REGEX
 } from './constants.js';
+import { selectMessageNodes } from './selectors.js';
 import { RETENTION_COPY } from '../common/i18n.js';
 
 (() => {
@@ -230,7 +230,7 @@ import { RETENTION_COPY } from '../common/i18n.js';
     if (!container) {
       return '';
     }
-    const nodes = container.querySelectorAll(MESSAGE_SELECTOR);
+    const nodes = selectMessageNodes(container).nodes;
     if (!nodes || !nodes.length) {
       return '';
     }

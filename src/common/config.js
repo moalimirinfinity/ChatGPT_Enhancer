@@ -20,12 +20,6 @@ export const DEFAULT_SETTINGS = {
   fontChinese: 'noto-sans-sc'
 };
 
-export const SELECTORS = {
-  katex: '.katex, .katex-display, .katex-html, .katex-mathml',
-  code: 'pre, pre code, code',
-  tables: 'table'
-};
-
 export const THEME_COMPATIBILITY = {
   midnight: 'dark',
   aurora: 'dark',

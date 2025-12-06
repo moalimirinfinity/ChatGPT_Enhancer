@@ -8,7 +8,7 @@
  */
 
 import { EXPORT_ROOT_CLASS, EXPORT_TURN_CLASS } from '../constants.js';
-import { MESSAGE_SELECTOR } from '../../content/constants.js';
+import { getMessageSelector, selectMessageNodes } from '../../content/selectors.js';
 
 const VIRTUAL_IDLE_MS = 600;
 const VIRTUAL_PASS_TIMEOUT_MS = 12000;
@@ -18,7 +18,7 @@ const VIRTUAL_GLOBAL_TIMEOUT_MS = 20000;
 // without fighting the user's scroll. We scroll sentinels into view, wait for
 // DOM mutations to settle, and bail early if the user touches the page.
 export async function ensureConversationContentLoaded() {
-  const selector = MESSAGE_SELECTOR;
+  const selector = getMessageSelector();
   const main = document.querySelector('main');
   const container = main || document.body;
   if (!container) {
@@ -251,7 +251,7 @@ export function collectConversation(sanitizeFn, hasRenderableContentFn, finalize
   const exportRoot = document.createElement('div');
   exportRoot.className = EXPORT_ROOT_CLASS;
 
-  let nodes = Array.from(document.querySelectorAll(MESSAGE_SELECTOR));
+  let nodes = selectMessageNodes().nodes;
   nodes = nodes.filter((node, _, collection) => {
     return !collection.some((other) => other !== node && other.contains(node));
   });

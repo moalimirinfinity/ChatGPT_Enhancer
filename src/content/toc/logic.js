@@ -3,7 +3,7 @@
  */
 
 import { DEFAULT_SETTINGS } from '../../common/config.js';
-import { MESSAGE_SELECTOR } from '../constants.js';
+import { getMessageSelector, selectMessageNodes } from '../selectors.js';
 import { getChatGPTThemeMode, isCustomThemeActive } from '../theme/index.js';
 import { ensurePanel, rebuildList, teardownPanel, updateCollapseButton } from './ui.js';
 
@@ -714,7 +714,7 @@ function isPanelRtlDominant(text) {
 }
 
 function collectAssistantMessages() {
-  const nodes = document.querySelectorAll(MESSAGE_SELECTOR);
+  const { nodes } = selectMessageNodes();
   if (!nodes || !nodes.length) {
     return [];
   }
@@ -739,11 +739,12 @@ function findMessageRoot(node) {
   if (!(node instanceof HTMLElement)) {
     return null;
   }
-  let current = node.closest(MESSAGE_SELECTOR);
+  const messageSelector = getMessageSelector();
+  let current = node.closest(messageSelector);
   let lastMatch = null;
   while (current && current instanceof HTMLElement) {
     lastMatch = current;
-    const parentMatch = current.parentElement ? current.parentElement.closest(MESSAGE_SELECTOR) : null;
+    const parentMatch = current.parentElement ? current.parentElement.closest(messageSelector) : null;
     if (!parentMatch || parentMatch === current) {
       break;
     }

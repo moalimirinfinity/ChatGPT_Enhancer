@@ -15,7 +15,7 @@ import { DirectionFixer } from './fixers/direction.js';
 import { FontManager } from './fonts/index.js';
 import { TocManager } from './toc/index.js';
 import { KatexManager } from './fixers/katex.js';
-import { MESSAGE_SELECTOR } from './constants.js';
+import { getMessageSelector } from './selectors.js';
 
 const root = document.documentElement;
 const EXPORT_PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
@@ -46,7 +46,7 @@ bootstrap();
 
 async function bootstrap() {
   registerThemeTokenApplier(() => TocManager.applyThemeTokens());
-  FontManager.setMessageSelector(MESSAGE_SELECTOR);
+  FontManager.setMessageSelector(getMessageSelector());
   try {
     const stored = await loadSettings();
     currentSettings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
