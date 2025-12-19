@@ -1,6 +1,7 @@
 /**
  * Handles PDF generation via the browser's native print dialog.
  */
+
 import { EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from '../constants.js';
 
 export async function exportAsPdf(stage) {
@@ -28,6 +29,20 @@ export async function exportAsPdf(stage) {
         opacity: 1 !important;
         position: static !important;
         z-index: 9999 !important;
+      }
+      /* Override table styles to allow edge alignment based on direction */
+      .${EXPORT_ROOT_CLASS} table {
+        width: auto !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+      }
+      /* Force code blocks to retain dark styling when printing */
+      .${EXPORT_ROOT_CLASS} pre {
+        background-color: #000 !important;
+        color: #fff !important;
+        border-radius: 6px !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
       }
       .${EXPORT_ROOT_CLASS} .katex {
         display: inline-flex !important;

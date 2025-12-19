@@ -1,104 +1,134 @@
 /**
  * Centralized loader for external libraries and fonts required by exports.
+ *
+ * Responsibilities:
+ * - Inject and coordinate DOCX generation scripts via page-context IPC.
+ * - Resolve runtime asset URLs and ensure export fonts are loaded/registered.
+ * - Provide a timeout-bound request/response channel for DOCX generation.
  */
-import { VAZIRMATN_FONT_PATH, HTML_DOCX_PATH } from '../constants.js';
+
+import { VAZIRMATN_FONT_PATH } from '../constants.js';
 import { resolveRuntimeUrl } from './download.js';
 
-let htmlDocxLib = null;
-let htmlDocxLoadPromise = null;
+const DOCX_SCRIPT_ATTR = 'data-gpt-enhancer-docx';
+const DOCX_RUNNER_ATTR = 'data-gpt-enhancer-docx-runner';
+const DOCX_REQUEST_EVENT = 'GPT_ENHANCER_DOCX_REQUEST';
+const DOCX_RESULT_EVENT = 'GPT_ENHANCER_DOCX_RESULT';
+
+let docxRunnerReadyPromise = null;
 let exportFontRegistrationPromise = null;
 
-export async function ensureHtmlDocxLoaded() {
-  if (htmlDocxLib) {
-    return htmlDocxLib;
-  }
-  if (htmlDocxLoadPromise) {
-    return htmlDocxLoadPromise;
+export function ensureDocxRunnerLoaded() {
+  if (docxRunnerReadyPromise) {
+    return docxRunnerReadyPromise;
   }
 
-  htmlDocxLoadPromise = (async () => {
-    try {
-      const url = resolveRuntimeUrl(HTML_DOCX_PATH);
-      const response = await fetch(url);
-      if (response.ok) {
-        const source = await response.text();
-        try {
-          const exports = {};
-          const module = { exports };
-          const requireStub = (name) => {
-            if (typeof window !== 'undefined') {
-              return window[name] || null;
-            }
-            return null;
-          };
-          const executor = new Function(
-            'exports',
-            'module',
-            'require',
-            'global',
-            'window',
-            'self',
-            'globalThis',
-            `${source}\nreturn module.exports || exports || globalThis.htmlDocx || null;`
-          );
-          const evaluated = executor(exports, module, requireStub, globalThis, globalThis, globalThis, globalThis);
-          htmlDocxLib =
-            evaluated || module.exports || exports.htmlDocx || exports.default || window.htmlDocx || globalThis.htmlDocx || null;
-          if (htmlDocxLib) {
-            return htmlDocxLib;
-          }
-        } catch (evalError) {
-          /* fall through to script tag injection */
-        }
-      }
-    } catch (error) {
-      /* fall through to script tag injection */
+  // Injects html-docx + runner into the page context; runner handles IPC to create the blob.
+  docxRunnerReadyPromise = new Promise((resolve, reject) => {
+    if (document.querySelector(`script[${DOCX_RUNNER_ATTR}]`)) {
+      resolve();
+      return;
     }
 
-    return new Promise((resolve, reject) => {
-      const existing = document.querySelector('script[data-gpt-enhancer-docx]');
-      if (existing) {
-        if (existing.dataset.loaded === 'true') {
-          htmlDocxLib = window.htmlDocx || null;
-          if (htmlDocxLib) {
-            resolve(htmlDocxLib);
-            return;
-          }
-        }
-        existing.addEventListener(
-          'load',
-          () => {
-            htmlDocxLib = window.htmlDocx || null;
-            htmlDocxLib ? resolve(htmlDocxLib) : reject(new Error('htmlDocx library missing after load'));
-          },
-          { once: true }
-        );
-        existing.addEventListener(
-          'error',
-          () => reject(new Error('Failed to load html-docx library')),
-          { once: true }
-        );
+    injectHtmlDocxScript()
+      .then(() => injectDocxRunnerScript())
+      .then(resolve)
+      .catch(reject);
+  });
+
+  return docxRunnerReadyPromise;
+}
+
+function injectHtmlDocxScript() {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[${DOCX_SCRIPT_ATTR}]`)) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.dataset.gptEnhancerDocx = 'true';
+    script.setAttribute(DOCX_SCRIPT_ATTR, 'true');
+    script.src = getExtensionUrl('assets/libs/html-docx.min.js');
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Failed to load html-docx library'));
+    (document.head || document.documentElement).appendChild(script);
+  });
+}
+
+function injectDocxRunnerScript() {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[${DOCX_RUNNER_ATTR}]`)) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.setAttribute(DOCX_RUNNER_ATTR, 'true');
+    script.dataset.gptEnhancerDocxRunner = 'true';
+    script.src = getExtensionUrl('assets/scripts/docx-runner.js');
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Failed to load DOCX runner'));
+    (document.head || document.documentElement).appendChild(script);
+  });
+}
+
+export function requestDocxGeneration(htmlContent, filename, timeoutMs = 15000) {
+  if (!htmlContent || !filename) {
+    return Promise.reject(new Error('DOCX payload is incomplete'));
+  }
+
+  const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    // Clears listeners/timers after completion to avoid leaks across exports.
+    const cleanup = () => {
+      settled = true;
+      document.removeEventListener(DOCX_RESULT_EVENT, handleResult);
+      window.clearTimeout(timeout);
+    };
+
+    const handleResult = (event) => {
+      const detail = event?.detail || {};
+      if (detail.requestId !== requestId) {
         return;
       }
+      cleanup();
+      if (detail.ok) {
+        resolve();
+        return;
+      }
+      reject(new Error(detail.error || 'DOCX export failed'));
+    };
 
-      const script = document.createElement('script');
-      script.dataset.gptEnhancerDocx = 'true';
-      script.src = resolveRuntimeUrl(HTML_DOCX_PATH);
-      script.onload = () => {
-        script.dataset.loaded = 'true';
-        htmlDocxLib = window.htmlDocx || null;
-        if (!htmlDocxLib) {
-          reject(new Error('htmlDocx library missing after load'));
-          return;
+    // Avoid hanging the UI if the runner never responds (CSP or unexpected errors).
+    const timeout = window.setTimeout(() => {
+      if (!settled) {
+        cleanup();
+        reject(new Error('DOCX export timed out'));
+      }
+    }, timeoutMs);
+
+    document.addEventListener(DOCX_RESULT_EVENT, handleResult);
+    document.dispatchEvent(
+      new CustomEvent(DOCX_REQUEST_EVENT, {
+        detail: {
+          requestId,
+          html: htmlContent,
+          filename
         }
-        resolve(htmlDocxLib);
-      };
-      script.onerror = () => reject(new Error('Failed to load html-docx library'));
-      (document.head || document.documentElement).appendChild(script);
-    });
-  })();
+      })
+    );
+  });
+}
 
-  return htmlDocxLoadPromise;
+function getExtensionUrl(path) {
+  if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+    return chrome.runtime.getURL(path);
+  }
+  return path;
 }
 
 export async function ensureExportFontsLoaded() {

@@ -1,10 +1,27 @@
 /**
- * Utilities for traversing the DOM and serializing content into structured data (JSON/Markdown).
+ * Serialization helpers for exports.
+ *
+ * Responsibilities:
+ * - Traverse the sanitized export DOM and emit structured JSON/Markdown/CSV representations.
+ * - Preserve layout semantics (blocks, lists, tables, equations, RTL) even when ChatGPT's DOM shifts.
+ * - Normalize text (strip zero-width chars, collapse whitespace) for stable downstream formatting.
+ * - Handle block/inline nuances (code, images, tables, equations) and flatten tables for CSV.
+ *
+ * Key considerations:
+ * - JSON_BLOCK_LEVEL_SELECTOR + display heuristics keep paragraphs separate across DOM variants.
+ * - blockToPlainText/blocksToPlainText are used by CSV/text exporters; keep changes compatible.
+ * - Equation nodes and images are sanitized earlier; serializers avoid mutating the DOM.
  */
+
 import { EXPORT_EQUATION_CLASS, RTL_CHAR_REGEX, LTR_CHAR_REGEX } from '../constants.js';
 
+// Broader block selector helps preserve structure when ChatGPT wraps text in generic containers.
 const JSON_BLOCK_LEVEL_SELECTOR = [
   'p',
+  'div',
+  'section',
+  'article',
+  'main',
   'h1',
   'h2',
   'h3',
@@ -21,6 +38,8 @@ const JSON_BLOCK_LEVEL_SELECTOR = [
   '.katex',
   '.' + EXPORT_EQUATION_CLASS
 ].join(', ');
+const KATEX_DISPLAY_SELECTOR = '.katex-display';
+const BLOCK_EQUATION_TAGS = new Set(['div']);
 
 const MARKDOWN_BLOCK_TAGS = new Set([
   'address',
@@ -61,6 +80,42 @@ const MARKDOWN_BLOCK_TAGS = new Set([
 ]);
 
 const MARKDOWN_CODE_LANGUAGE_REGEX = /language-([a-z0-9+-]+)/i;
+
+const SUPERSCRIPT_MAP = {
+  '0': '\u2070',
+  '1': '\u00b9',
+  '2': '\u00b2',
+  '3': '\u00b3',
+  '4': '\u2074',
+  '5': '\u2075',
+  '6': '\u2076',
+  '7': '\u2077',
+  '8': '\u2078',
+  '9': '\u2079',
+  '+': '\u207a',
+  '-': '\u207b',
+  '=': '\u207c',
+  '(': '\u207d',
+  ')': '\u207e'
+};
+
+const SUBSCRIPT_MAP = {
+  '0': '\u2080',
+  '1': '\u2081',
+  '2': '\u2082',
+  '3': '\u2083',
+  '4': '\u2084',
+  '5': '\u2085',
+  '6': '\u2086',
+  '7': '\u2087',
+  '8': '\u2088',
+  '9': '\u2089',
+  '+': '\u208a',
+  '-': '\u208b',
+  '=': '\u208c',
+  '(': '\u208d',
+  ')': '\u208e'
+};
 
 export function serializeExportRootToJson(root) {
   const turns = Array.from(root.children || [])
@@ -137,10 +192,28 @@ function isBlockLevel(node) {
   if (!node || node.nodeType !== Node.ELEMENT_NODE) {
     return false;
   }
-  return node.matches(JSON_BLOCK_LEVEL_SELECTOR);
+  if (node.matches(JSON_BLOCK_LEVEL_SELECTOR)) {
+    return true;
+  }
+  return isDisplayBlock(node);
 }
 
-export function serializeChildNodesToBlocks(container) {
+// Treats visually blocky elements as block-level even if tags change,
+// so A/B DOM variants don't collapse paragraphs into inline runs.
+function isDisplayBlock(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  try {
+    const computed = window.getComputedStyle(node);
+    return ['block', 'flex', 'grid', 'table', 'flow-root', 'list-item'].includes(computed.display);
+  } catch (error) {
+    return false;
+  }
+}
+
+export function serializeChildNodesToBlocks(container, options = {}) {
+  const { skipInlineParagraph = false } = options;
   if (!container) {
     return [];
   }
@@ -155,7 +228,7 @@ export function serializeChildNodesToBlocks(container) {
     const temp = document.createElement('div');
     inlineGroup.forEach((node) => temp.appendChild(node.cloneNode(true)));
     const content = serializeInlineFragments(temp);
-    if (content.length) {
+    if (content.length && !skipInlineParagraph) {
       blocks.push({
         type: 'paragraph',
         content,
@@ -170,7 +243,11 @@ export function serializeChildNodesToBlocks(container) {
       flushInlineGroup();
       const block = serializeBlockToJson(node);
       if (block) {
-        blocks.push(block);
+        if (block.type === 'container' && block.tag === 'div' && Array.isArray(block.blocks)) {
+          blocks.push(...block.blocks);
+        } else {
+          blocks.push(block);
+        }
       }
       return;
     }
@@ -183,6 +260,19 @@ export function serializeChildNodesToBlocks(container) {
     }
 
     if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node;
+      if (element.querySelector && element.querySelector(JSON_BLOCK_LEVEL_SELECTOR)) {
+        flushInlineGroup();
+        const nestedBlocks = serializeChildNodesToBlocks(element, options);
+        nestedBlocks.forEach((nested) => {
+          if (nested && nested.type === 'container' && nested.tag === 'div' && Array.isArray(nested.blocks)) {
+            blocks.push(...nested.blocks);
+          } else if (nested) {
+            blocks.push(nested);
+          }
+        });
+        return;
+      }
       inlineGroup.push(node);
     }
   });
@@ -279,12 +369,13 @@ export function serializeListBlock(node, direction, ordered) {
     .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
     .map((item, index) => {
       const content = serializeInlineFragments(item);
-      const nestedBlocks = serializeChildNodesToBlocks(item);
+      const nestedBlocks = serializeChildNodesToBlocks(item, { skipInlineParagraph: true });
       const childLists = nestedBlocks.filter((block) => block && block.type === 'list');
       const otherBlocks = nestedBlocks.filter((block) => block && block.type !== 'list');
+      const effectiveContent = otherBlocks.length ? [] : content;
       return {
         index,
-        content: content.length ? content : undefined,
+        content: effectiveContent.length ? effectiveContent : undefined,
         direction: resolveNodeDirection(item, serializeInlineText(item)),
         children: childLists.length ? childLists : undefined,
         blocks: otherBlocks.length ? otherBlocks : undefined
@@ -305,14 +396,20 @@ export function serializeTableBlock(table, direction) {
     .map((row) => {
       const cells = Array.from(row.children || [])
         .filter((cell) => cell.tagName && ['td', 'th'].includes(cell.tagName.toLowerCase()))
-        .map((cell) => ({
-          type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
-          content: serializeInlineFragments(cell),
-          colSpan: parseSpanValue(cell.getAttribute('colspan')),
-          rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
-          direction: resolveNodeDirection(cell)
-        }))
-        .filter((cell) => (cell.content && cell.content.length) || cell.colSpan || cell.rowSpan);
+        .map((cell) => {
+          const content = serializeInlineFragments(cell);
+          // Capture nested structures inside table cells (lists, code blocks) so we do not lose structure.
+          const nestedBlocks = serializeChildNodesToBlocks(cell, { skipInlineParagraph: true });
+          return {
+            type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
+            content: content && content.length ? content : undefined,
+            blocks: nestedBlocks && nestedBlocks.length ? nestedBlocks : undefined,
+            colSpan: parseSpanValue(cell.getAttribute('colspan')),
+            rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
+            direction: resolveNodeDirection(cell)
+          };
+        })
+        .filter((cell) => (cell.content && cell.content.length) || (cell.blocks && cell.blocks.length) || cell.colSpan || cell.rowSpan);
       if (!cells.length) {
         return null;
       }
@@ -352,7 +449,8 @@ export function serializeFigureBlock(node, direction) {
 }
 
 export function serializeImageBlock(node, direction, inline = false) {
-  const src = node.getAttribute ? node.getAttribute('src') || node.src || '' : '';
+  const rawSrc = node.getAttribute ? node.getAttribute('src') || node.src || '' : '';
+  const src = sanitizeImageSource(rawSrc);
   const alt = node.getAttribute ? node.getAttribute('alt') || '' : '';
   const title = node.getAttribute ? node.getAttribute('title') || '' : '';
   if (!src && !alt) {
@@ -374,11 +472,12 @@ export function serializeEquationBlock(node, direction) {
   if (!latex && !text) {
     return null;
   }
+  const displayMode = isEquationDisplayNode(node);
   return {
     type: 'equation',
     latex: latex || null,
     text,
-    displayMode: node.classList.contains('katex-display'),
+    displayMode,
     direction
   };
 }
@@ -441,47 +540,96 @@ export function serializeInlineText(element, options = {}) {
 }
 
 function textNodeValue(node) {
-  return (node && node.nodeValue ? node.nodeValue : '').replace(/\u00a0/g, ' ');
+  return stripZeroWidth((node && node.nodeValue ? node.nodeValue : '').replace(/\u00a0/g, ' '));
 }
 
 export function normalizeJsonText(text) {
   if (!text) {
     return '';
   }
-  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripZeroWidth(text).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function buildCsvRows(payload) {
-  const rows = [['turn_index', 'role', 'direction', 'block_index', 'block_type', 'text']];
+  const records = [];
+  let maxTableColumns = 0;
+  const baseHeader = ['turn_index', 'role', 'direction', 'block_index', 'block_type', 'text'];
   const turns = payload && Array.isArray(payload.turns) ? payload.turns : [];
-  if (!turns.length) {
-    return rows;
-  }
 
   turns.forEach((turn, turnIdx) => {
     const blocks = Array.isArray(turn && turn.blocks) ? turn.blocks : [];
     const turnIndex = Number.isFinite(turn && turn.index) ? turn.index : turnIdx;
 
     if (!blocks.length) {
-      rows.push([turnIndex, turn?.role || '', turn?.direction || '', '', '', '']);
+      records.push({
+        base: [turnIndex, turn?.role || '', turn?.direction || '', '', '', ''],
+        tableRowIndex: '',
+        cells: {}
+      });
       return;
     }
 
     blocks.forEach((block, blockIdx) => {
+      if (block && block.type === 'table') {
+        const { matrix, columnCount } = materializeTableBlock(block);
+        maxTableColumns = Math.max(maxTableColumns, columnCount);
+
+        if (!matrix.length) {
+          records.push({
+            base: [turnIndex, turn?.role || '', turn?.direction || '', blockIdx + 1, 'table', ''],
+            tableRowIndex: '',
+            cells: {}
+          });
+          return;
+        }
+
+        matrix.forEach((row, rowIndex) => {
+          const cells = {};
+          row.forEach((value, colIdx) => {
+            const name = `table_col_${colIdx + 1}`;
+            cells[name] = value || '';
+          });
+          records.push({
+            base: [turnIndex, turn?.role || '', turn?.direction || '', blockIdx + 1, 'table', ''],
+            tableRowIndex: rowIndex + 1,
+            cells
+          });
+        });
+        return;
+      }
+
       const rawText = blockToPlainText(block, 0);
       const text = typeof rawText === 'string' ? rawText.replace(/\s+$/g, '') : '';
-      rows.push([
-        turnIndex,
-        turn?.role || '',
-        turn?.direction || '',
-        blockIdx + 1,
-        block && block.type ? block.type : '',
-        text
-      ]);
+      records.push({
+        base: [
+          turnIndex,
+          turn?.role || '',
+          turn?.direction || '',
+          blockIdx + 1,
+          block && block.type ? block.type : '',
+          text
+        ],
+        tableRowIndex: '',
+        cells: {}
+      });
     });
   });
 
-  return rows;
+  const tableColumns = [];
+  for (let i = 0; i < maxTableColumns; i += 1) {
+    tableColumns.push(`table_col_${i + 1}`);
+  }
+  const header = maxTableColumns ? [...baseHeader, 'table_row_index', ...tableColumns] : baseHeader;
+
+  const rows = records.map((record) => {
+    if (!maxTableColumns) {
+      return record.base;
+    }
+    const values = tableColumns.map((name) => record.cells[name] || '');
+    return [...record.base, record.tableRowIndex || '', ...values];
+  });
+
+  return [header, ...rows];
 }
 
 export function formatCsvRow(columns) {
@@ -490,11 +638,127 @@ export function formatCsvRow(columns) {
 
 export function escapeCsvValue(value) {
   const stringValue = typeof value === 'string' ? value : String(value);
-  const normalized = stringValue.replace(/\r\n?/g, '\n');
-  if (!/[",\n]/.test(normalized)) {
-    return normalized;
+  const sanitized = sanitizeCsvCell(stringValue);
+  const normalized = sanitized.replace(/\r\n?/g, '\n');
+  const crlfNormalized = normalized.replace(/\n/g, '\r\n');
+  if (!/[",\r\n]/.test(crlfNormalized)) {
+    return crlfNormalized;
   }
-  return `"${normalized.replace(/"/g, '""')}"`;
+  return `"${crlfNormalized.replace(/"/g, '""')}"`;
+}
+
+function sanitizeCsvCell(raw) {
+  if (!raw) {
+    return '';
+  }
+  const trimmed = raw.replace(/^\s+/, '');
+  const first = trimmed[0];
+  if (first && ['=', '+', '-', '@'].includes(first)) {
+    return `'${raw}`;
+  }
+  return raw;
+}
+
+function materializeTableBlock(block) {
+  const { matrix, columnCount } = buildTableMatrix(block);
+  const width = columnCount;
+  const normalizedMatrix = matrix.map((row) => padRow(row, width));
+  return { matrix: normalizedMatrix, columnCount: width };
+}
+
+function buildTableMatrix(block) {
+  const rows = Array.isArray(block && block.rows) ? block.rows : [];
+  const spanTracker = [];
+  const matrix = [];
+  let columnCount = 0;
+
+  rows.forEach((row) => {
+    const cells = Array.isArray(row && row.cells) ? row.cells : [];
+    const line = [];
+    let colIndex = 0;
+
+    const advanceThroughSpans = () => {
+      while ((spanTracker[colIndex] || 0) > 0) {
+        line.push('');
+        spanTracker[colIndex] -= 1;
+        colIndex += 1;
+      }
+    };
+
+    advanceThroughSpans();
+
+    cells.forEach((cell) => {
+      advanceThroughSpans();
+      const text = extractTableCellText(cell);
+      const colSpan = Number.isFinite(cell?.colSpan) && cell.colSpan > 1 ? cell.colSpan : 1;
+      const rowSpan = Number.isFinite(cell?.rowSpan) && cell.rowSpan > 1 ? cell.rowSpan : 1;
+
+      line.push(text);
+      for (let i = 1; i < colSpan; i += 1) {
+        line.push('');
+      }
+
+      if (rowSpan > 1) {
+        const remaining = rowSpan - 1;
+        for (let offset = 0; offset < colSpan; offset += 1) {
+          const targetCol = colIndex + offset;
+          spanTracker[targetCol] = (spanTracker[targetCol] || 0) + remaining;
+        }
+      }
+
+      colIndex += colSpan;
+    });
+
+    advanceThroughSpans();
+
+    columnCount = Math.max(columnCount, line.length);
+    matrix.push(line);
+  });
+
+  return { matrix, columnCount };
+}
+
+function extractTableCellText(cell) {
+  const fragments = cell && Array.isArray(cell.content) ? cell.content : [];
+  const nestedBlocks = Array.isArray(cell && cell.blocks) ? cell.blocks : [];
+  const rawInline = inlineFragmentsToPlainText(fragments, { preserveWhitespace: true });
+  const nestedText = blocksToPlainText(nestedBlocks, 0);
+  const combined = [rawInline, nestedText].filter((value) => value && value.trim()).join('\n');
+  return normalizeJsonText(combined || rawInline);
+}
+
+function padRow(row, width) {
+  const copy = Array.isArray(row) ? row.slice() : [];
+  for (let i = copy.length; i < width; i += 1) {
+    copy.push('');
+  }
+  return copy;
+}
+
+function renderSuperscriptText(text) {
+  if (!text) {
+    return '';
+  }
+  const mapped = Array.from(text)
+    .map((char) => SUPERSCRIPT_MAP[char] || char)
+    .join('');
+  if (mapped !== text) {
+    return mapped;
+  }
+  return `^${text}`;
+}
+
+function renderSubscriptText(text) {
+  if (!text) {
+    return '';
+  }
+  const mapped = Array.from(text)
+    .map((char) => SUBSCRIPT_MAP[char] || char)
+    .join('');
+  if (mapped !== text) {
+    return mapped;
+  }
+  return `_${text}`;
 }
 
 export function blocksToPlainText(blocks, depth = 0) {
@@ -614,36 +878,110 @@ export function blockToPlainText(block, depth = 0) {
   }
 }
 
-export function inlineFragmentsToPlainText(fragments) {
+export function inlineFragmentsToPlainText(fragments, options = {}) {
+  const { preserveWhitespace = false } = options;
   if (!Array.isArray(fragments)) {
     return '';
   }
-  const pieces = fragments
-    .map((fragment) => {
-      if (!fragment || typeof fragment !== 'object') {
-        return '';
-      }
-      switch (fragment.type) {
-        case 'text':
-          return (fragment.text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ');
-        case 'linebreak':
-          return '\n';
-        case 'strong':
-        case 'em':
-        case 'link':
-          return inlineFragmentsToPlainText(fragment.content || []);
-        case 'code':
-          return fragment.text || '';
-        case 'image':
-          return fragment.alt || fragment.title || fragment.src || '[image]';
-        case 'equation':
-          return fragment.latex || fragment.text || '';
-        default:
-          return '';
-      }
-    })
-    .filter(Boolean);
+
+  const pieces = [];
+
+  const appendChunk = (chunk, previous, previousType, currentType) => {
+    if (!chunk && chunk !== '') {
+      return { text: previous, type: previousType };
+    }
+    if (!preserveWhitespace && shouldInsertSpace(previous, chunk, previousType, currentType)) {
+      pieces.push(' ');
+    }
+    pieces.push(chunk);
+    return { text: chunk, type: currentType };
+  };
+
+  let previous = { text: '', type: null };
+
+  fragments.forEach((fragment) => {
+    if (!fragment || typeof fragment !== 'object') {
+      return;
+    }
+    const chunk = inlineFragmentToText(fragment, options);
+    if (chunk === null || chunk === undefined) {
+      return;
+    }
+    previous = appendChunk(chunk, previous.text, previous.type, fragment.type);
+  });
+
   return pieces.join('');
+}
+
+function inlineFragmentToText(fragment, options) {
+  switch (fragment.type) {
+    case 'text':
+      return normalizeInlineText(fragment.text || '', options);
+    case 'linebreak':
+      return '\n';
+    case 'strong':
+    case 'em':
+    case 'link':
+      return inlineFragmentsToPlainText(fragment.content || [], options);
+    case 'code':
+      return fragment.text || '';
+    case 'superscript':
+      return renderSuperscriptText(
+        fragment.text || inlineFragmentsToPlainText(fragment.content || [], options)
+      );
+    case 'subscript':
+      return renderSubscriptText(
+        fragment.text || inlineFragmentsToPlainText(fragment.content || [], options)
+      );
+    case 'image':
+      return fragment.alt || fragment.title || fragment.src || '[image]';
+    case 'equation':
+      return fragment.latex || fragment.text || '';
+    default:
+      return '';
+  }
+}
+
+function normalizeInlineText(text, options) {
+  const { preserveWhitespace = false } = options || {};
+  if (!text) {
+    return '';
+  }
+  const base = text.replace(/\u00a0/g, ' ');
+  if (preserveWhitespace) {
+    return base;
+  }
+  return base.replace(/\s+/g, ' ');
+}
+
+function shouldInsertSpace(previous, next, previousType, nextType) {
+  if (!previous || !next) {
+    return false;
+  }
+  if (
+    previousType === 'superscript' ||
+    nextType === 'superscript' ||
+    previousType === 'subscript' ||
+    nextType === 'subscript'
+  ) {
+    return false;
+  }
+  const prevEnd = previous[previous.length - 1];
+  const nextStart = next[0];
+  if (!prevEnd || !nextStart) {
+    return false;
+  }
+  if (/\s/.test(prevEnd) || /\s/.test(nextStart)) {
+    return false;
+  }
+  if (isPunctuation(prevEnd) || isPunctuation(nextStart)) {
+    return false;
+  }
+  return true;
+}
+
+function isPunctuation(char) {
+  return /[.,!?;:()[\]{}<>]/.test(char);
 }
 
 function isEquationNode(node) {
@@ -651,6 +989,20 @@ function isEquationNode(node) {
     return false;
   }
   return node.classList.contains(EXPORT_EQUATION_CLASS) || node.classList.contains('katex');
+}
+
+function isEquationDisplayNode(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  if (node.classList.contains('katex-display')) {
+    return true;
+  }
+  if (typeof node.closest === 'function' && node.closest(KATEX_DISPLAY_SELECTOR)) {
+    return true;
+  }
+  const tag = node.tagName ? node.tagName.toLowerCase() : '';
+  return BLOCK_EQUATION_TAGS.has(tag);
 }
 
 export function serializeInlineFragments(container) {
@@ -678,7 +1030,8 @@ export function serializeInlineFragments(container) {
       return;
     }
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = textNodeValue(node);
+      let text = (node.nodeValue || '').replace(/[\r\n\t]+/g, ' ').replace(/\u00a0/g, ' ');
+      text = stripZeroWidth(text);
       if (text) {
         appendFragment({ type: 'text', text });
       }
@@ -718,7 +1071,7 @@ export function serializeInlineFragments(container) {
         return;
       case 'code':
         if (!element.closest('pre')) {
-          const codeText = normalizeJsonText(element.textContent || '');
+          const codeText = extractInlineCodeText(element);
           if (codeText) {
             appendFragment({ type: 'code', text: codeText });
           }
@@ -736,15 +1089,36 @@ export function serializeInlineFragments(container) {
         return;
       }
       case 'img': {
-        const src = element.getAttribute('src') || element.src || '';
-        if (!src) {
+        const rawSrc = element.getAttribute('src') || element.src || '';
+        const src = sanitizeImageSource(rawSrc);
+        const alt = element.getAttribute('alt') || '';
+        const title = element.getAttribute('title') || null;
+        if (!src && !alt && !title) {
           return;
         }
         appendFragment({
           type: 'image',
           src,
-          alt: element.getAttribute('alt') || '',
-          title: element.getAttribute('title') || null
+          alt,
+          title
+        });
+        return;
+      }
+      case 'sup': {
+        const content = serializeInlineFragments(element);
+        appendFragment({
+          type: 'superscript',
+          text: inlineFragmentsToPlainText(content),
+          content
+        });
+        return;
+      }
+      case 'sub': {
+        const content = serializeInlineFragments(element);
+        appendFragment({
+          type: 'subscript',
+          text: inlineFragmentsToPlainText(content),
+          content
         });
         return;
       }
@@ -756,9 +1130,17 @@ export function serializeInlineFragments(container) {
 
   Array.from(container.childNodes || []).forEach(walk);
 
+  // Trim leading/trailing text fragments.
+  if (fragments.length > 0 && fragments[0].type === 'text') {
+    fragments[0].text = fragments[0].text.trimStart();
+  }
+  if (fragments.length > 0 && fragments[fragments.length - 1].type === 'text') {
+    fragments[fragments.length - 1].text = fragments[fragments.length - 1].text.trimEnd();
+  }
+
   return fragments.filter((fragment) => {
     if (fragment.type === 'text') {
-      return Boolean(normalizeJsonText(fragment.text));
+      return typeof fragment.text === 'string' && fragment.text.length > 0;
     }
     return true;
   });
@@ -771,11 +1153,12 @@ export function serializeEquationFragment(node) {
   if (!latex && !text) {
     return null;
   }
+  const displayMode = isEquationDisplayNode(node);
   return {
     type: 'equation',
     latex: latex || null,
     text,
-    displayMode: node.classList.contains('katex-display'),
+    displayMode,
     direction
   };
 }
@@ -792,16 +1175,62 @@ function extractLatex(element) {
   return element.textContent ? element.textContent.trim() : '';
 }
 
+function buildMarkdownMetadata() {
+  const title = typeof document !== 'undefined' && document.title ? document.title.trim() : '';
+  const url = typeof window !== 'undefined' && window.location ? window.location.href : '';
+  const exportedAt = new Date().toISOString();
+
+  const headingText = title ? escapeMarkdownText(title) : 'ChatGPT Conversation';
+  const lines = [`# ${headingText}`];
+
+  const meta = [];
+  if (url) {
+    const escapedUrl = escapeLinkDestination(url);
+    meta.push(`**URL:** [${escapeMarkdownText(url)}](${escapedUrl})`);
+  }
+  meta.push(`**Exported:** ${exportedAt}`);
+
+  lines.push(meta.join('\n\n'));
+  return lines.join('\n\n');
+}
+
+function formatRoleHeading(role, index) {
+  const normalized = typeof role === 'string' ? role.toLowerCase() : '';
+  let label;
+  if (normalized === 'user') {
+    label = 'User';
+  } else if (normalized === 'assistant') {
+    label = 'ChatGPT';
+  } else if (normalized) {
+    label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+  if (!label) {
+    label = `Message ${index + 1}`;
+  }
+  return `### ${escapeMarkdownText(label)}`;
+}
+
 export function serializeExportRootToMarkdown(root) {
-  const segments = [];
-  const context = { listDepth: 0, preserveWhitespace: false, inLink: false };
-  Array.from(root.childNodes).forEach((child) => {
-    const chunk = serializeNodeToMarkdown(child, context);
-    if (chunk && chunk.trim()) {
-      segments.push(chunk.trim());
+  const parts = [];
+  const metadata = buildMarkdownMetadata();
+  if (metadata) {
+    parts.push(metadata);
+  }
+
+  const turns = Array.from(root?.children || []);
+  turns.forEach((turn, index) => {
+    if (!turn || turn.nodeType !== Node.ELEMENT_NODE) {
+      return;
     }
+    const body = serializeBlockChildren(turn, { listDepth: 0, preserveWhitespace: false, inLink: false }).trim();
+    if (!body) {
+      return;
+    }
+    const heading = formatRoleHeading(detectTurnRole(turn), index);
+    parts.push(heading, body);
   });
-  return segments.join('\n\n');
+
+  return parts.join('\n\n');
 }
 
 function serializeNodeToMarkdown(node, context) {
@@ -811,6 +1240,10 @@ function serializeNodeToMarkdown(node, context) {
 
   if (node.nodeType !== Node.ELEMENT_NODE) {
     return '';
+  }
+
+  if (isEquationNode(node)) {
+    return serializeEquationMarkdown(node);
   }
 
   const tag = node.tagName.toLowerCase();
@@ -902,6 +1335,20 @@ function serializeNodeToMarkdown(node, context) {
     default:
       return serializeGenericMarkdownBlock(node, context);
   }
+}
+
+function serializeEquationMarkdown(node) {
+  const fragment = serializeEquationFragment(node);
+  const latex = fragment?.latex || fragment?.text || '';
+  if (!latex.trim()) {
+    return '';
+  }
+  const content = stripZeroWidth(latex.trim());
+  const isBlock = fragment?.displayMode || content.includes('\\begin{') || content.includes('\\[');
+  if (isBlock) {
+    return `\n\n$$\n${content}\n$$\n\n`;
+  }
+  return `$${content}$`;
 }
 
 function serializeGenericMarkdownBlock(node, context) {
@@ -1012,7 +1459,7 @@ function serializeLink(node, context) {
 
 function serializeImage(node) {
   const alt = escapeMarkdownText((node.getAttribute('alt') || '').trim());
-  const src = node.getAttribute('src') || '';
+  const src = sanitizeImageSource(node.getAttribute('src') || '');
   if (!src) {
     return alt ? `![${alt}]()` : '';
   }
@@ -1082,21 +1529,66 @@ function serializeTable(node, context) {
     return '';
   }
 
-  const matrix = rows
-    .map((row) => {
-      const cells = Array.from(row.children).filter((cell) => {
-        if (!cell || cell.nodeType !== Node.ELEMENT_NODE) {
-          return false;
-        }
-        const tagName = cell.tagName.toLowerCase();
-        return tagName === 'td' || tagName === 'th';
-      });
-      if (!cells.length) {
-        return null;
+  const spanTracker = [];
+  const matrix = [];
+  const headerFlags = [];
+
+  rows.forEach((row) => {
+    const cells = Array.from(row.children).filter((cell) => {
+      if (!cell || cell.nodeType !== Node.ELEMENT_NODE) {
+        return false;
       }
-      return cells.map((cell) => escapeTableCell(serializeInlineChildren(cell, context).trim()));
-    })
-    .filter(Boolean);
+      const tagName = cell.tagName.toLowerCase();
+      return tagName === 'td' || tagName === 'th';
+    });
+
+    if (!cells.length) {
+      return;
+    }
+
+    const rowValues = [];
+    let colIndex = 0;
+
+    const advanceThroughSpans = () => {
+      while ((spanTracker[colIndex] || 0) > 0) {
+        rowValues.push('');
+        spanTracker[colIndex] -= 1;
+        colIndex += 1;
+      }
+    };
+
+    advanceThroughSpans();
+
+    cells.forEach((cell) => {
+      advanceThroughSpans();
+
+      const content = escapeTableCell(serializeInlineChildren(cell, context).trim());
+      const colSpan = parseSpanValue(cell.getAttribute('colspan')) || 1;
+      const rowSpan = parseSpanValue(cell.getAttribute('rowspan')) || 1;
+
+      rowValues.push(content);
+      for (let i = 1; i < colSpan; i += 1) {
+        rowValues.push('');
+      }
+
+      if (rowSpan > 1) {
+        const remaining = rowSpan - 1;
+        for (let offset = 0; offset < colSpan; offset += 1) {
+          const targetCol = colIndex + offset;
+          spanTracker[targetCol] = (spanTracker[targetCol] || 0) + remaining;
+        }
+      }
+
+      colIndex += colSpan;
+    });
+
+    advanceThroughSpans();
+
+    if (rowValues.length) {
+      matrix.push(rowValues);
+      headerFlags.push(Boolean(row.querySelector('th')));
+    }
+  });
 
   if (!matrix.length) {
     return '';
@@ -1111,7 +1603,7 @@ function serializeTable(node, context) {
     return copy;
   });
 
-  let headerIndex = rows.findIndex((row) => row.querySelector('th'));
+  let headerIndex = headerFlags.findIndex(Boolean);
   if (headerIndex < 0) {
     headerIndex = 0;
   }
@@ -1158,17 +1650,63 @@ function extractCodeLanguage(className) {
 }
 
 function escapeMarkdownText(text) {
+  if (!text) {
+    return '';
+  }
   return text
+    // 1) Escape backslashes first to avoid double-escaping later.
     .replace(/\\/g, '\\\\')
-    .replace(/([`*_{}\[\]()#+\-!.>])/g, '\\$1');
+    // 2) Escape emphasis/code markers globally.
+    .replace(/`/g, '\\`')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/~/g, '\\~')
+    // 3) Escape link brackets.
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    // 4) Escape angle brackets to avoid raw HTML.
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // 5) Contextual escapes: only when markers start a line.
+    .replace(/^(\s*)([-+*])(\s)/gm, '$1\\$2$3') // unordered lists
+    .replace(/^(\s*\d+)\.(\s)/gm, '$1\\.$2') // ordered lists
+    .replace(/^(\s*)#+/gm, (match) => match.replace(/#/g, '\\#')) // headers
+    .replace(/^(\s*)>/gm, '$1\\>'); // blockquotes
 }
 
 function escapeLinkDestination(value) {
-  return value
-    .replace(/\\/g, '\\\\')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)')
-    .replace(/\s/g, '%20');
+  if (!value) {
+    return '';
+  }
+  const cleanValue = value.replace(/\u200c/g, '');
+
+  try {
+    // Preserve structure, encode spaces/specials; tolerate already-encoded input.
+    return encodeURI(decodeURI(cleanValue));
+  } catch (error) {
+    return cleanValue.replace(/\s/g, '%20');
+  }
+}
+
+function stripZeroWidth(value) {
+  if (!value) {
+    return '';
+  }
+  return value.replace(/\u200c/g, '');
+}
+
+function sanitizeImageSource(src) {
+  if (!src) {
+    return '';
+  }
+  const trimmed = src.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (/^data:/i.test(trimmed)) {
+    return '';
+  }
+  return trimmed;
 }
 
 function hasBlockDescendant(node) {
@@ -1194,4 +1732,19 @@ function countDirectionCharacters(text) {
     rtlCount: rtlMatches ? rtlMatches.length : 0,
     ltrCount: ltrMatches ? ltrMatches.length : 0
   };
+}
+
+function extractInlineCodeText(element) {
+  if (!element) {
+    return '';
+  }
+  const raw = element.textContent || '';
+  if (!raw) {
+    return '';
+  }
+  const normalized = raw.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ');
+  if (!/\S/.test(normalized)) {
+    return '';
+  }
+  return normalized.replace(/\n/g, ' ');
 }

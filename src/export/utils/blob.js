@@ -1,6 +1,7 @@
 /**
  * Utility for converting data URLs to Blob objects.
  */
+
 export function dataUrlToBlob(dataUrl) {
   const parts = dataUrl.split(',');
   if (parts.length < 2) {

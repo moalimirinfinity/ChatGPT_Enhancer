@@ -1,6 +1,7 @@
 /**
  * Manages application of custom themes and synchronization with ChatGPT's native mode.
  */
+
 import { DEFAULT_SETTINGS, THEME_COMPATIBILITY } from '../../common/config.js';
 
 const root = document.documentElement;
@@ -199,6 +200,7 @@ function detectChatGPTThemeMode() {
   return prefersDarkScheme() ? 'dark' : 'light';
 }
 
+// Collects every DOM attribute/class/local storage token so we can infer ChatGPT's current scheme.
 function gatherChatGPTThemeTokens() {
   const groups = {
     attributes: [],
@@ -254,6 +256,7 @@ function gatherChatGPTThemeTokens() {
   return groups;
 }
 
+// Interprets loose theme strings and prefers explicit dark values, falling back to system heuristics.
 function interpretThemeTokens(tokens) {
   if (!tokens || !tokens.length) {
     return null;
@@ -301,6 +304,7 @@ function prefersDarkScheme() {
     window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
+// Keep a synced copy of the detected mode in local storage without thrashing the API.
 function syncDetectedThemeMode(mode) {
   if (mode === lastKnownChatThemeMode && !themeModeSyncTimer) {
     return;
