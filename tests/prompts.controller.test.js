@@ -162,7 +162,7 @@ test('applyPromptOrderFromDom persists manual reorders', async (t) => {
 
   const [firstCard, secondCard] = controls.promptList.querySelectorAll('.prompt-card');
   controls.promptList.insertBefore(secondCard, firstCard);
-  controller.applyPromptOrderFromDom();
+  await controller.applyPromptOrderFromDom();
 
   const orderedIds = controller.prompts.map((prompt) => prompt.id);
   const storedIds = getStore()[PROMPTS_STORAGE_KEY].map((prompt) => prompt.id);

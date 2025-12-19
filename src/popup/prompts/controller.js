@@ -491,20 +491,20 @@ export function createPromptController(deps) {
     applyPromptOrderFromDom({ focusId: promptDragState.id });
   }
 
-  function applyPromptOrderFromDom(options = {}) {
+  async function applyPromptOrderFromDom(options = {}) {
     if (promptSearchQuery) {
       renderPromptsWithCurrentFilter();
       showPromptError('Clear the search to reorder prompts.');
-      return;
+      return { ok: false, reason: 'search-active' };
     }
     if (!controls.promptList) {
-      return;
+      return { ok: false, reason: 'no-list' };
     }
     const orderedCards = Array.from(controls.promptList.querySelectorAll('.prompt-card'));
     if (!orderedCards.length) {
       renderPromptsWithCurrentFilter();
       showPromptError('Unable to read the current prompt order. Please try again.');
-      return;
+      return { ok: false, reason: 'no-cards' };
     }
 
     const orderedIds = orderedCards.map((card) => card.dataset.id).filter(Boolean);
@@ -513,7 +513,7 @@ export function createPromptController(deps) {
       if (promptDragState) {
         setDragReordered(true);
       }
-      return;
+      return { ok: false, reason: 'no-ids' };
     }
 
     const currentList = prompts || [];
@@ -539,7 +539,7 @@ export function createPromptController(deps) {
       if (promptDragState) {
         setDragReordered(true);
       }
-      return;
+      return { ok: false, reason: 'unchanged' };
     }
 
     setPrompts(next);
@@ -550,11 +550,13 @@ export function createPromptController(deps) {
       setDragReordered(true);
     }
 
-    persistPrompts(next)
-      .then(() => {
-        clearPromptError();
-      })
-      .catch((error) => handlePersistFailure(error, 'Unable to save the new prompt order. Please try again.'));
+    try {
+      await persistPrompts(next);
+      clearPromptError();
+      return { ok: true, prompts: next };
+    } catch (error) {
+      return handlePersistFailure(error, 'Unable to save the new prompt order. Please try again.');
+    }
   }
 
   function handlePromptHandleKeyDown(event) {
