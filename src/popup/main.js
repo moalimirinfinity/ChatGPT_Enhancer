@@ -3,7 +3,7 @@
  */
 import { DEFAULT_SETTINGS } from '../common/config.js';
 import { loadSettings } from '../common/storage.js';
-import { PROMPTS_STORAGE_KEY } from './prompts/manager.js';
+import { PROMPTS_STORAGE_KEY, PROMPTS_REVISION_KEY } from './prompts/manager.js';
 import { createPromptController } from './prompts/controller.js';
 import { PROMPTS_EMPTY_MESSAGES, EXPORT_ERROR_MESSAGES, POPUP_LABELS, POPUP_COPY } from '../common/i18n.js';
 import {
@@ -245,9 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateThemeCardAvailability(controls, chatBaseThemeMode);
       }
-      if (Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY)) {
-        const { newValue } = changes[PROMPTS_STORAGE_KEY];
-        promptController.synchronizePromptsFromStorage(newValue);
+      const promptsChanged =
+        Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY) ||
+        Object.prototype.hasOwnProperty.call(changes, PROMPTS_REVISION_KEY);
+      if (promptsChanged) {
+        promptController.loadPromptsFromStorage();
       }
     }
     if (area === 'sync') {
