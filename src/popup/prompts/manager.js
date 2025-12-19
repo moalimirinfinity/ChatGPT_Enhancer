@@ -6,7 +6,10 @@ import { DEFAULT_SETTINGS } from '../../common/config.js';
 export const PROMPTS_STORAGE_KEY = 'chatgptEnhancerPrompts';
 
 function getLocalStorageArea() {
-  return chrome?.storage?.local || null;
+  if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    return null;
+  }
+  return chrome.storage.local;
 }
 
 export async function loadPrompts() {
