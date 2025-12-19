@@ -8,7 +8,10 @@ export const PROMPTS_REVISION_KEY = 'chatgptEnhancerPromptsRevision';
 export const PROMPTS_STORAGE_BUDGET_BYTES = Math.floor(4.5 * 1024 * 1024); // Keep under Chrome's 5MB local quota.
 
 function getLocalStorageArea() {
-  return chrome?.storage?.local || null;
+  if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    return null;
+  }
+  return chrome.storage.local;
 }
 
 export async function loadPrompts() {
