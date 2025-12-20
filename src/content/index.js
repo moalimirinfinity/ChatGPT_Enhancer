@@ -36,7 +36,10 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let pendingThemeSync = null;
 let suppressThemeObserver = false;
 let fixerObserver = null;
+let fixerObserverTarget = null;
 let fixerObserverReconnectTimer = null;
+let fixerRootObserver = null;
+let fixerRootObserverTimer = null;
 let exportToastNode = null;
 let exportToastTimer = null;
 
@@ -342,6 +345,7 @@ function attachFixerObserver() {
     scheduleFixerObserverReconnect();
     return;
   }
+  fixerObserverTarget = target;
   if (fixerObserverReconnectTimer) {
     clearTimeout(fixerObserverReconnectTimer);
     fixerObserverReconnectTimer = null;
@@ -357,10 +361,48 @@ function detachFixerObserver() {
   if (fixerObserver) {
     fixerObserver.disconnect();
   }
+  fixerObserverTarget = null;
   if (fixerObserverReconnectTimer) {
     clearTimeout(fixerObserverReconnectTimer);
     fixerObserverReconnectTimer = null;
   }
+}
+
+function attachFixerRootObserver() {
+  if (fixerRootObserver || typeof MutationObserver === 'undefined' || !document.body) {
+    return;
+  }
+  fixerRootObserver = new MutationObserver(() => {
+    scheduleFixerRootCheck();
+  });
+  fixerRootObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function detachFixerRootObserver() {
+  if (fixerRootObserver) {
+    fixerRootObserver.disconnect();
+    fixerRootObserver = null;
+  }
+  if (fixerRootObserverTimer) {
+    clearTimeout(fixerRootObserverTimer);
+    fixerRootObserverTimer = null;
+  }
+}
+
+function scheduleFixerRootCheck() {
+  if (fixerRootObserverTimer) {
+    return;
+  }
+  fixerRootObserverTimer = setTimeout(() => {
+    fixerRootObserverTimer = null;
+    if (!currentSettings.enableFix) {
+      return;
+    }
+    const nextTarget = getConversationRoot();
+    if (nextTarget && nextTarget !== fixerObserverTarget) {
+      attachFixerObserver();
+    }
+  }, 120);
 }
 
 function scheduleFixerObserverReconnect() {
@@ -386,7 +428,9 @@ function handleFixerMutations(mutations) {
 function syncFixerObserver() {
   if (currentSettings.enableFix) {
     attachFixerObserver();
+    attachFixerRootObserver();
   } else {
     detachFixerObserver();
+    detachFixerRootObserver();
   }
 }

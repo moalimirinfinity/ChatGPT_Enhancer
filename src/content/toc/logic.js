@@ -46,6 +46,7 @@ const state = {
   panel: null,
   list: null,
   observer: null,
+  observerTarget: null,
   updateTimer: null,
   anchorCounter: 0,
   dragHandle: null,
@@ -58,6 +59,8 @@ const state = {
   isRtlPanel: false,
   highlightTimers: new Map(),
   observerRetryTimer: null,
+  rootObserver: null,
+  rootObserverTimer: null,
   ids: {
     panelId: TOC_PANEL_ID,
     entryAttr: TOC_ENTRY_ATTR,
@@ -121,6 +124,7 @@ function sync(settings = currentSettings) {
   applyThemeTokens();
   setCollapsed(Boolean(settings.tableOfContentsCollapsed), false);
   connectObserver();
+  attachRootObserver();
   scheduleUpdate();
 }
 
@@ -141,6 +145,7 @@ function teardown() {
   });
   state.highlightTimers.clear();
   clearObserverRetry();
+  detachRootObserver();
 }
 
 function connectObserver() {
@@ -157,6 +162,7 @@ function connectObserver() {
     state.observer = new MutationObserver(handleMutations);
   }
   state.observer.disconnect();
+  state.observerTarget = container;
   state.observer.observe(container, {
     childList: true,
     subtree: true,
@@ -168,7 +174,46 @@ function disconnectObserver() {
   if (state.observer) {
     state.observer.disconnect();
   }
+  state.observerTarget = null;
   clearObserverRetry();
+}
+
+function attachRootObserver() {
+  if (state.rootObserver || typeof MutationObserver === 'undefined' || !document.body) {
+    return;
+  }
+  state.rootObserver = new MutationObserver(() => {
+    scheduleRootCheck();
+  });
+  state.rootObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function detachRootObserver() {
+  if (state.rootObserver) {
+    state.rootObserver.disconnect();
+    state.rootObserver = null;
+  }
+  if (state.rootObserverTimer) {
+    clearTimeout(state.rootObserverTimer);
+    state.rootObserverTimer = null;
+  }
+}
+
+function scheduleRootCheck() {
+  if (state.rootObserverTimer) {
+    return;
+  }
+  state.rootObserverTimer = setTimeout(() => {
+    state.rootObserverTimer = null;
+    if (!isActive()) {
+      return;
+    }
+    const nextContainer = document.querySelector('main');
+    if (nextContainer && nextContainer !== state.observerTarget) {
+      connectObserver();
+      scheduleUpdate();
+    }
+  }, 120);
 }
 
 function scheduleObserverReconnect() {

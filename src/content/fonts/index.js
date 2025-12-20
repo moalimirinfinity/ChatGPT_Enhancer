@@ -113,7 +113,7 @@ export function applyFontsToMessage(element, fontSettings, options = {}) {
 }
 
 // Debounced observer handler keeps streaming from firing per keystroke while scanning the selector once.
-export function handleFontMutations(_mutations, hooks = {}) {
+export function handleFontMutations(mutations, hooks = {}) {
   if (!isActive()) {
     return;
   }
@@ -127,7 +127,35 @@ export function handleFontMutations(_mutations, hooks = {}) {
     }
     const fontSettings = buildFontSettings(cachedSettings);
     const selector = hooks.messageSelector || messageSelector || '*';
-    document.querySelectorAll(selector).forEach((message) => {
+    const touched = new Set();
+    if (Array.isArray(mutations)) {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'characterData' && mutation.target?.parentElement) {
+          const message = mutation.target.parentElement.closest(selector);
+          if (message) {
+            touched.add(message);
+          }
+        }
+        if (mutation.type === 'childList') {
+          Array.from(mutation.addedNodes || []).forEach((node) => {
+            if (!(node instanceof Element)) {
+              return;
+            }
+            const message = node.matches(selector) ? node : node.closest(selector);
+            if (message) {
+              touched.add(message);
+            }
+          });
+        }
+      });
+    }
+    if (!touched.size) {
+      document.querySelectorAll(selector).forEach((message) => {
+        applyFontsToMessage(message, fontSettings);
+      });
+      return;
+    }
+    touched.forEach((message) => {
       applyFontsToMessage(message, fontSettings);
     });
   }, DEBOUNCE_DELAY);
