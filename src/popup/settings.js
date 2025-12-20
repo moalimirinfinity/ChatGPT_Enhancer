@@ -294,7 +294,8 @@ export function applySettingsToUI(controls, settings, deps) {
     currentSettingsRef,
     chatBaseThemeMode,
     isBusyRef,
-    currentFontTabRef
+    currentFontTabRef,
+    labels
   } = deps || {};
   const busyRef = isBusyRef || { value: false };
   busyRef.value = true;
@@ -378,11 +379,11 @@ export function applySettingsToUI(controls, settings, deps) {
 
   if (controls.refreshBtn) {
     controls.refreshBtn.disabled = false;
-    controls.refreshBtn.textContent = 'Refresh ChatGPT';
+    controls.refreshBtn.textContent = labels?.refresh || 'Refresh ChatGPT';
   }
   if (controls.donateBtn) {
     controls.donateBtn.disabled = false;
-    controls.donateBtn.textContent = 'Support';
+    controls.donateBtn.textContent = labels?.donate || 'Support';
   }
 
   setActiveTheme(controls, nextSettings.theme);

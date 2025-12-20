@@ -196,9 +196,8 @@ export function createPromptController(deps) {
     if (editingPromptId) {
       const index = prompts.findIndex((item) => item.id === editingPromptId);
       if (index === -1) {
-        showPromptError('Unable to locate the prompt you are editing.');
         editingPromptId = null;
-        return;
+        return { ok: false, reason: 'missing' };
       }
       const updatedPrompt = {
         ...prompts[index],

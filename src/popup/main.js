@@ -23,10 +23,12 @@ import {
   updateThemeCardAvailability,
   applySettingsToUI
 } from './settings.js';
-const LANGUAGE_HINT_DEFAULT = 'english';
-const LANGUAGE_HINT_MESSAGE = 'GPT_ENHANCER_DETECT_LANGUAGE';
-const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
-const LANGUAGE_DETECTION_MAX_CHARS = 800;
+import {
+  LANGUAGE_HINT_DEFAULT,
+  LANGUAGE_HINT_MESSAGE_TYPE,
+  LANGUAGE_DETECTION_MAX_MESSAGES,
+  LANGUAGE_DETECTION_MAX_CHARS
+} from '../common/constants.js';
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPT_TITLE_MAX_LENGTH = 80;
 const PROMPT_TEXT_MAX_LENGTH = 8000; // NEW CONSTANT
@@ -283,7 +285,11 @@ function applySettings(settings) {
     currentSettingsRef,
     chatBaseThemeMode,
     isBusyRef,
-    currentFontTabRef
+    currentFontTabRef,
+    labels: {
+      refresh: REFRESH_LABEL_DEFAULT,
+      donate: DONATE_LABEL_DEFAULT
+    }
   });
   currentSettings = next;
   isBusy = isBusyRef.value;
@@ -351,7 +357,7 @@ function requestConversationLanguageHint() {
     chrome.tabs.sendMessage(
       activeTab.id,
       {
-        type: LANGUAGE_HINT_MESSAGE,
+        type: LANGUAGE_HINT_MESSAGE_TYPE,
         maxMessages: LANGUAGE_DETECTION_MAX_MESSAGES,
         maxChars: LANGUAGE_DETECTION_MAX_CHARS
       },

@@ -390,6 +390,16 @@ export function initPromptUI(controls, promptController, options) {
     clearPromptError(controls);
     const result = await promptController.handlePromptFormSubmit({ title, text });
     if (!result?.ok) {
+      if (result?.reason === 'missing') {
+        showPromptError(controls, 'That prompt no longer exists. We refreshed your list.');
+        exitPromptEditMode();
+        await promptController.loadPromptsFromStorage();
+        if (controls.promptTextInput) {
+          controls.promptTextInput.focus();
+          autoResizeTextarea(controls.promptTextInput);
+        }
+        return;
+      }
       showPromptError(controls, 'Unable to save your prompt. Please try again.');
       return;
     }
