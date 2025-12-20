@@ -12,6 +12,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(projectRoot, 'dist'),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        popup: path.resolve(projectRoot, 'src/popup/index.html'),
+        help: path.resolve(projectRoot, 'src/help/index.html')
+      }
+    },
     commonjsOptions: {
       include: [/node_modules/, /html-docx-js/]
     }
