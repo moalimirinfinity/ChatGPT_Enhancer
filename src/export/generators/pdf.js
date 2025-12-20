@@ -4,7 +4,7 @@
 
 import { EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from '../constants.js';
 
-export function exportAsPdf(stage) {
+export function exportAsPdf() {
   const printStyle = document.createElement('style');
   printStyle.textContent = `
     @page {

@@ -31,9 +31,7 @@ import {
   EXPORT_MESSAGE_TYPE
 } from '../common/constants.js';
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
-const PROMPT_TITLE_MAX_LENGTH = 80;
 const PROMPT_TEXT_MAX_LENGTH = 8000; // NEW CONSTANT
-const PROMPT_COPY_RESET_DELAY = 1600;
 const {
   defaultPrimary: PROMPTS_EMPTY_DEFAULT_PRIMARY,
   defaultSecondary: PROMPTS_EMPTY_DEFAULT_SECONDARY,
@@ -79,7 +77,6 @@ const promptController = createPromptController({
     }
   }
 });
-let conversationLanguageHint = LANGUAGE_HINT_DEFAULT;
 let hasUserSetFontTab = false;
 const REFRESH_LABEL_DEFAULT = REFRESH_LABELS.default;
 const REFRESH_LABEL_OPEN = REFRESH_LABELS.open;
@@ -380,7 +377,6 @@ function requestConversationLanguageHint() {
 
 function applyConversationPersonalization(language) {
   const normalized = normalizeLanguageHint(language);
-  conversationLanguageHint = normalized;
   if (!hasUserSetFontTab && normalized !== currentFontTabRef.value) {
     setActiveFontTab(controls, normalized, currentFontTabRef);
   }

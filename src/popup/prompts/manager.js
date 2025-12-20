@@ -111,8 +111,9 @@ function estimatePromptBytes(prompts) {
     if (typeof TextEncoder !== 'undefined') {
       return new TextEncoder().encode(text).length;
     }
-    if (typeof Buffer !== 'undefined' && typeof Buffer.byteLength === 'function') {
-      return Buffer.byteLength(text, 'utf8');
+    const buffer = typeof globalThis !== 'undefined' ? globalThis.Buffer : null;
+    if (buffer && typeof buffer.byteLength === 'function') {
+      return buffer.byteLength(text, 'utf8');
     }
     return text.length * 2; // Rough UTF-16 fallback.
   } catch (error) {

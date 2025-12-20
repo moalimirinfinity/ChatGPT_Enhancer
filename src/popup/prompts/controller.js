@@ -15,7 +15,6 @@ export function createPromptController(deps) {
     controls,
     normalizePromptCollection,
     generatePromptId,
-    PROMPT_TEXT_MAX_LENGTH,
     PROMPTS_EMPTY_DEFAULT_PRIMARY,
     PROMPTS_EMPTY_DEFAULT_SECONDARY,
     PROMPTS_EMPTY_FILTERED_PRIMARY,

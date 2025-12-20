@@ -8,7 +8,7 @@ import { setupDom, createPromptControls } from './helpers/dom.js';
 import { createIdGenerator, createNormalizePromptCollection } from './helpers/prompts.js';
 
 function buildPromptController() {
-  const { dom, cleanup } = setupDom();
+  const { cleanup } = setupDom();
   const controls = createPromptControls();
   const generatePromptId = createIdGenerator();
   const normalizePromptCollection = createNormalizePromptCollection(generatePromptId);
