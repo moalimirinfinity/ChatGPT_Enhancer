@@ -354,7 +354,9 @@ export function serializeBlockquoteBlock(node, direction) {
 export function serializeCodeBlock(node, direction) {
   const codeNode = node.querySelector('code');
   const raw = codeNode ? codeNode.textContent || '' : node.textContent || '';
-  const language = codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '';
+  const language =
+    (codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '') ||
+    (node.className ? extractCodeLanguage(node.className) : '');
   const code = sanitizeCodeBlockContent(raw);
   return {
     type: 'code',
@@ -1682,9 +1684,12 @@ function escapeLinkDestination(value) {
 
   try {
     // Preserve structure, encode spaces/specials; tolerate already-encoded input.
-    return encodeURI(decodeURI(cleanValue));
+    const encoded = encodeURI(decodeURI(cleanValue));
+    return encoded.replace(/[()]/g, (char) => (char === '(' ? '%28' : '%29'));
   } catch (error) {
-    return cleanValue.replace(/\s/g, '%20');
+    return cleanValue
+      .replace(/[()]/g, (char) => (char === '(' ? '%28' : '%29'))
+      .replace(/\s/g, '%20');
   }
 }
 
