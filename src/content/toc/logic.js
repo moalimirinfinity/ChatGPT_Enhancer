@@ -240,15 +240,75 @@ function handleMutations(mutations) {
   if (!isActive()) {
     return;
   }
-  const shouldUpdate = mutations.some((mutation) => {
-    if (mutation.type === 'childList') {
-      return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-    }
-    return mutation.type === 'characterData';
-  });
+  const messageSelector = getMessageSelector();
+  const shouldUpdate = mutations.some((mutation) => mutationTouchesAssistant(mutation, messageSelector));
   if (shouldUpdate) {
     scheduleUpdate();
   }
+}
+
+function mutationTouchesAssistant(mutation, messageSelector) {
+  if (!mutation) {
+    return false;
+  }
+  if (mutation.type === 'characterData') {
+    return isAssistantMutationTarget(mutation.target, messageSelector);
+  }
+  if (mutation.type !== 'childList') {
+    return false;
+  }
+  if (isAssistantMutationTarget(mutation.target, messageSelector)) {
+    return true;
+  }
+  const nodes = [];
+  if (mutation.addedNodes && mutation.addedNodes.length) {
+    nodes.push(...mutation.addedNodes);
+  }
+  if (mutation.removedNodes && mutation.removedNodes.length) {
+    nodes.push(...mutation.removedNodes);
+  }
+  return nodes.some((node) => containsAssistantMessage(node, messageSelector));
+}
+
+function isAssistantMutationTarget(node, messageSelector) {
+  const element = getMutationElement(node);
+  if (!element) {
+    return false;
+  }
+  const root = findMessageRoot(element, messageSelector);
+  return root ? isAssistantTurn(root) : false;
+}
+
+function containsAssistantMessage(node, messageSelector) {
+  const element = getMutationElement(node);
+  if (!element) {
+    return false;
+  }
+  if (typeof element.matches === 'function' && element.matches(messageSelector)) {
+    return isAssistantTurn(element);
+  }
+  if (typeof element.querySelector !== 'function') {
+    return false;
+  }
+  const candidate = element.querySelector(messageSelector);
+  if (!candidate) {
+    return false;
+  }
+  const root = findMessageRoot(candidate, messageSelector);
+  return root ? isAssistantTurn(root) : isAssistantTurn(candidate);
+}
+
+function getMutationElement(node) {
+  if (!node) {
+    return null;
+  }
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    return node;
+  }
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.parentElement;
+  }
+  return null;
 }
 
 function scheduleUpdate() {
@@ -378,27 +438,36 @@ function normalizePosition(position) {
   if (!position || typeof position !== 'object' || !state.panel) {
     return null;
   }
+  const rect = state.panel.getBoundingClientRect();
   const top = Number(position.top);
   let left = Number(position.left);
-  const savedRightGap = Number(position.rightGap);
+  let rightGap = Number(position.rightGap);
   if (!Number.isFinite(top)) {
     return null;
   }
-  const rect = state.panel.getBoundingClientRect();
-  if (Number.isFinite(savedRightGap)) {
-    const candidateLeft = window.innerWidth - rect.width - savedRightGap;
-    if (Number.isFinite(candidateLeft)) {
-      left = candidateLeft;
-    }
+  const maxHorizontalGap = getMaxHorizontalGap(rect.width);
+  if (position.anchor === 'right' && Number.isFinite(rightGap)) {
+    rightGap = clamp(rightGap, TOC_PANEL_MIN_GAP, maxHorizontalGap);
+    left = window.innerWidth - rect.width - rightGap;
+  } else if (!Number.isFinite(left) && Number.isFinite(rightGap)) {
+    left = window.innerWidth - rect.width - rightGap;
   }
   if (!Number.isFinite(left)) {
     return null;
   }
-  const maxLeft = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - rect.width - TOC_PANEL_MIN_GAP);
+  left = clamp(left, TOC_PANEL_MIN_GAP, maxHorizontalGap);
+  rightGap = clamp(
+    Number.isFinite(rightGap) ? rightGap : window.innerWidth - rect.width - left,
+    TOC_PANEL_MIN_GAP,
+    maxHorizontalGap
+  );
   const maxTop = Math.max(TOC_PANEL_MIN_GAP, window.innerHeight - rect.height - TOC_PANEL_MIN_GAP);
+  const anchor = resolvePositionAnchor(position.anchor, left, rect.width);
   return {
     top: clamp(top, TOC_PANEL_MIN_GAP, maxTop),
-    left: clamp(left, TOC_PANEL_MIN_GAP, maxLeft)
+    left,
+    right: rightGap,
+    anchor
   };
 }
 
@@ -406,9 +475,15 @@ function setCustomPosition(position) {
   if (!state.panel) {
     return;
   }
+  const anchor = position?.anchor === 'right' ? 'right' : 'left';
   state.panel.style.top = `${Math.round(position.top)}px`;
-  state.panel.style.left = `${Math.round(position.left)}px`;
-  state.panel.style.right = 'auto';
+  if (anchor === 'right') {
+    state.panel.style.right = `${Math.round(position.right)}px`;
+    state.panel.style.left = 'auto';
+  } else {
+    state.panel.style.left = `${Math.round(position.left)}px`;
+    state.panel.style.right = 'auto';
+  }
   state.panel.style.bottom = 'auto';
 }
 
@@ -430,6 +505,23 @@ function clamp(value, min, max) {
     return min;
   }
   return Math.min(Math.max(value, min), max);
+}
+
+function getMaxHorizontalGap(width) {
+  if (!Number.isFinite(width)) {
+    return TOC_PANEL_MIN_GAP;
+  }
+  return Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - width - TOC_PANEL_MIN_GAP);
+}
+
+function resolvePositionAnchor(anchor, left, width) {
+  if (anchor === 'left' || anchor === 'right') {
+    return anchor;
+  }
+  if (!Number.isFinite(left) || !Number.isFinite(width)) {
+    return 'left';
+  }
+  return left + width / 2 >= window.innerWidth / 2 ? 'right' : 'left';
 }
 
 function toggleCollapsed() {
@@ -543,7 +635,7 @@ function handlePointerMove(event) {
   const left = clamp(
     state.dragState.offsetX + deltaX,
     TOC_PANEL_MIN_GAP,
-    Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - state.dragState.width - TOC_PANEL_MIN_GAP)
+    getMaxHorizontalGap(state.dragState.width)
   );
   const top = clamp(
     state.dragState.offsetY + deltaY,
@@ -552,9 +644,14 @@ function handlePointerMove(event) {
   );
   state.dragState.lastLeft = left;
   state.dragState.lastTop = top;
-  const rightGap = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - state.dragState.width - left);
-  setCustomPosition({ top, left });
-  currentSettings.tableOfContentsPosition = { top, left, rightGap };
+  const rightGap = clamp(
+    window.innerWidth - state.dragState.width - left,
+    TOC_PANEL_MIN_GAP,
+    getMaxHorizontalGap(state.dragState.width)
+  );
+  const anchor = resolvePositionAnchor(null, left, state.dragState.width);
+  setCustomPosition({ top, left, right: rightGap, anchor });
+  currentSettings.tableOfContentsPosition = { top, left, rightGap, anchor };
 }
 
 function handlePointerUpOrCancel(event) {
@@ -567,15 +664,24 @@ function handlePointerUpOrCancel(event) {
   const { lastTop, lastLeft, width: panelWidth } = state.dragState;
   const finalPosition =
     lastTop != null && lastLeft != null ? { top: lastTop, left: lastLeft } : null;
-  const measuredWidth = Number.isFinite(panelWidth) ? panelWidth : null;
+  const measuredWidth =
+    Number.isFinite(panelWidth) ? panelWidth : state.panel ? state.panel.getBoundingClientRect().width : null;
   cancelDragging();
   if (finalPosition) {
-  // Keep track of the right spacing so persisted positions honor the dragged width.
-  const rightGap =
-    measuredWidth != null
-      ? Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - measuredWidth - finalPosition.left)
-      : null;
+    // Keep track of the right spacing so persisted positions honor the dragged width.
+    const rightGap =
+      measuredWidth != null
+        ? clamp(
+            window.innerWidth - measuredWidth - finalPosition.left,
+            TOC_PANEL_MIN_GAP,
+            getMaxHorizontalGap(measuredWidth)
+          )
+        : null;
+    const anchor = measuredWidth != null ? resolvePositionAnchor(null, finalPosition.left, measuredWidth) : null;
     const position = rightGap != null ? { ...finalPosition, rightGap } : finalPosition;
+    if (anchor) {
+      position.anchor = anchor;
+    }
     savePosition(position);
   }
 }
@@ -679,8 +785,13 @@ function handleResizePointerUpOrCancel(event) {
     saveSize(finalSize);
     if (currentSettings.tableOfContentsPosition && state.panel) {
       const rect = state.panel.getBoundingClientRect();
-      const rightGap = Math.max(TOC_PANEL_MIN_GAP, window.innerWidth - rect.width - rect.left);
-      savePosition({ ...currentSettings.tableOfContentsPosition, top: rect.top, left: rect.left, rightGap });
+      const rightGap = clamp(
+        window.innerWidth - rect.width - rect.left,
+        TOC_PANEL_MIN_GAP,
+        getMaxHorizontalGap(rect.width)
+      );
+      const anchor = resolvePositionAnchor(currentSettings.tableOfContentsPosition.anchor, rect.left, rect.width);
+      savePosition({ ...currentSettings.tableOfContentsPosition, top: rect.top, left: rect.left, rightGap, anchor });
     }
   }
 }
@@ -740,7 +851,7 @@ function isPanelRtlDominant(text) {
 }
 
 function collectAssistantMessages() {
-  const { nodes } = selectMessageNodes();
+  const { nodes, selector } = selectMessageNodes();
   if (!nodes || !nodes.length) {
     return [];
   }
@@ -748,7 +859,7 @@ function collectAssistantMessages() {
   const results = [];
 
   nodes.forEach((node) => {
-    const root = findMessageRoot(node);
+    const root = findMessageRoot(node, selector);
     if (!root || seen.has(root)) {
       return;
     }
@@ -761,11 +872,11 @@ function collectAssistantMessages() {
   return results;
 }
 
-function findMessageRoot(node) {
+function findMessageRoot(node, selector) {
   if (!(node instanceof HTMLElement)) {
     return null;
   }
-  const messageSelector = getMessageSelector();
+  const messageSelector = selector || getMessageSelector();
   let current = node.closest(messageSelector);
   let lastMatch = null;
   while (current && current instanceof HTMLElement) {
@@ -904,13 +1015,31 @@ function handleClick(event) {
   if (!target) {
     return;
   }
+  const indexValue = target.dataset ? target.dataset.tocIndex : null;
+  if (indexValue != null) {
+    const index = Number(indexValue);
+    if (Number.isFinite(index)) {
+      const assistantMessages = collectAssistantMessages();
+      const message = assistantMessages[index];
+      const anchorTarget = message ? getMessageAnchorTarget(message) || message : null;
+      if (anchorTarget instanceof HTMLElement) {
+        event.preventDefault();
+        highlight(anchorTarget);
+        scrollToMessage(anchorTarget);
+        if (event.detail && typeof target.blur === 'function') {
+          target.blur();
+        }
+        return;
+      }
+    }
+  }
   const anchorId = target.dataset ? target.dataset.tocTarget : null;
   if (!anchorId) {
     return;
   }
   const selector = `[${TOC_ANCHOR_ATTR}="${escapeAttribute(anchorId)}"]`;
   const message = document.querySelector(selector);
-  if (!message) {
+  if (!(message instanceof HTMLElement)) {
     return;
   }
   event.preventDefault();

@@ -79,35 +79,66 @@ export function rebuildList(state, assistantMessages, helpers) {
     return;
   }
   const { ensureMessageAnchorId, deriveTitle, getAnchorTarget } = helpers || {};
-  state.list.innerHTML = '';
-  if (!assistantMessages || !assistantMessages.length) {
-    const empty = document.createElement('li');
-    empty.className = 'chatgpt-toc-empty';
-    empty.textContent = 'No assistant replies yet.';
-    state.list.appendChild(empty);
+  const messages = Array.isArray(assistantMessages) ? assistantMessages : [];
+  if (!messages.length) {
+    if (!state.list.querySelector('.chatgpt-toc-empty')) {
+      const empty = document.createElement('li');
+      empty.className = 'chatgpt-toc-empty';
+      empty.textContent = 'No assistant replies yet.';
+      state.list.replaceChildren(empty);
+    }
     return;
   }
 
+  const emptyNode = state.list.querySelector('.chatgpt-toc-empty');
+  if (emptyNode) {
+    emptyNode.remove();
+  }
+
+  const existingItems = Array.from(state.list.querySelectorAll('.chatgpt-toc-item'));
+  for (let i = existingItems.length - 1; i >= messages.length; i -= 1) {
+    existingItems[i].remove();
+  }
+
   const fragment = document.createDocumentFragment();
-  assistantMessages.forEach((message, index) => {
-    const target = getAnchorTarget ? getAnchorTarget(message) : message;
-    const anchorId =
-      ensureMessageAnchorId && target instanceof HTMLElement ? ensureMessageAnchorId(target) : '';
-    if (!anchorId) {
-      return;
-    }
-    const title = deriveTitle ? deriveTitle(message, index) : '';
+  for (let i = existingItems.length; i < messages.length; i += 1) {
     const item = document.createElement('li');
     item.className = 'chatgpt-toc-item';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'chatgpt-toc-entry';
-    button.dataset.tocTarget = anchorId;
-    button.textContent = title;
     item.appendChild(button);
     fragment.appendChild(item);
+  }
+  if (fragment.childNodes.length) {
+    state.list.appendChild(fragment);
+  }
+
+  const items = Array.from(state.list.querySelectorAll('.chatgpt-toc-item'));
+  items.forEach((item, index) => {
+    const message = messages[index];
+    if (!message) {
+      return;
+    }
+    const button = item.querySelector('.chatgpt-toc-entry');
+    if (!button) {
+      return;
+    }
+    const target = getAnchorTarget ? getAnchorTarget(message) : message;
+    const anchorId =
+      ensureMessageAnchorId && target instanceof HTMLElement ? ensureMessageAnchorId(target) : '';
+    if (anchorId) {
+      button.dataset.tocTarget = anchorId;
+    } else {
+      delete button.dataset.tocTarget;
+    }
+    button.dataset.tocIndex = String(index);
+    const title = deriveTitle ? deriveTitle(message, index) : '';
+    if (button.dataset.tocTitle !== title) {
+      button.textContent = title;
+      button.dataset.tocTitle = title;
+    }
   });
-  state.list.appendChild(fragment);
 }
 
 export function updateCollapseButton(state, collapsed) {
