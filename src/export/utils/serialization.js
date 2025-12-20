@@ -79,6 +79,8 @@ const MARKDOWN_BLOCK_TAGS = new Set([
   'ul'
 ]);
 
+const INLINE_BLOCK_SELECTOR = Array.from(MARKDOWN_BLOCK_TAGS).join(', ');
+
 const MARKDOWN_CODE_LANGUAGE_REGEX = /language-([a-z0-9+-]+)/i;
 
 const SUPERSCRIPT_MAP = {
@@ -116,6 +118,15 @@ const SUBSCRIPT_MAP = {
   '(': '\u208d',
   ')': '\u208e'
 };
+
+function serializeInlineFragmentsExcludingBlocks(container) {
+  if (!container) {
+    return [];
+  }
+  const clone = container.cloneNode(true);
+  clone.querySelectorAll(INLINE_BLOCK_SELECTOR).forEach((block) => block.remove());
+  return serializeInlineFragments(clone);
+}
 
 export function serializeExportRootToJson(root) {
   const turns = Array.from(root.children || [])
@@ -367,17 +378,20 @@ export function serializeCodeBlock(node, direction) {
 }
 
 export function serializeListBlock(node, direction, ordered) {
+  const rawStart = ordered ? parseInt(node.getAttribute('start'), 10) : NaN;
+  const start = Number.isFinite(rawStart) ? rawStart : null;
   const items = Array.from(node.children || [])
     .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
     .map((item, index) => {
-      const content = serializeInlineFragments(item);
+      const content = serializeInlineFragmentsExcludingBlocks(item);
       const nestedBlocks = serializeChildNodesToBlocks(item, { skipInlineParagraph: true });
       const childLists = nestedBlocks.filter((block) => block && block.type === 'list');
       const otherBlocks = nestedBlocks.filter((block) => block && block.type !== 'list');
-      const effectiveContent = otherBlocks.length ? [] : content;
+      const number = ordered ? (Number.isFinite(start) ? start + index : index + 1) : null;
       return {
         index,
-        content: effectiveContent.length ? effectiveContent : undefined,
+        number: number ?? undefined,
+        content: content.length ? content : undefined,
         direction: resolveNodeDirection(item, serializeInlineText(item)),
         children: childLists.length ? childLists : undefined,
         blocks: otherBlocks.length ? otherBlocks : undefined
@@ -388,6 +402,7 @@ export function serializeListBlock(node, direction, ordered) {
   return {
     type: 'list',
     ordered: Boolean(ordered),
+    start: start ?? undefined,
     items,
     direction
   };
@@ -399,7 +414,7 @@ export function serializeTableBlock(table, direction) {
       const cells = Array.from(row.children || [])
         .filter((cell) => cell.tagName && ['td', 'th'].includes(cell.tagName.toLowerCase()))
         .map((cell) => {
-          const content = serializeInlineFragments(cell);
+          const content = serializeInlineFragmentsExcludingBlocks(cell);
           // Capture nested structures inside table cells (lists, code blocks) so we do not lose structure.
           const nestedBlocks = serializeChildNodesToBlocks(cell, { skipInlineParagraph: true });
           return {
@@ -1417,7 +1432,9 @@ function serializeBlockquote(node, context) {
 function serializePreformattedBlock(node) {
   const codeNode = node.querySelector('code');
   const raw = codeNode ? codeNode.textContent || '' : node.textContent || '';
-  const language = codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '';
+  const language =
+    (codeNode && codeNode.className ? extractCodeLanguage(codeNode.className) : '') ||
+    (node.className ? extractCodeLanguage(node.className) : '');
   const content = sanitizeCodeBlockContent(raw);
   const fenceLength = Math.max(3, longestStreak(content, '`') + 1);
   const fence = '`'.repeat(fenceLength);

@@ -11,6 +11,7 @@ export function setupDom() {
   Object.defineProperty(global, 'HTMLElement', { value: window.HTMLElement, configurable: true, writable: true });
   Object.defineProperty(global, 'Element', { value: window.Element, configurable: true, writable: true });
   Object.defineProperty(global, 'Node', { value: window.Node, configurable: true, writable: true });
+  Object.defineProperty(global, 'NodeFilter', { value: window.NodeFilter, configurable: true, writable: true });
   Object.defineProperty(global, 'navigator', { value: window.navigator, configurable: true, writable: true });
   Object.defineProperty(global, 'getComputedStyle', {
     value: window.getComputedStyle.bind(window),
@@ -53,6 +54,7 @@ export function setupDom() {
       delete global.HTMLElement;
       delete global.Element;
       delete global.Node;
+      delete global.NodeFilter;
       delete global.navigator;
       delete global.getComputedStyle;
       delete global.requestAnimationFrame;
