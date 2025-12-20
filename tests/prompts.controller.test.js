@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createPromptController } from '../src/popup/prompts/controller.js';
-import { PROMPTS_STORAGE_KEY } from '../src/popup/prompts/manager.js';
+import { PROMPTS_REVISION_KEY, PROMPTS_STORAGE_KEY } from '../src/popup/prompts/manager.js';
 import { createChromeStorageMock } from './helpers/chrome-mock.js';
 import { setupDom, createPromptControls } from './helpers/dom.js';
 import { createIdGenerator, createNormalizePromptCollection } from './helpers/prompts.js';
@@ -45,7 +45,8 @@ function buildPromptController() {
 
 test('loadPromptsFromStorage renders stored prompts and counts', async (t) => {
   const { chromeMock } = createChromeStorageMock({
-    [PROMPTS_STORAGE_KEY]: [{ id: 'prompt-1', title: 'Saved', text: 'Hello world', updatedAt: 1 }]
+    [PROMPTS_STORAGE_KEY]: [{ id: 'prompt-1', title: 'Saved', text: 'Hello world', updatedAt: 1 }],
+    [PROMPTS_REVISION_KEY]: 2
   });
   global.chrome = chromeMock;
 
@@ -65,7 +66,8 @@ test('loadPromptsFromStorage renders stored prompts and counts', async (t) => {
 
 test('handlePromptFormSubmit adds and edits prompts while persisting to storage', async (t) => {
   const { chromeMock, getStore } = createChromeStorageMock({
-    [PROMPTS_STORAGE_KEY]: []
+    [PROMPTS_STORAGE_KEY]: [],
+    [PROMPTS_REVISION_KEY]: 0
   });
   global.chrome = chromeMock;
 
@@ -99,7 +101,8 @@ test('handlePromptFormSubmit adds and edits prompts while persisting to storage'
 
 test('confirmPromptDeletion removes prompts when confirmed', async (t) => {
   const { chromeMock, getStore } = createChromeStorageMock({
-    [PROMPTS_STORAGE_KEY]: []
+    [PROMPTS_STORAGE_KEY]: [],
+    [PROMPTS_REVISION_KEY]: 0
   });
   global.chrome = chromeMock;
 
@@ -123,7 +126,8 @@ test('confirmPromptDeletion removes prompts when confirmed', async (t) => {
 
 test('handlePromptSearch filters prompts and disables drag handles', async (t) => {
   const { chromeMock } = createChromeStorageMock({
-    [PROMPTS_STORAGE_KEY]: []
+    [PROMPTS_STORAGE_KEY]: [],
+    [PROMPTS_REVISION_KEY]: 0
   });
   global.chrome = chromeMock;
 
@@ -147,7 +151,8 @@ test('handlePromptSearch filters prompts and disables drag handles', async (t) =
 
 test('applyPromptOrderFromDom persists manual reorders', async (t) => {
   const { chromeMock, getStore } = createChromeStorageMock({
-    [PROMPTS_STORAGE_KEY]: []
+    [PROMPTS_STORAGE_KEY]: [],
+    [PROMPTS_REVISION_KEY]: 0
   });
   global.chrome = chromeMock;
 
@@ -172,7 +177,8 @@ test('applyPromptOrderFromDom persists manual reorders', async (t) => {
 
 test('copyPromptToClipboard shows success feedback and handles failures', async (t) => {
   const { chromeMock } = createChromeStorageMock({
-    [PROMPTS_STORAGE_KEY]: []
+    [PROMPTS_STORAGE_KEY]: [],
+    [PROMPTS_REVISION_KEY]: 0
   });
   global.chrome = chromeMock;
 

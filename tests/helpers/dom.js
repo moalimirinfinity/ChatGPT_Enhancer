@@ -18,7 +18,6 @@ export function setupDom() {
     configurable: true,
     writable: true
   });
-
   if (!window.requestAnimationFrame) {
     window.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
   }
