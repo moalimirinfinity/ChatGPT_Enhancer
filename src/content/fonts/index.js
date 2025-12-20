@@ -95,8 +95,8 @@ export function applyFontsToMessage(element, fontSettings, options = {}) {
       element.classList.add(`chatgpt-font-${langConfig.id}`);
       const specificFont = fontSettings?.[langConfig.id];
       if (specificFont) {
-        finalFontStack = englishFont ? `${specificFont}, ${englishFont}` : specificFont;
-        element.style.setProperty(langConfig.variable, specificFont);
+        finalFontStack = englishFont ? `${englishFont}, ${specificFont}` : specificFont;
+        element.style.setProperty(langConfig.variable, finalFontStack);
       }
     }
   }
@@ -109,7 +109,6 @@ export function applyFontsToMessage(element, fontSettings, options = {}) {
       element.style.removeProperty(variable);
     });
   }
-  resetCodeBlocksToMonospace(element);
 }
 
 // Debounced observer handler keeps streaming from firing per keystroke while scanning the selector once.
@@ -292,23 +291,6 @@ function updateFontsForExistingMessages(fontSettings) {
   const settings = fontSettings || buildFontSettings(cachedSettings);
   document.querySelectorAll(messageSelector || '*').forEach((message) => {
     applyFontsToMessage(message, settings);
-  });
-}
-
-// Walk any message candidate to ensure it matches the selector we care about.
-function resetCodeBlocksToMonospace(message) {
-  if (!(message instanceof HTMLElement)) {
-    return;
-  }
-  const monospace = '"JetBrains Mono", "Fira Code", Menlo, Consolas, monospace';
-  const codeNodes = message.querySelectorAll('pre, code');
-  codeNodes.forEach((node) => {
-    if (node && node.style) {
-      node.style.setProperty('font-family', monospace, 'important');
-      node.style.removeProperty('--font-body');
-      node.style.removeProperty('--chatgpt-font-message-english');
-      node.style.removeProperty('--chatgpt-font-message-persian');
-    }
   });
 }
 
