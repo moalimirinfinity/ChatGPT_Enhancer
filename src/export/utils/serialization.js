@@ -1249,7 +1249,7 @@ function serializeNodeToMarkdown(node, context) {
   const tag = node.tagName.toLowerCase();
   switch (tag) {
     case 'br':
-      return '\n';
+      return '<br>';
     case 'hr':
       return '---';
     case 'h1':
@@ -1346,7 +1346,7 @@ function serializeEquationMarkdown(node) {
   const content = stripZeroWidth(latex.trim());
   const isBlock = fragment?.displayMode || content.includes('\\begin{') || content.includes('\\[');
   if (isBlock) {
-    return `\n\n$$\n${content}\n$$\n\n`;
+    return `$$\n${content}\n$$`;
   }
   return `$${content}$`;
 }

@@ -4,13 +4,19 @@ html.chatgpt-font-control-enabled {
   --chatgpt-font-persian: "Vazirmatn", "Noto Sans Arabic", "Tahoma", "Arial", sans-serif;
 }
 
-html.chatgpt-font-control-enabled .chatgpt-font-message,
-html.chatgpt-font-control-enabled .chatgpt-font-message * {
+html.chatgpt-font-control-enabled .chatgpt-font-message {
   font-family: var(--chatgpt-font-message-english, var(--chatgpt-font-english)) !important;
 }
 
-html.chatgpt-font-control-enabled .chatgpt-font-message.chatgpt-font-persian,
-html.chatgpt-font-control-enabled .chatgpt-font-message.chatgpt-font-persian * {
+html.chatgpt-font-control-enabled .chatgpt-font-message :not(.katex, .katex *) {
+  font-family: var(--chatgpt-font-message-english, var(--chatgpt-font-english)) !important;
+}
+
+html.chatgpt-font-control-enabled .chatgpt-font-message.chatgpt-font-persian {
+  font-family: var(--chatgpt-font-message-persian, var(--chatgpt-font-persian)) !important;
+}
+
+html.chatgpt-font-control-enabled .chatgpt-font-message.chatgpt-font-persian :not(.katex, .katex *) {
   font-family: var(--chatgpt-font-message-persian, var(--chatgpt-font-persian)) !important;
 }
 
@@ -21,37 +27,19 @@ html.chatgpt-font-control-enabled .chatgpt-font-message code * {
   font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace !important;
 }
 
-/* Math protection: one class controls direction and font to avoid inline mutations. */
+/* Math protection: one class controls direction to avoid inline mutations. */
 .gpt-enhancer-katex-protected {
   direction: ltr !important;
   unicode-bidi: isolate !important;
-  font-family: KaTeX_Main, "Times New Roman", serif !important;
 }
 
 .gpt-enhancer-katex-protected * {
   direction: ltr !important;
   unicode-bidi: isolate !important;
-  font-family: inherit !important;
-}
-
-/* Higher specificity so font overrides on messages cannot bleed into math; keep display math centered. */
-html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-protected,
-html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-protected * {
-  font-family: KaTeX_Main, "Times New Roman", serif !important;
 }
 
 html.chatgpt-font-control-enabled .chatgpt-font-message .gpt-enhancer-katex-protected.katex-display {
   text-align: center !important;
-}
-
-/* Even when KaTeX protection is disabled, keep math using the KaTeX stack so fonts never bleed in. */
-html.chatgpt-font-control-enabled .chatgpt-font-message .katex,
-html.chatgpt-font-control-enabled .chatgpt-font-message .katex *,
-html.chatgpt-font-control-enabled .chatgpt-font-message .katex-display,
-html.chatgpt-font-control-enabled .chatgpt-font-message .katex-display *,
-html.chatgpt-font-control-enabled .chatgpt-font-message .katex-html,
-html.chatgpt-font-control-enabled .chatgpt-font-message .katex-html * {
-  font-family: KaTeX_Main, "Times New Roman", serif !important;
 }
 
 html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code main [data-message-author-role] pre,
