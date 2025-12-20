@@ -5,3 +5,4 @@ import './toc.feature.test.js';
 import './markdown.feature.test.js';
 import './json.feature.test.js';
 import './csv.feature.test.js';
+import './png.feature.test.js';

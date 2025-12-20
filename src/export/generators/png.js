@@ -90,31 +90,7 @@ export async function exportAsPng(stage, root) {
     const width = Math.max(1, Math.ceil(measuredWidth));
     const height = Math.max(1, Math.ceil(measuredHeight));
 
-    const pixelArea = width * height;
-    if (!Number.isFinite(pixelArea) || pixelArea <= 0) {
-      throw createExportError('png-invalid-dimensions', 'Unable to determine export size for image export.', { width, height });
-    }
-
-    const basePixelRatio = 2;
-    const maxRatioFromArea = Math.sqrt(PNG_EXPORT_PIXEL_LIMIT / pixelArea);
-    const dimensionRatio = Math.min(
-      1,
-      PNG_EXPORT_MAX_DIMENSION / width,
-      PNG_EXPORT_MAX_DIMENSION / height
-    );
-    const maxRatio = Math.min(basePixelRatio, maxRatioFromArea, dimensionRatio);
-    const estimatedPages = estimatePageCount(height);
-    if (!Number.isFinite(maxRatio) || maxRatio < PNG_EXPORT_MIN_PIXEL_RATIO) {
-      const message = `Conversation is too large to export as a single image (estimated ${estimatedPages} pages). Please use PDF or DOCX export instead.`;
-      throw createExportError('png-too-large', message, {
-        width,
-        height,
-        pixelRatio: maxRatio,
-        estimatedPages,
-        maxDimension: PNG_EXPORT_MAX_DIMENSION
-      });
-    }
-    const pixelRatio = maxRatio;
+    const { pixelRatio, estimatedPages } = computePngRenderPlan(width, height);
 
     let renderOutcome;
     try {
@@ -155,6 +131,34 @@ function estimatePageCount(height) {
   return Math.max(1, Math.ceil(height / PNG_EXPORT_APPROX_PAGE_HEIGHT));
 }
 
+function computePngRenderPlan(width, height) {
+  const pixelArea = width * height;
+  if (!Number.isFinite(pixelArea) || pixelArea <= 0) {
+    throw createExportError('png-invalid-dimensions', 'Unable to determine export size for image export.', { width, height });
+  }
+
+  const basePixelRatio = 2;
+  const maxRatioFromArea = Math.sqrt(PNG_EXPORT_PIXEL_LIMIT / pixelArea);
+  const dimensionRatio = Math.min(
+    PNG_EXPORT_MAX_DIMENSION / width,
+    PNG_EXPORT_MAX_DIMENSION / height
+  );
+  const maxRatio = Math.min(basePixelRatio, maxRatioFromArea, dimensionRatio);
+  const estimatedPages = estimatePageCount(height);
+  if (!Number.isFinite(maxRatio) || maxRatio < PNG_EXPORT_MIN_PIXEL_RATIO) {
+    const message = `Conversation is too large to export as a single image (estimated ${estimatedPages} pages). Please use PDF or DOCX export instead.`;
+    throw createExportError('png-too-large', message, {
+      width,
+      height,
+      pixelRatio: maxRatio,
+      estimatedPages,
+      maxDimension: PNG_EXPORT_MAX_DIMENSION
+    });
+  }
+
+  return { pixelRatio: maxRatio, estimatedPages };
+}
+
 function scrubCrossOriginImages(container) {
   const images = Array.from(container.querySelectorAll('img'));
   images.forEach((img) => {
@@ -183,3 +187,9 @@ function isSameOrigin(url) {
     return false;
   }
 }
+
+export const __test__ = {
+  computePngRenderPlan,
+  scrubCrossOriginImages,
+  estimatePageCount
+};
