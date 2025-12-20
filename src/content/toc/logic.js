@@ -100,6 +100,10 @@ export const TocManager = {
   sync
 };
 
+export const __test__ = {
+  mutationTouchesAssistant
+};
+
 function isActive(settings = currentSettings) {
   return Boolean(settings?.enableFix && settings.tableOfContents);
 }
