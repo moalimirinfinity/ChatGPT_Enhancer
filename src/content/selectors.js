@@ -50,7 +50,11 @@ function resolveSelector(key, root = document) {
 
   const cached = selectorCache.get(key);
   if (cached) {
-    return { selector: cached, nodes: query(root, cached) };
+    const cachedNodes = query(root, cached);
+    if (cachedNodes.length) {
+      return { selector: cached, nodes: cachedNodes };
+    }
+    selectorCache.delete(key);
   }
 
   for (const candidate of candidates) {

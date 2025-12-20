@@ -129,9 +129,15 @@ async function copyTextToClipboard(text) {
   textarea.style.position = 'absolute';
   textarea.style.left = '-9999px';
   document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
+  try {
+    textarea.select();
+    const successful = document.execCommand('copy');
+    if (!successful) {
+      throw new Error('execCommand failed');
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function showToast(message, referenceRect) {
