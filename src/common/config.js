@@ -6,7 +6,6 @@ export const DEFAULT_SETTINGS = {
   enableFix: true,
   fixKatex: true,
   fixCode: true,
-  fixTables: true,
   copyKatex: true,
   tableOfContents: true,
   tableOfContentsCollapsed: false,

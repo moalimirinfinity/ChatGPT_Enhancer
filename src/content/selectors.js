@@ -16,8 +16,7 @@ const SELECTOR_CANDIDATES = {
     'article'
   ],
   katex: ['.katex-display', '.katex-html', '.katex-mathml', '.katex'],
-  code: ['pre[data-testid="code-block"]', 'div[data-testid="code-block"] pre', 'pre code', 'pre', 'code'],
-  tables: ['table', '[role="table"]']
+  code: ['pre[data-testid="code-block"]', 'div[data-testid="code-block"] pre', 'pre code', 'pre', 'code']
 };
 
 const selectorCache = new Map();
@@ -85,18 +84,13 @@ export function selectCodeNodes(root = document) {
   return resolveSelector('code', root);
 }
 
-export function selectTableNodes(root = document) {
-  return resolveSelector('tables', root);
-}
-
 export const MESSAGE_SELECTORS = dedupe(SELECTOR_CANDIDATES.messages);
 export const MESSAGE_SELECTOR = combine(MESSAGE_SELECTORS);
 
 export const SELECTORS = {
   messages: MESSAGE_SELECTOR,
   katex: combine(SELECTOR_CANDIDATES.katex),
-  code: combine(SELECTOR_CANDIDATES.code),
-  tables: combine(SELECTOR_CANDIDATES.tables)
+  code: combine(SELECTOR_CANDIDATES.code)
 };
 
 export function getMessageSelector(root = document) {

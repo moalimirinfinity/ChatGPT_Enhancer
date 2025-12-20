@@ -132,7 +132,6 @@ function extractRelevantChanges(changes) {
     'enableFix',
     'fixKatex',
     'fixCode',
-    'fixTables',
     'theme',
     'fontsEnabled',
     'fontEnglish',

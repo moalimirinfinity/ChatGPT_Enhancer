@@ -94,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.enableFix = document.getElementById('toggle-enable');
   controls.fixKatex = document.getElementById('toggle-katex');
   controls.fixCode = document.getElementById('toggle-code');
-  controls.fixTables = document.getElementById('toggle-tables');
   controls.copyKatex = document.getElementById('toggle-copy');
   controls.tableOfContents = document.getElementById('toggle-toc');
   controls.refreshBtn = document.getElementById('refresh-btn');

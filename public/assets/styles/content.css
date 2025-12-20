@@ -78,23 +78,6 @@ html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-code code {
   text-align: left;
 }
 
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
-  main
-  [data-message-author-role]
-  table,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables
-  main
-  [data-testid='conversation-turn']
-  table {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables [data-message-author-role] table,
-html.chatgpt-direction-fix-enabled.chatgpt-direction-fix-tables table {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
 .chatgpt-toc-panel {
   position: fixed;
   top: 72px;

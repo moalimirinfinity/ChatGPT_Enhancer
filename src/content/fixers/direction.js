@@ -1,10 +1,10 @@
 /**
- * Monitors and corrects text direction (RTL/LTR) for code blocks, tables, and mixed content.
+ * Monitors and corrects text direction (RTL/LTR) for code blocks and mixed content.
  * KaTeX direction protection lives in KatexManager to avoid overlapping inline fixes.
  */
 
 import { DEFAULT_SETTINGS } from '../../common/config.js';
-import { selectCodeNodes, selectTableNodes } from '../selectors.js';
+import { selectCodeNodes } from '../selectors.js';
 
 const root = document.documentElement;
 const RESET_VALUES = {
@@ -22,18 +22,9 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
   }
 
   const codeNodes = selectCodeNodes(scope).nodes;
-  const tableNodes = selectTableNodes(scope).nodes;
 
   // Always clear before reapplying to avoid stale inline values when toggling repeatedly.
   clearStyles(codeNodes);
-  clearStyles(tableNodes);
-
-  if (currentSettings.fixTables && tableNodes.length) {
-    applyStyles(tableNodes, {
-      direction: RESET_VALUES.direction,
-      unicodeBidi: RESET_VALUES.unicodeBidi
-    });
-  }
 
   if (currentSettings.fixCode && codeNodes.length) {
     applyStyles(codeNodes, {
@@ -49,7 +40,6 @@ export function clearDirectionFixes(scope = getConversationRoot()) {
     return;
   }
   clearStyles(selectCodeNodes(scope).nodes);
-  clearStyles(selectTableNodes(scope).nodes);
 }
 
 export function init(settings) {
@@ -69,7 +59,7 @@ export function update(changes) {
   }
   const previous = { ...currentSettings };
   const next = { ...currentSettings };
-  ['enableFix', 'fixKatex', 'fixCode', 'fixTables'].forEach((key) => {
+  ['enableFix', 'fixKatex', 'fixCode'].forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(changes, key) && changes[key]) {
       next[key] = changes[key].newValue;
     }
@@ -159,7 +149,6 @@ function syncRootClasses() {
   const enabled = isEnabled();
   root.classList.toggle('chatgpt-direction-fix-enabled', enabled);
   root.classList.toggle('chatgpt-direction-fix-code', enabled && currentSettings.fixCode);
-  root.classList.toggle('chatgpt-direction-fix-tables', enabled && currentSettings.fixTables);
 }
 
 function getConversationRoot() {
@@ -176,8 +165,5 @@ function clearDisabledFeatures(previous, next) {
   }
   if (previous.fixCode && !next.fixCode) {
     clearStyles(selectCodeNodes(scope).nodes);
-  }
-  if (previous.fixTables && !next.fixTables) {
-    clearStyles(selectTableNodes(scope).nodes);
   }
 }
