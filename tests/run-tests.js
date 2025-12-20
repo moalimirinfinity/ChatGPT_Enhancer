@@ -2,3 +2,15 @@ import './prompts.manager.test.js';
 import './prompts.controller.test.js';
 import './fonts.feature.test.js';
 import './toc.feature.test.js';
+<<<<<<< Updated upstream
+=======
+import './markdown.feature.test.js';
+import './json.feature.test.js';
+import './csv.feature.test.js';
+import './png.feature.test.js';
+import './katex.feature.test.js';
+import './markdown.feature.test.js';
+import './json.feature.test.js';
+import './csv.feature.test.js';
+import './png.feature.test.js';
+>>>>>>> Stashed changes
