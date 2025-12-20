@@ -34,10 +34,6 @@
     {
       "resources": ["assets/fonts/*.woff2", "assets/fonts/*.ttf", "assets/libs/*.js", "assets/scripts/*.js"],
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"]
-    },
-    {
-      "resources": ["help/*"],
-      "matches": ["<all_urls>"]
     }
   ]
 }
