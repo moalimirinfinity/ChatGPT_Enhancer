@@ -9,7 +9,14 @@ const INLINE_CONCURRENCY = 4;
 // Bound fetches so one slow image does not stall the entire export.
 const FETCH_TIMEOUT_MS = 8000;
 
-export async function inlineImages(root) {
+export async function inlineImages(root, options = {}) {
+  if (!root) {
+    return;
+  }
+  const signal = options.signal;
+  if (signal && signal.aborted) {
+    return;
+  }
   const allImages = Array.from(root.querySelectorAll('img'));
   // Force eager loading so lazily-loaded user attachments render in the hidden export stage.
   allImages.forEach((img) => {
@@ -22,10 +29,13 @@ export async function inlineImages(root) {
     return src && !src.startsWith('data:');
   });
 
-  await runWithConcurrency(images, INLINE_CONCURRENCY, inlineSingleImage);
+  await runWithConcurrency(images, INLINE_CONCURRENCY, (img) => inlineSingleImage(img, signal), { signal });
 }
 
-async function inlineSingleImage(img) {
+async function inlineSingleImage(img, signal) {
+  if (signal && signal.aborted) {
+    return;
+  }
   const absoluteUrl = img.src;
   if (!absoluteUrl) {
     return;
@@ -34,7 +44,7 @@ async function inlineSingleImage(img) {
   // Prefer credentialed fetch to avoid CORS-restricted buckets; fall back to local rasterization
   // for same-origin assets. All failures are swallowed so a single bad image never blocks export.
   try {
-    const dataUrl = await fetchImageAsDataUrl(absoluteUrl);
+    const dataUrl = await fetchImageAsDataUrl(absoluteUrl, signal);
     if (dataUrl) {
       setImageData(img, dataUrl);
       return;
@@ -45,6 +55,9 @@ async function inlineSingleImage(img) {
 
   if (isSameOrigin(absoluteUrl)) {
     try {
+      if (signal && signal.aborted) {
+        return;
+      }
       const dataUrl = await rasterizeImageElement(img);
       if (dataUrl) {
         setImageData(img, dataUrl);
@@ -60,9 +73,19 @@ function setImageData(img, dataUrl) {
   img.removeAttribute('srcset');
 }
 
-function fetchImageAsDataUrl(url) {
+function fetchImageAsDataUrl(url, signal) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const handleAbort = () => controller.abort();
+  if (signal && typeof signal.addEventListener === 'function') {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', handleAbort, { once: true });
+    }
+  } else if (signal && signal.aborted) {
+    controller.abort();
+  }
   return fetch(url, { mode: 'cors', credentials: 'include', signal: controller.signal })
     .then((response) => {
       if (!response.ok) {
@@ -71,7 +94,12 @@ function fetchImageAsDataUrl(url) {
       return response.blob();
     })
     .then((blob) => blobToDataUrl(blob))
-    .finally(() => window.clearTimeout(timeout));
+    .finally(() => {
+      window.clearTimeout(timeout);
+      if (signal && typeof signal.removeEventListener === 'function') {
+        signal.removeEventListener('abort', handleAbort);
+      }
+    });
 }
 
 async function rasterizeImageElement(img) {
@@ -98,8 +126,12 @@ function blobToDataUrl(blob) {
   });
 }
 
-function runWithConcurrency(items, limit, worker) {
+function runWithConcurrency(items, limit, worker, options = {}) {
   if (!Array.isArray(items) || !items.length) {
+    return Promise.resolve();
+  }
+  const signal = options.signal;
+  if (signal && signal.aborted) {
     return Promise.resolve();
   }
 
@@ -107,6 +139,9 @@ function runWithConcurrency(items, limit, worker) {
   const runners = [];
 
   const next = async () => {
+    if (signal && signal.aborted) {
+      return;
+    }
     const current = index;
     index += 1;
     const item = items[current];
@@ -118,7 +153,7 @@ function runWithConcurrency(items, limit, worker) {
     } catch {
       // Fail soft: individual errors should not halt the queue.
     }
-    if (index < items.length) {
+    if (index < items.length && !(signal && signal.aborted)) {
       await next();
     }
   };

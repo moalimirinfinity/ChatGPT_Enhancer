@@ -103,7 +103,7 @@ async function handleExportRequest(format) {
 
     if (!isTextExportFormat(exportFormat)) {
       dispatchProgress('images', { format: exportFormat });
-      await inlineImages(root);
+      await inlineImages(root, { signal: run.abortController ? run.abortController.signal : null });
     }
 
     throwIfAborted(run);
@@ -170,7 +170,8 @@ function createExportRun(format) {
     aborted: false,
     stage: null,
     styleNode: null,
-    teardownHandlers: []
+    teardownHandlers: [],
+    abortController: typeof AbortController === 'function' ? new AbortController() : null
   };
 }
 
@@ -190,6 +191,9 @@ function attachUnloadGuards(run) {
   // so we do not leave heavy DOM nodes attached.
   const abort = () => {
     run.aborted = true;
+    if (run.abortController && typeof run.abortController.abort === 'function') {
+      run.abortController.abort();
+    }
     dispatchProgress('aborted', { format: run.format });
     cleanupStage(run.stage, run.styleNode);
   };

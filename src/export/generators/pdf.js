@@ -4,7 +4,7 @@
 
 import { EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from '../constants.js';
 
-export async function exportAsPdf(stage) {
+export function exportAsPdf(stage) {
   const printStyle = document.createElement('style');
   printStyle.textContent = `
     @page {
@@ -62,6 +62,22 @@ export async function exportAsPdf(stage) {
     }
   `;
   document.head.appendChild(printStyle);
-  window.print();
-  document.head.removeChild(printStyle);
+  return new Promise((resolve) => {
+    let done = false;
+    const cleanup = () => {
+      if (done) {
+        return;
+      }
+      done = true;
+      window.clearTimeout(timeout);
+      window.removeEventListener('afterprint', cleanup);
+      if (printStyle.parentNode) {
+        printStyle.parentNode.removeChild(printStyle);
+      }
+      resolve();
+    };
+    const timeout = window.setTimeout(cleanup, 5000);
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+  });
 }
