@@ -3,7 +3,8 @@
  * KaTeX direction protection lives in KatexManager to avoid overlapping inline fixes.
  */
 
-import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
+import { DEFAULT_SETTINGS } from '../../common/config.js';
+import { selectCodeNodes, selectTableNodes } from '../selectors.js';
 
 const root = document.documentElement;
 const RESET_VALUES = {
@@ -20,8 +21,8 @@ export function applyDirectionFixes(scope = getConversationRoot()) {
     return;
   }
 
-  const codeNodes = Array.from(scope.querySelectorAll(SELECTORS.code));
-  const tableNodes = Array.from(scope.querySelectorAll(SELECTORS.tables));
+  const codeNodes = selectCodeNodes(scope).nodes;
+  const tableNodes = selectTableNodes(scope).nodes;
 
   // Always clear before reapplying to avoid stale inline values when toggling repeatedly.
   clearStyles(codeNodes);
@@ -47,8 +48,8 @@ export function clearDirectionFixes(scope = getConversationRoot()) {
   if (!scope) {
     return;
   }
-  clearStyles(scope.querySelectorAll(SELECTORS.code));
-  clearStyles(scope.querySelectorAll(SELECTORS.tables));
+  clearStyles(selectCodeNodes(scope).nodes);
+  clearStyles(selectTableNodes(scope).nodes);
 }
 
 export function init(settings) {
@@ -174,9 +175,9 @@ function clearDisabledFeatures(previous, next) {
     return;
   }
   if (previous.fixCode && !next.fixCode) {
-    clearStyles(scope.querySelectorAll(SELECTORS.code));
+    clearStyles(selectCodeNodes(scope).nodes);
   }
   if (previous.fixTables && !next.fixTables) {
-    clearStyles(scope.querySelectorAll(SELECTORS.tables));
+    clearStyles(selectTableNodes(scope).nodes);
   }
 }

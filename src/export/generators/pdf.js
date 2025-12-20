@@ -4,7 +4,7 @@
 
 import { EXPORT_STAGE_CLASS, EXPORT_ROOT_CLASS } from '../constants.js';
 
-export async function exportAsPdf(stage) {
+export function exportAsPdf() {
   const printStyle = document.createElement('style');
   printStyle.textContent = `
     @page {
@@ -30,6 +30,20 @@ export async function exportAsPdf(stage) {
         position: static !important;
         z-index: 9999 !important;
       }
+      /* Override table styles to allow edge alignment based on direction */
+      .${EXPORT_ROOT_CLASS} table {
+        width: auto !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+      }
+      /* Force code blocks to retain dark styling when printing */
+      .${EXPORT_ROOT_CLASS} pre {
+        background-color: #000 !important;
+        color: #fff !important;
+        border-radius: 6px !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
+      }
       .${EXPORT_ROOT_CLASS} .katex {
         display: inline-flex !important;
         align-items: center;
@@ -48,6 +62,22 @@ export async function exportAsPdf(stage) {
     }
   `;
   document.head.appendChild(printStyle);
-  window.print();
-  document.head.removeChild(printStyle);
+  return new Promise((resolve) => {
+    let done = false;
+    const cleanup = () => {
+      if (done) {
+        return;
+      }
+      done = true;
+      window.clearTimeout(timeout);
+      window.removeEventListener('afterprint', cleanup);
+      if (printStyle.parentNode) {
+        printStyle.parentNode.removeChild(printStyle);
+      }
+      resolve();
+    };
+    const timeout = window.setTimeout(cleanup, 5000);
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+  });
 }

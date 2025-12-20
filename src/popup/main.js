@@ -2,8 +2,8 @@
  * Primary controller for the popup UI, handling initialization and global event delegation.
  */
 import { DEFAULT_SETTINGS } from '../common/config.js';
-import { loadSettings } from '../common/storage.js';
-import { PROMPTS_STORAGE_KEY } from './prompts/manager.js';
+import { loadSettings, saveSettings } from '../common/storage.js';
+import { PROMPTS_STORAGE_KEY, PROMPTS_REVISION_KEY } from './prompts/manager.js';
 import { createPromptController } from './prompts/controller.js';
 import { PROMPTS_EMPTY_MESSAGES, EXPORT_ERROR_MESSAGES, POPUP_LABELS, POPUP_COPY } from '../common/i18n.js';
 import {
@@ -23,14 +23,15 @@ import {
   updateThemeCardAvailability,
   applySettingsToUI
 } from './settings.js';
-const LANGUAGE_HINT_DEFAULT = 'english';
-const LANGUAGE_HINT_MESSAGE = 'GPT_ENHANCER_DETECT_LANGUAGE';
-const LANGUAGE_DETECTION_MAX_MESSAGES = 6;
-const LANGUAGE_DETECTION_MAX_CHARS = 800;
+import {
+  LANGUAGE_HINT_DEFAULT,
+  LANGUAGE_HINT_MESSAGE_TYPE,
+  LANGUAGE_DETECTION_MAX_MESSAGES,
+  LANGUAGE_DETECTION_MAX_CHARS,
+  EXPORT_MESSAGE_TYPE
+} from '../common/constants.js';
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
-const PROMPT_TITLE_MAX_LENGTH = 80;
 const PROMPT_TEXT_MAX_LENGTH = 8000; // NEW CONSTANT
-const PROMPT_COPY_RESET_DELAY = 1600;
 const {
   defaultPrimary: PROMPTS_EMPTY_DEFAULT_PRIMARY,
   defaultSecondary: PROMPTS_EMPTY_DEFAULT_SECONDARY,
@@ -76,7 +77,6 @@ const promptController = createPromptController({
     }
   }
 });
-let conversationLanguageHint = LANGUAGE_HINT_DEFAULT;
 let hasUserSetFontTab = false;
 const REFRESH_LABEL_DEFAULT = REFRESH_LABELS.default;
 const REFRESH_LABEL_OPEN = REFRESH_LABELS.open;
@@ -245,18 +245,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateThemeCardAvailability(controls, chatBaseThemeMode);
       }
-      if (Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY)) {
-        const { newValue } = changes[PROMPTS_STORAGE_KEY];
-        promptController.synchronizePromptsFromStorage(newValue);
+      const promptsChanged =
+        Object.prototype.hasOwnProperty.call(changes, PROMPTS_STORAGE_KEY) ||
+        Object.prototype.hasOwnProperty.call(changes, PROMPTS_REVISION_KEY);
+      if (promptsChanged) {
+        promptController.loadPromptsFromStorage();
       }
     }
-    if (area === 'sync') {
-      const filteredEntries = Object.entries(changes).filter(([key]) => key !== PROMPTS_STORAGE_KEY);
-      if (!filteredEntries.length) {
+    if (area === 'sync' || area === 'local') {
+      const settingEntries = Object.entries(changes).filter(([key]) =>
+        Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)
+      );
+      if (!settingEntries.length) {
         return;
       }
       const next = { ...currentSettings };
-      filteredEntries.forEach(([key, { newValue }]) => {
+      settingEntries.forEach(([key, { newValue }]) => {
         next[key] = newValue;
       });
       applySettings(next);
@@ -266,10 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateSetting(key, value) {
   const payload = { [key]: value };
-  chrome.storage.sync.set(payload, () => {
-    if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError);
-    }
+  saveSettings(payload).catch((error) => {
+    console.error(error);
   });
 }
 
@@ -281,7 +283,11 @@ function applySettings(settings) {
     currentSettingsRef,
     chatBaseThemeMode,
     isBusyRef,
-    currentFontTabRef
+    currentFontTabRef,
+    labels: {
+      refresh: REFRESH_LABEL_DEFAULT,
+      donate: DONATE_LABEL_DEFAULT
+    }
   });
   currentSettings = next;
   isBusy = isBusyRef.value;
@@ -349,7 +355,7 @@ function requestConversationLanguageHint() {
     chrome.tabs.sendMessage(
       activeTab.id,
       {
-        type: LANGUAGE_HINT_MESSAGE,
+        type: LANGUAGE_HINT_MESSAGE_TYPE,
         maxMessages: LANGUAGE_DETECTION_MAX_MESSAGES,
         maxChars: LANGUAGE_DETECTION_MAX_CHARS
       },
@@ -371,7 +377,6 @@ function requestConversationLanguageHint() {
 
 function applyConversationPersonalization(language) {
   const normalized = normalizeLanguageHint(language);
-  conversationLanguageHint = normalized;
   if (!hasUserSetFontTab && normalized !== currentFontTabRef.value) {
     setActiveFontTab(controls, normalized, currentFontTabRef);
   }
@@ -461,7 +466,7 @@ function handleExport() {
     chrome.tabs.sendMessage(
       activeTab.id,
       {
-        type: 'GPT_EXPORT_CONVERSATION',
+        type: EXPORT_MESSAGE_TYPE,
         format: getSelectedExportFormat()
       },
       (response) => {

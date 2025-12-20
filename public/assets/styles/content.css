@@ -784,6 +784,31 @@ html.chatgpt-theme-skylight [class*='border-token-'] {
   transform: translate(-50%, -100%) scale(1);
 }
 
+.gpt-export-toast {
+  position: fixed;
+  z-index: 100001;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(17, 22, 44, 0.92);
+  color: #f6f8ff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -30%) scale(0.96);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  box-shadow:
+    0 14px 28px rgba(4, 6, 18, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.gpt-export-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
 .chatgpt-katex-copied {
   position: relative;
   transition: filter 0.2s ease;

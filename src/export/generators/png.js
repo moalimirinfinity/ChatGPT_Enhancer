@@ -1,7 +1,6 @@
 /**
  * Logic for rasterizing the conversation into a single long PNG image.
  */
-import * as htmlToImage from 'html-to-image';
 import { PNG_EXPORT_PIXEL_LIMIT, PNG_EXPORT_MIN_PIXEL_RATIO, PNG_EXPORT_APPROX_PAGE_HEIGHT } from '../constants.js';
 import { dataUrlToBlob } from '../utils/blob.js';
 import { buildFilename, triggerDownload } from '../utils/download.js';
@@ -57,6 +56,21 @@ export async function exportAsPng(stage, root) {
   stage.appendChild(wrapper);
 
   try {
+    scrubCrossOriginImages(wrapper);
+    const images = Array.from(wrapper.querySelectorAll('img'));
+    if (images.length > 0) {
+      // Ensure cloned images finish decoding so their height is reflected in measurements.
+      await Promise.all(
+        images.map((img) => {
+          if (img.complete) {
+            return Promise.resolve();
+          }
+          return img.decode().catch(() => Promise.resolve());
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
     const rect = wrapper.getBoundingClientRect();
     const measuredWidth = Math.max(rect.width, wrapper.scrollWidth);
     const measuredHeight = Math.max(rect.height, wrapper.scrollHeight);
@@ -118,4 +132,33 @@ function estimatePageCount(height) {
     return 1;
   }
   return Math.max(1, Math.ceil(height / PNG_EXPORT_APPROX_PAGE_HEIGHT));
+}
+
+function scrubCrossOriginImages(container) {
+  const images = Array.from(container.querySelectorAll('img'));
+  images.forEach((img) => {
+    const src = img.getAttribute('src') || img.src || '';
+    if (!src || src.startsWith('data:') || src.startsWith('blob:')) {
+      return;
+    }
+    if (isSameOrigin(src)) {
+      return;
+    }
+    const alt = (img.getAttribute('alt') || '').trim();
+    const placeholder = document.createElement('span');
+    placeholder.textContent = alt ? `[image omitted: ${alt}]` : '[image omitted]';
+    placeholder.setAttribute('data-export-omitted', 'image');
+    if (img.parentNode) {
+      img.parentNode.replaceChild(placeholder, img);
+    }
+  });
+}
+
+function isSameOrigin(url) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }

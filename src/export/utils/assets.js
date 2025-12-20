@@ -1,6 +1,12 @@
 /**
  * Centralized loader for external libraries and fonts required by exports.
+ *
+ * Responsibilities:
+ * - Inject and coordinate DOCX generation scripts via page-context IPC.
+ * - Resolve runtime asset URLs and ensure export fonts are loaded/registered.
+ * - Provide a timeout-bound request/response channel for DOCX generation.
  */
+
 import { VAZIRMATN_FONT_PATH } from '../constants.js';
 import { resolveRuntimeUrl } from './download.js';
 
@@ -17,6 +23,7 @@ export function ensureDocxRunnerLoaded() {
     return docxRunnerReadyPromise;
   }
 
+  // Injects html-docx + runner into the page context; runner handles IPC to create the blob.
   docxRunnerReadyPromise = new Promise((resolve, reject) => {
     if (document.querySelector(`script[${DOCX_RUNNER_ATTR}]`)) {
       resolve();
@@ -66,7 +73,7 @@ function injectDocxRunnerScript() {
   });
 }
 
-export function requestDocxGeneration(htmlContent, filename, timeoutMs = 20000) {
+export function requestDocxGeneration(htmlContent, filename, timeoutMs = 15000) {
   if (!htmlContent || !filename) {
     return Promise.reject(new Error('DOCX payload is incomplete'));
   }
@@ -76,6 +83,7 @@ export function requestDocxGeneration(htmlContent, filename, timeoutMs = 20000) 
   return new Promise((resolve, reject) => {
     let settled = false;
 
+    // Clears listeners/timers after completion to avoid leaks across exports.
     const cleanup = () => {
       settled = true;
       document.removeEventListener(DOCX_RESULT_EVENT, handleResult);
@@ -95,6 +103,7 @@ export function requestDocxGeneration(htmlContent, filename, timeoutMs = 20000) 
       reject(new Error(detail.error || 'DOCX export failed'));
     };
 
+    // Avoid hanging the UI if the runner never responds (CSP or unexpected errors).
     const timeout = window.setTimeout(() => {
       if (!settled) {
         cleanup();

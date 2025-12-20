@@ -23,7 +23,6 @@ export const LEGACY_THEME_CLASSES = [
 export const DEPRECATED_THEME_CLASSES = ['chatgpt-theme-daybreak'];
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 
-let appliedThemeClass = null;
 let lastKnownChatThemeMode = null;
 let themeModeSyncTimer = null;
 let lastThemeBlockNotice = null;
@@ -108,7 +107,6 @@ export function applyTheme(theme, environmentThemeMode) {
     if (lastThemeBlockNotice !== key) {
       lastThemeBlockNotice = key;
     }
-    appliedThemeClass = null;
     if (themeTokenApplier) {
       themeTokenApplier();
     }
@@ -117,10 +115,8 @@ export function applyTheme(theme, environmentThemeMode) {
   const themeClass = resolveThemeClass(applicableTheme);
   if (themeClass) {
     root.classList.add(themeClass);
-    appliedThemeClass = themeClass;
     lastThemeBlockNotice = null;
   } else {
-    appliedThemeClass = null;
     lastThemeBlockNotice = null;
   }
   if (themeTokenApplier) {
@@ -180,7 +176,6 @@ function resetThemeClasses() {
   DEPRECATED_THEME_CLASSES.forEach((className) => {
     root.classList.remove(className);
   });
-  appliedThemeClass = null;
 }
 
 function detectChatGPTThemeMode() {

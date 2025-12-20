@@ -1,11 +1,27 @@
 /**
- * Utilities for traversing the DOM and serializing content into structured data (JSON/Markdown).
+ * Serialization helpers for exports.
+ *
+ * Responsibilities:
+ * - Traverse the sanitized export DOM and emit structured JSON/Markdown/CSV representations.
+ * - Preserve layout semantics (blocks, lists, tables, equations, RTL) even when ChatGPT's DOM shifts.
+ * - Normalize text (strip zero-width chars, collapse whitespace) for stable downstream formatting.
+ * - Handle block/inline nuances (code, images, tables, equations) and flatten tables for CSV.
+ *
+ * Key considerations:
+ * - JSON_BLOCK_LEVEL_SELECTOR + display heuristics keep paragraphs separate across DOM variants.
+ * - blockToPlainText/blocksToPlainText are used by CSV/text exporters; keep changes compatible.
+ * - Equation nodes and images are sanitized earlier; serializers avoid mutating the DOM.
  */
 
 import { EXPORT_EQUATION_CLASS, RTL_CHAR_REGEX, LTR_CHAR_REGEX } from '../constants.js';
 
+// Broader block selector helps preserve structure when ChatGPT wraps text in generic containers.
 const JSON_BLOCK_LEVEL_SELECTOR = [
   'p',
+  'div',
+  'section',
+  'article',
+  'main',
   'h1',
   'h2',
   'h3',
@@ -22,6 +38,8 @@ const JSON_BLOCK_LEVEL_SELECTOR = [
   '.katex',
   '.' + EXPORT_EQUATION_CLASS
 ].join(', ');
+const KATEX_DISPLAY_SELECTOR = '.katex-display';
+const BLOCK_EQUATION_TAGS = new Set(['div']);
 
 const MARKDOWN_BLOCK_TAGS = new Set([
   'address',
@@ -174,7 +192,24 @@ function isBlockLevel(node) {
   if (!node || node.nodeType !== Node.ELEMENT_NODE) {
     return false;
   }
-  return node.matches(JSON_BLOCK_LEVEL_SELECTOR);
+  if (node.matches(JSON_BLOCK_LEVEL_SELECTOR)) {
+    return true;
+  }
+  return isDisplayBlock(node);
+}
+
+// Treats visually blocky elements as block-level even if tags change,
+// so A/B DOM variants don't collapse paragraphs into inline runs.
+function isDisplayBlock(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  try {
+    const computed = window.getComputedStyle(node);
+    return ['block', 'flex', 'grid', 'table', 'flow-root', 'list-item'].includes(computed.display);
+  } catch (error) {
+    return false;
+  }
 }
 
 export function serializeChildNodesToBlocks(container, options = {}) {
@@ -208,7 +243,11 @@ export function serializeChildNodesToBlocks(container, options = {}) {
       flushInlineGroup();
       const block = serializeBlockToJson(node);
       if (block) {
-        blocks.push(block);
+        if (block.type === 'container' && block.tag === 'div' && Array.isArray(block.blocks)) {
+          blocks.push(...block.blocks);
+        } else {
+          blocks.push(block);
+        }
       }
       return;
     }
@@ -225,9 +264,11 @@ export function serializeChildNodesToBlocks(container, options = {}) {
       if (element.querySelector && element.querySelector(JSON_BLOCK_LEVEL_SELECTOR)) {
         flushInlineGroup();
         const nestedBlocks = serializeChildNodesToBlocks(element, options);
-        nestedBlocks.forEach((block) => {
-          if (block) {
-            blocks.push(block);
+        nestedBlocks.forEach((nested) => {
+          if (nested && nested.type === 'container' && nested.tag === 'div' && Array.isArray(nested.blocks)) {
+            blocks.push(...nested.blocks);
+          } else if (nested) {
+            blocks.push(nested);
           }
         });
         return;
@@ -355,14 +396,20 @@ export function serializeTableBlock(table, direction) {
     .map((row) => {
       const cells = Array.from(row.children || [])
         .filter((cell) => cell.tagName && ['td', 'th'].includes(cell.tagName.toLowerCase()))
-        .map((cell) => ({
-          type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
-          content: serializeInlineFragments(cell),
-          colSpan: parseSpanValue(cell.getAttribute('colspan')),
-          rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
-          direction: resolveNodeDirection(cell)
-        }))
-        .filter((cell) => (cell.content && cell.content.length) || cell.colSpan || cell.rowSpan);
+        .map((cell) => {
+          const content = serializeInlineFragments(cell);
+          // Capture nested structures inside table cells (lists, code blocks) so we do not lose structure.
+          const nestedBlocks = serializeChildNodesToBlocks(cell, { skipInlineParagraph: true });
+          return {
+            type: cell.tagName.toLowerCase() === 'th' ? 'header' : 'cell',
+            content: content && content.length ? content : undefined,
+            blocks: nestedBlocks && nestedBlocks.length ? nestedBlocks : undefined,
+            colSpan: parseSpanValue(cell.getAttribute('colspan')),
+            rowSpan: parseSpanValue(cell.getAttribute('rowspan')),
+            direction: resolveNodeDirection(cell)
+          };
+        })
+        .filter((cell) => (cell.content && cell.content.length) || (cell.blocks && cell.blocks.length) || cell.colSpan || cell.rowSpan);
       if (!cells.length) {
         return null;
       }
@@ -425,11 +472,12 @@ export function serializeEquationBlock(node, direction) {
   if (!latex && !text) {
     return null;
   }
+  const displayMode = isEquationDisplayNode(node);
   return {
     type: 'equation',
     latex: latex || null,
     text,
-    displayMode: node.classList.contains('katex-display'),
+    displayMode,
     direction
   };
 }
@@ -592,10 +640,11 @@ export function escapeCsvValue(value) {
   const stringValue = typeof value === 'string' ? value : String(value);
   const sanitized = sanitizeCsvCell(stringValue);
   const normalized = sanitized.replace(/\r\n?/g, '\n');
-  if (!/[",\n]/.test(normalized)) {
-    return normalized;
+  const crlfNormalized = normalized.replace(/\n/g, '\r\n');
+  if (!/[",\r\n]/.test(crlfNormalized)) {
+    return crlfNormalized;
   }
-  return `"${normalized.replace(/"/g, '""')}"`;
+  return `"${crlfNormalized.replace(/"/g, '""')}"`;
 }
 
 function sanitizeCsvCell(raw) {
@@ -671,8 +720,11 @@ function buildTableMatrix(block) {
 
 function extractTableCellText(cell) {
   const fragments = cell && Array.isArray(cell.content) ? cell.content : [];
-  const raw = inlineFragmentsToPlainText(fragments, { preserveWhitespace: true });
-  return normalizeJsonText(raw);
+  const nestedBlocks = Array.isArray(cell && cell.blocks) ? cell.blocks : [];
+  const rawInline = inlineFragmentsToPlainText(fragments, { preserveWhitespace: true });
+  const nestedText = blocksToPlainText(nestedBlocks, 0);
+  const combined = [rawInline, nestedText].filter((value) => value && value.trim()).join('\n');
+  return normalizeJsonText(combined || rawInline);
 }
 
 function padRow(row, width) {
@@ -939,6 +991,20 @@ function isEquationNode(node) {
   return node.classList.contains(EXPORT_EQUATION_CLASS) || node.classList.contains('katex');
 }
 
+function isEquationDisplayNode(node) {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  if (node.classList.contains('katex-display')) {
+    return true;
+  }
+  if (typeof node.closest === 'function' && node.closest(KATEX_DISPLAY_SELECTOR)) {
+    return true;
+  }
+  const tag = node.tagName ? node.tagName.toLowerCase() : '';
+  return BLOCK_EQUATION_TAGS.has(tag);
+}
+
 export function serializeInlineFragments(container) {
   const fragments = [];
 
@@ -964,7 +1030,8 @@ export function serializeInlineFragments(container) {
       return;
     }
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = textNodeValue(node);
+      let text = (node.nodeValue || '').replace(/[\r\n\t]+/g, ' ').replace(/\u00a0/g, ' ');
+      text = stripZeroWidth(text);
       if (text) {
         appendFragment({ type: 'text', text });
       }
@@ -1063,9 +1130,17 @@ export function serializeInlineFragments(container) {
 
   Array.from(container.childNodes || []).forEach(walk);
 
+  // Trim leading/trailing text fragments.
+  if (fragments.length > 0 && fragments[0].type === 'text') {
+    fragments[0].text = fragments[0].text.trimStart();
+  }
+  if (fragments.length > 0 && fragments[fragments.length - 1].type === 'text') {
+    fragments[fragments.length - 1].text = fragments[fragments.length - 1].text.trimEnd();
+  }
+
   return fragments.filter((fragment) => {
     if (fragment.type === 'text') {
-      return typeof fragment.text === 'string';
+      return typeof fragment.text === 'string' && fragment.text.length > 0;
     }
     return true;
   });
@@ -1078,11 +1153,12 @@ export function serializeEquationFragment(node) {
   if (!latex && !text) {
     return null;
   }
+  const displayMode = isEquationDisplayNode(node);
   return {
     type: 'equation',
     latex: latex || null,
     text,
-    displayMode: node.classList.contains('katex-display'),
+    displayMode,
     direction
   };
 }
@@ -1268,7 +1344,11 @@ function serializeEquationMarkdown(node) {
     return '';
   }
   const content = stripZeroWidth(latex.trim());
-  return fragment?.displayMode ? `\n$$\n${content}\n$$\n` : `$${content}$`;
+  const isBlock = fragment?.displayMode || content.includes('\\begin{') || content.includes('\\[');
+  if (isBlock) {
+    return `\n\n$$\n${content}\n$$\n\n`;
+  }
+  return `$${content}$`;
 }
 
 function serializeGenericMarkdownBlock(node, context) {
@@ -1570,19 +1650,42 @@ function extractCodeLanguage(className) {
 }
 
 function escapeMarkdownText(text) {
+  if (!text) {
+    return '';
+  }
   return text
-    .replace(/\u200c/g, '')
+    // 1) Escape backslashes first to avoid double-escaping later.
     .replace(/\\/g, '\\\\')
-    .replace(/([`*_{}\[\]()#+\-!.>])/g, '\\$1');
+    // 2) Escape emphasis/code markers globally.
+    .replace(/`/g, '\\`')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/~/g, '\\~')
+    // 3) Escape link brackets.
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    // 4) Escape angle brackets to avoid raw HTML.
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // 5) Contextual escapes: only when markers start a line.
+    .replace(/^(\s*)([-+*])(\s)/gm, '$1\\$2$3') // unordered lists
+    .replace(/^(\s*\d+)\.(\s)/gm, '$1\\.$2') // ordered lists
+    .replace(/^(\s*)#+/gm, (match) => match.replace(/#/g, '\\#')) // headers
+    .replace(/^(\s*)>/gm, '$1\\>'); // blockquotes
 }
 
 function escapeLinkDestination(value) {
-  return value
-    .replace(/\u200c/g, '')
-    .replace(/\\/g, '\\\\')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)')
-    .replace(/\s/g, '%20');
+  if (!value) {
+    return '';
+  }
+  const cleanValue = value.replace(/\u200c/g, '');
+
+  try {
+    // Preserve structure, encode spaces/specials; tolerate already-encoded input.
+    return encodeURI(decodeURI(cleanValue));
+  } catch (error) {
+    return cleanValue.replace(/\s/g, '%20');
+  }
 }
 
 function stripZeroWidth(value) {

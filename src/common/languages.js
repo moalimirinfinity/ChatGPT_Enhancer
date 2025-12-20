@@ -10,14 +10,6 @@ export const SUPPORTED_LANGUAGES = [
     regex: /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/,
     settingsKey: 'fontPersian',
     variable: '--chatgpt-font-message-persian'
-  },
-  {
-    id: 'chinese',
-    label: 'Chinese',
-    // Includes: CJK Unified Ideographs A/B plus Supplementary Ideographs
-    regex: /[\u4E00-\u9FFF\u3400-\u4DBF\u{20000}-\u{2A6DF}]/u,
-    settingsKey: 'fontChinese',
-    variable: '--chatgpt-font-message-chinese'
   }
 ];
 

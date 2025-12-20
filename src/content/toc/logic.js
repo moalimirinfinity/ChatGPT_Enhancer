@@ -3,7 +3,8 @@
  */
 
 import { DEFAULT_SETTINGS } from '../../common/config.js';
-import { MESSAGE_SELECTOR } from '../constants.js';
+import { saveSettings } from '../../common/storage.js';
+import { getMessageSelector, selectMessageNodes } from '../selectors.js';
 import { getChatGPTThemeMode, isCustomThemeActive } from '../theme/index.js';
 import { ensurePanel, rebuildList, teardownPanel, updateCollapseButton } from './ui.js';
 
@@ -46,6 +47,7 @@ const state = {
   panel: null,
   list: null,
   observer: null,
+  observerTarget: null,
   updateTimer: null,
   anchorCounter: 0,
   dragHandle: null,
@@ -58,6 +60,8 @@ const state = {
   isRtlPanel: false,
   highlightTimers: new Map(),
   observerRetryTimer: null,
+  rootObserver: null,
+  rootObserverTimer: null,
   ids: {
     panelId: TOC_PANEL_ID,
     entryAttr: TOC_ENTRY_ATTR,
@@ -121,6 +125,7 @@ function sync(settings = currentSettings) {
   applyThemeTokens();
   setCollapsed(Boolean(settings.tableOfContentsCollapsed), false);
   connectObserver();
+  attachRootObserver();
   scheduleUpdate();
 }
 
@@ -141,6 +146,7 @@ function teardown() {
   });
   state.highlightTimers.clear();
   clearObserverRetry();
+  detachRootObserver();
 }
 
 function connectObserver() {
@@ -157,6 +163,7 @@ function connectObserver() {
     state.observer = new MutationObserver(handleMutations);
   }
   state.observer.disconnect();
+  state.observerTarget = container;
   state.observer.observe(container, {
     childList: true,
     subtree: true,
@@ -168,7 +175,46 @@ function disconnectObserver() {
   if (state.observer) {
     state.observer.disconnect();
   }
+  state.observerTarget = null;
   clearObserverRetry();
+}
+
+function attachRootObserver() {
+  if (state.rootObserver || typeof MutationObserver === 'undefined' || !document.body) {
+    return;
+  }
+  state.rootObserver = new MutationObserver(() => {
+    scheduleRootCheck();
+  });
+  state.rootObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function detachRootObserver() {
+  if (state.rootObserver) {
+    state.rootObserver.disconnect();
+    state.rootObserver = null;
+  }
+  if (state.rootObserverTimer) {
+    clearTimeout(state.rootObserverTimer);
+    state.rootObserverTimer = null;
+  }
+}
+
+function scheduleRootCheck() {
+  if (state.rootObserverTimer) {
+    return;
+  }
+  state.rootObserverTimer = setTimeout(() => {
+    state.rootObserverTimer = null;
+    if (!isActive()) {
+      return;
+    }
+    const nextContainer = document.querySelector('main');
+    if (nextContainer && nextContainer !== state.observerTarget) {
+      connectObserver();
+      scheduleUpdate();
+    }
+  }, 120);
 }
 
 function scheduleObserverReconnect() {
@@ -408,13 +454,7 @@ function setCollapsed(collapsed, persist) {
   }
   if (persist) {
     currentSettings.tableOfContentsCollapsed = collapsed;
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ tableOfContentsCollapsed: collapsed }, () => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          // console.error(chrome.runtime.lastError);
-        }
-      });
-    }
+    void saveSettings({ tableOfContentsCollapsed: collapsed }).catch(() => {});
   }
 }
 
@@ -555,14 +595,7 @@ function cancelDragging() {
 
 function savePosition(position) {
   currentSettings.tableOfContentsPosition = position;
-  if (!chrome || !chrome.storage || !chrome.storage.sync) {
-    return;
-  }
-  chrome.storage.sync.set({ tableOfContentsPosition: position }, () => {
-    if (chrome.runtime && chrome.runtime.lastError) {
-      // console.error(chrome.runtime.lastError);
-    }
-  });
+  void saveSettings({ tableOfContentsPosition: position }).catch(() => {});
 }
 
 function enableResizing() {
@@ -667,14 +700,7 @@ function cancelResizing() {
 
 function saveSize(size) {
   currentSettings.tableOfContentsSize = size;
-  if (!chrome || !chrome.storage || !chrome.storage.sync) {
-    return;
-  }
-  chrome.storage.sync.set({ tableOfContentsSize: size }, () => {
-    if (chrome.runtime && chrome.runtime.lastError) {
-      // console.error(chrome.runtime.lastError);
-    }
-  });
+  void saveSettings({ tableOfContentsSize: size }).catch(() => {});
 }
 
 function updatePanelDirection() {
@@ -714,7 +740,7 @@ function isPanelRtlDominant(text) {
 }
 
 function collectAssistantMessages() {
-  const nodes = document.querySelectorAll(MESSAGE_SELECTOR);
+  const { nodes } = selectMessageNodes();
   if (!nodes || !nodes.length) {
     return [];
   }
@@ -739,11 +765,12 @@ function findMessageRoot(node) {
   if (!(node instanceof HTMLElement)) {
     return null;
   }
-  let current = node.closest(MESSAGE_SELECTOR);
+  const messageSelector = getMessageSelector();
+  let current = node.closest(messageSelector);
   let lastMatch = null;
   while (current && current instanceof HTMLElement) {
     lastMatch = current;
-    const parentMatch = current.parentElement ? current.parentElement.closest(MESSAGE_SELECTOR) : null;
+    const parentMatch = current.parentElement ? current.parentElement.closest(messageSelector) : null;
     if (!parentMatch || parentMatch === current) {
       break;
     }
@@ -898,7 +925,7 @@ function escapeAttribute(value) {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
     return CSS.escape(value);
   }
-  return value.replace(/["\\\]\[]/g, '\\$&');
+  return value.replace(/[["\\\]]/g, '\\$&');
 }
 
 function scrollToMessage(element) {

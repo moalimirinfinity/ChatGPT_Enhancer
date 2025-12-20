@@ -5,8 +5,16 @@
 import { EXPORT_EQUATION_CLASS } from '../constants.js';
 
 export function sanitizeExportNode(node) {
+  // Replace buttons wrapping images with their children so attachments survive cleanup.
+  Array.from(node.querySelectorAll('button')).forEach((button) => {
+    if (button.querySelector('img')) {
+      button.replaceWith(...button.childNodes);
+      return;
+    }
+    button.remove();
+  });
+
   const removableSelectors = [
-    'button',
     'form',
     'textarea',
     'input',

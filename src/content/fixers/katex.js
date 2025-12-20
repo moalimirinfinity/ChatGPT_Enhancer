@@ -2,7 +2,9 @@
  * Manages KaTeX copy-to-clipboard and rendering protection in one place.
  * Protection is class-based (no inline overrides) so toggling the feature is idempotent.
  */
-import { DEFAULT_SETTINGS, SELECTORS } from '../../common/config.js';
+
+import { DEFAULT_SETTINGS } from '../../common/config.js';
+import { SELECTORS, selectKatexNodes } from '../selectors.js';
 
 const PROTECTION_CLASS = 'gpt-enhancer-katex-protected';
 const LEGACY_INLINE_PROPS = ['direction', 'unicode-bidi', 'font-family', '--font-body'];
@@ -25,7 +27,7 @@ function shouldListen(settings = currentSettings) {
  * This clears stale state when toggling protection off/on.
  */
 function cleanupLegacyInlineStyles(scope = document) {
-  const katexNodes = scope?.querySelectorAll?.(SELECTORS.katex);
+  const katexNodes = selectKatexNodes(scope).nodes;
   if (!katexNodes || !katexNodes.length) {
     return;
   }
@@ -54,7 +56,7 @@ function applyProtection(scope = document) {
     return;
   }
   cleanupLegacyInlineStyles(scope);
-  const nodes = scope.querySelectorAll(SELECTORS.katex);
+  const nodes = selectKatexNodes(scope).nodes;
   nodes.forEach((node) => {
     if (node instanceof HTMLElement) {
       node.classList.add(PROTECTION_CLASS);
@@ -127,9 +129,15 @@ async function copyTextToClipboard(text) {
   textarea.style.position = 'absolute';
   textarea.style.left = '-9999px';
   document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
+  try {
+    textarea.select();
+    const successful = document.execCommand('copy');
+    if (!successful) {
+      throw new Error('execCommand failed');
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function showToast(message, referenceRect) {

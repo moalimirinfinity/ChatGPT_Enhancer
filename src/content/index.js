@@ -15,9 +15,10 @@ import { DirectionFixer } from './fixers/direction.js';
 import { FontManager } from './fonts/index.js';
 import { TocManager } from './toc/index.js';
 import { KatexManager } from './fixers/katex.js';
-import { MESSAGE_SELECTOR } from './constants.js';
+import { getMessageSelector } from './selectors.js';
 
 const root = document.documentElement;
+const EXPORT_PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
 const THEME_MANAGER_FLAG = '__CHATGPT_ENHANCER_THEME_MANAGER_ENABLED';
 const FIXER_MANAGER_FLAG = '__CHATGPT_ENHANCER_FIXER_MANAGER_ENABLED';
 const THEME_ATTRIBUTE_FILTER = [
@@ -35,7 +36,12 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let pendingThemeSync = null;
 let suppressThemeObserver = false;
 let fixerObserver = null;
+let fixerObserverTarget = null;
 let fixerObserverReconnectTimer = null;
+let fixerRootObserver = null;
+let fixerRootObserverTimer = null;
+let exportToastNode = null;
+let exportToastTimer = null;
 
 setThemeManagerEnabled(true);
 setFixerManagerEnabled(true);
@@ -43,7 +49,7 @@ bootstrap();
 
 async function bootstrap() {
   registerThemeTokenApplier(() => TocManager.applyThemeTokens());
-  FontManager.setMessageSelector(MESSAGE_SELECTOR);
+  FontManager.setMessageSelector(getMessageSelector());
   try {
     const stored = await loadSettings();
     currentSettings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
@@ -68,6 +74,7 @@ function initializeManagers(settings) {
   KatexManager.init(settings);
   syncFixerObserver();
   scheduleObserverRelease();
+  attachExportProgressListener();
 }
 
 function setThemeManagerEnabled(enabled) {
@@ -198,6 +205,87 @@ function attachColorSchemeListener() {
   }
 }
 
+function attachExportProgressListener() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  // Surface export progress/error events from the content script into a lightweight toast for users.
+  document.addEventListener(EXPORT_PROGRESS_EVENT, (event) => {
+    const detail = event?.detail || {};
+    handleExportProgress(detail);
+  });
+}
+
+function handleExportProgress(detail) {
+  const status = detail?.status || '';
+  const message = buildExportToastMessage(status, detail);
+  if (!message) {
+    return;
+  }
+  showExportToast(message);
+}
+
+function buildExportToastMessage(status, detail) {
+  switch (status) {
+    case 'starting':
+      return 'Preparing export…';
+    case 'loading-content':
+      return 'Loading conversation…';
+    case 'normalizing':
+      return 'Cleaning conversation…';
+    case 'fonts':
+      return 'Loading export fonts…';
+    case 'images':
+      return 'Inlining images…';
+    case 'generating':
+      return detail?.format ? `Generating ${detail.format.toUpperCase()}…` : 'Generating export…';
+    case 'done':
+      return null;
+    case 'cleanup':
+      return null;
+    case 'aborted':
+      return 'Export stopped (tab hidden or closed).';
+    case 'error': {
+      const raw = (detail && detail.message) || '';
+      if (raw.includes('export-interrupted')) {
+        return 'Export paused because the page was scrolled. Please retry when idle.';
+      }
+      return raw || 'Export failed. Please retry.';
+    }
+    default:
+      return null;
+  }
+}
+
+function showExportToast(message) {
+  if (!document.body) {
+    return;
+  }
+
+  if (!exportToastNode) {
+    exportToastNode = document.createElement('div');
+    exportToastNode.className = 'gpt-export-toast';
+    document.body.appendChild(exportToastNode);
+  }
+
+  exportToastNode.textContent = message;
+  exportToastNode.classList.add('is-visible');
+
+  exportToastNode.style.left = '50%';
+  exportToastNode.style.top = '24px';
+  exportToastNode.style.transform = 'translate(-50%, 0)';
+
+  if (exportToastTimer) {
+    clearTimeout(exportToastTimer);
+  }
+
+  exportToastTimer = setTimeout(() => {
+    if (exportToastNode) {
+      exportToastNode.classList.remove('is-visible');
+    }
+  }, 2200);
+}
+
 function scheduleThemeSync(environmentMode) {
   if (pendingThemeSync || !isThemeManagerEnabled()) {
     return;
@@ -257,6 +345,7 @@ function attachFixerObserver() {
     scheduleFixerObserverReconnect();
     return;
   }
+  fixerObserverTarget = target;
   if (fixerObserverReconnectTimer) {
     clearTimeout(fixerObserverReconnectTimer);
     fixerObserverReconnectTimer = null;
@@ -272,10 +361,48 @@ function detachFixerObserver() {
   if (fixerObserver) {
     fixerObserver.disconnect();
   }
+  fixerObserverTarget = null;
   if (fixerObserverReconnectTimer) {
     clearTimeout(fixerObserverReconnectTimer);
     fixerObserverReconnectTimer = null;
   }
+}
+
+function attachFixerRootObserver() {
+  if (fixerRootObserver || typeof MutationObserver === 'undefined' || !document.body) {
+    return;
+  }
+  fixerRootObserver = new MutationObserver(() => {
+    scheduleFixerRootCheck();
+  });
+  fixerRootObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function detachFixerRootObserver() {
+  if (fixerRootObserver) {
+    fixerRootObserver.disconnect();
+    fixerRootObserver = null;
+  }
+  if (fixerRootObserverTimer) {
+    clearTimeout(fixerRootObserverTimer);
+    fixerRootObserverTimer = null;
+  }
+}
+
+function scheduleFixerRootCheck() {
+  if (fixerRootObserverTimer) {
+    return;
+  }
+  fixerRootObserverTimer = setTimeout(() => {
+    fixerRootObserverTimer = null;
+    if (!currentSettings.enableFix) {
+      return;
+    }
+    const nextTarget = getConversationRoot();
+    if (nextTarget && nextTarget !== fixerObserverTarget) {
+      attachFixerObserver();
+    }
+  }, 120);
 }
 
 function scheduleFixerObserverReconnect() {
@@ -301,7 +428,9 @@ function handleFixerMutations(mutations) {
 function syncFixerObserver() {
   if (currentSettings.enableFix) {
     attachFixerObserver();
+    attachFixerRootObserver();
   } else {
     detachFixerObserver();
+    detachFixerRootObserver();
   }
 }

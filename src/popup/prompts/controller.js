@@ -1,7 +1,7 @@
 /**
  * Business logic for managing prompt CRUD operations, filtering, and drag-and-drop.
  */
-import { loadPrompts, savePrompts } from './manager.js';
+import { loadPrompts, savePromptsWithMerge } from './manager.js';
 import {
   buildPromptCard,
   getPromptCopySuccessMarkup,
@@ -15,16 +15,15 @@ export function createPromptController(deps) {
     controls,
     normalizePromptCollection,
     generatePromptId,
-    PROMPT_TEXT_MAX_LENGTH,
-  PROMPTS_EMPTY_DEFAULT_PRIMARY,
-  PROMPTS_EMPTY_DEFAULT_SECONDARY,
-  PROMPTS_EMPTY_FILTERED_PRIMARY,
-  PROMPTS_EMPTY_FILTERED_SECONDARY,
-  setAccordionExpanded,
-  promptSearchQueryRef,
-  promptCopyTimers,
-  showPromptError,
-  clearPromptError,
+    PROMPTS_EMPTY_DEFAULT_PRIMARY,
+    PROMPTS_EMPTY_DEFAULT_SECONDARY,
+    PROMPTS_EMPTY_FILTERED_PRIMARY,
+    PROMPTS_EMPTY_FILTERED_SECONDARY,
+    setAccordionExpanded,
+    promptSearchQueryRef,
+    promptCopyTimers,
+    showPromptError,
+    clearPromptError,
     setPromptsCountLabel,
     focusPromptHandle
   } = deps;
@@ -34,6 +33,7 @@ export function createPromptController(deps) {
   let promptSearchQuery = '';
   let promptDragState = null;
   let promptDragReordered = false;
+  let promptsRevision = 0;
 
   function setDragState(state) {
     promptDragState = state;
@@ -142,7 +142,10 @@ export function createPromptController(deps) {
   }
 
   function synchronizePromptsFromStorage(value) {
-    prompts = normalizePromptCollection(value);
+    if (value && value.revision !== undefined) {
+      promptsRevision = Number(value.revision) || promptsRevision;
+    }
+    prompts = normalizePromptCollection(value && value.prompts ? value.prompts : value);
     renderPromptsWithCurrentFilter({ scrollToTop: true });
   }
 
@@ -155,13 +158,27 @@ export function createPromptController(deps) {
       updatedAt: Number.isFinite(prompt.updatedAt) ? prompt.updatedAt : Date.now()
     }));
 
-    await savePrompts(payload);
+    const result = await savePromptsWithMerge(payload, promptsRevision);
+    promptsRevision = Number.isFinite(result?.revision) ? result.revision : promptsRevision;
+    return result;
+  }
+
+  function handlePersistFailure(error, fallbackMessage) {
+    const isQuota = error && (error.code === 'PROMPTS_QUOTA_EXCEEDED' || error.message?.toLowerCase().includes('quota'));
+    if (isQuota) {
+      showPromptError('Unable to save changes because storage is full. Delete or shorten prompts and try again.');
+    } else {
+      showPromptError(fallbackMessage || 'Unable to save changes. Please try again.');
+    }
+    loadPromptsFromStorage();
+    return { ok: false, error };
   }
 
   async function loadPromptsFromStorage() {
     try {
-      const storedPrompts = await loadPrompts();
-      prompts = normalizePromptCollection(storedPrompts);
+      const stored = await loadPrompts();
+      promptsRevision = Number.isFinite(stored?.revision) ? stored.revision : 0;
+      prompts = normalizePromptCollection(stored?.prompts || []);
       renderPromptsWithCurrentFilter({ scrollToTop: true });
       clearPromptError();
     } catch {
@@ -178,9 +195,8 @@ export function createPromptController(deps) {
     if (editingPromptId) {
       const index = prompts.findIndex((item) => item.id === editingPromptId);
       if (index === -1) {
-        showPromptError('Unable to locate the prompt you are editing.');
         editingPromptId = null;
-        return;
+        return { ok: false, reason: 'missing' };
       }
       const updatedPrompt = {
         ...prompts[index],
@@ -206,13 +222,15 @@ export function createPromptController(deps) {
     const renderOptions = { focusId };
     renderPromptsWithCurrentFilter(renderOptions);
     try {
-      await persistPrompts(nextPrompts);
+      const result = await persistPrompts(nextPrompts);
+      if (result?.prompts) {
+        prompts = normalizePromptCollection(result.prompts);
+        renderPromptsWithCurrentFilter(renderOptions);
+      }
       clearPromptError();
       return { ok: true, prompts };
     } catch (error) {
-      showPromptError('Unable to save your prompt. Please try again.');
-      await loadPromptsFromStorage();
-      return { ok: false, error };
+      return handlePersistFailure(error, 'Unable to save your prompt. Please try again.');
     }
   }
 
@@ -364,17 +382,12 @@ export function createPromptController(deps) {
     const result = deletePromptById(promptId);
     setPrompts(result.prompts);
     renderPromptsWithCurrentFilter();
-    const handleFailure = (error) => {
-      showPromptError('Unable to delete the prompt. Please try again.');
-      loadPromptsFromStorage();
-      return { ok: false, error };
-    };
     return persistPrompts(result.prompts)
       .then(() => {
         clearPromptError();
         return { ok: true, deletedId: promptId };
       })
-      .catch(handleFailure);
+      .catch((error) => handlePersistFailure(error, 'Unable to delete the prompt. Please try again.'));
   }
 
   function handlePromptDragStart(event) {
@@ -476,20 +489,20 @@ export function createPromptController(deps) {
     applyPromptOrderFromDom({ focusId: promptDragState.id });
   }
 
-  function applyPromptOrderFromDom(options = {}) {
+  async function applyPromptOrderFromDom(options = {}) {
     if (promptSearchQuery) {
       renderPromptsWithCurrentFilter();
       showPromptError('Clear the search to reorder prompts.');
-      return;
+      return { ok: false, reason: 'search-active' };
     }
     if (!controls.promptList) {
-      return;
+      return { ok: false, reason: 'no-list' };
     }
     const orderedCards = Array.from(controls.promptList.querySelectorAll('.prompt-card'));
     if (!orderedCards.length) {
       renderPromptsWithCurrentFilter();
       showPromptError('Unable to read the current prompt order. Please try again.');
-      return;
+      return { ok: false, reason: 'no-cards' };
     }
 
     const orderedIds = orderedCards.map((card) => card.dataset.id).filter(Boolean);
@@ -498,7 +511,7 @@ export function createPromptController(deps) {
       if (promptDragState) {
         setDragReordered(true);
       }
-      return;
+      return { ok: false, reason: 'no-ids' };
     }
 
     const currentList = prompts || [];
@@ -524,7 +537,7 @@ export function createPromptController(deps) {
       if (promptDragState) {
         setDragReordered(true);
       }
-      return;
+      return { ok: false, reason: 'unchanged' };
     }
 
     setPrompts(next);
@@ -535,14 +548,13 @@ export function createPromptController(deps) {
       setDragReordered(true);
     }
 
-    persistPrompts(next)
-      .then(() => {
-        clearPromptError();
-      })
-      .catch(() => {
-        showPromptError('Unable to save the new prompt order. Please try again.');
-        loadPromptsFromStorage();
-      });
+    try {
+      await persistPrompts(next);
+      clearPromptError();
+      return { ok: true, prompts: next };
+    } catch (error) {
+      return handlePersistFailure(error, 'Unable to save the new prompt order. Please try again.');
+    }
   }
 
   function handlePromptHandleKeyDown(event) {
@@ -596,10 +608,7 @@ export function createPromptController(deps) {
       .then(() => {
         clearPromptError();
       })
-      .catch(() => {
-        showPromptError('Unable to reorder prompts. Please try again.');
-        loadPromptsFromStorage();
-      });
+      .catch((error) => handlePersistFailure(error, 'Unable to reorder prompts. Please try again.'));
   }
 
   function setEditingPromptId(id) {
