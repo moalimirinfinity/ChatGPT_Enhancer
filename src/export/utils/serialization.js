@@ -818,8 +818,10 @@ export function blockToPlainText(block, depth = 0) {
       return typeof block.code === 'string' ? block.code : '';
     case 'list': {
       const indent = '  '.repeat(Math.max(0, depth));
+      const start = Number.isFinite(block.start) ? block.start : 1;
+      const isOrdered = Boolean(block.ordered);
       const lines = (block.items || [])
-        .map((item) => {
+        .map((item, itemIndex) => {
           if (!item || typeof item !== 'object') {
             return '';
           }
@@ -840,7 +842,9 @@ export function blockToPlainText(block, depth = 0) {
           if (!line.trim()) {
             return '';
           }
-          return `${indent}- ${line}`;
+          const number = Number.isFinite(item.number) ? item.number : start + itemIndex;
+          const prefix = isOrdered ? `${number}. ` : '- ';
+          return `${indent}${prefix}${line}`;
         })
         .filter((line) => line && line.trim());
       return lines.join('\n');
