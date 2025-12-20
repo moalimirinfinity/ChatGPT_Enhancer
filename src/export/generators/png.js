@@ -1,10 +1,16 @@
 /**
  * Logic for rasterizing the conversation into a single long PNG image.
  */
-import { PNG_EXPORT_PIXEL_LIMIT, PNG_EXPORT_MIN_PIXEL_RATIO, PNG_EXPORT_APPROX_PAGE_HEIGHT } from '../constants.js';
+import {
+  PNG_EXPORT_PIXEL_LIMIT,
+  PNG_EXPORT_MIN_PIXEL_RATIO,
+  PNG_EXPORT_APPROX_PAGE_HEIGHT,
+  PNG_EXPORT_MAX_DIMENSION
+} from '../constants.js';
 import { dataUrlToBlob } from '../utils/blob.js';
 import { buildFilename, triggerDownload } from '../utils/download.js';
 import { createExportError, wrapHtmlToImageError, renderNodeToPngSafely } from './shared.js';
+import { convertKatexToImages } from '../core/equations.js';
 
 export async function exportAsPng(stage, root) {
   const originalStageStyles = {
@@ -22,18 +28,24 @@ export async function exportAsPng(stage, root) {
   const originalRootDisplay = root.style.display;
 
   const computedRoot = window.getComputedStyle(root);
+  const rootRect = root.getBoundingClientRect();
+  const computedWidth = parseFloat(computedRoot.width) || 0;
+  const computedMaxWidth = parseFloat(computedRoot.maxWidth) || 0;
+  const baseWidth = Math.max(1, Math.ceil(rootRect.width || computedWidth || computedMaxWidth || 672));
   const clone = root.cloneNode(true);
   clone.style.margin = '0';
   clone.style.padding = '0';
-  clone.style.maxWidth = 'none';
-  clone.style.width = 'auto';
+  clone.style.maxWidth = `${baseWidth}px`;
+  clone.style.width = `${baseWidth}px`;
   clone.style.boxSizing = computedRoot.boxSizing || 'border-box';
 
   const wrapper = document.createElement('div');
-  wrapper.style.display = 'inline-block';
+  wrapper.style.display = 'block';
   wrapper.style.background = '#ffffff';
   wrapper.style.boxSizing = 'border-box';
   wrapper.style.maxWidth = 'none';
+  wrapper.style.width = `${baseWidth}px`;
+  wrapper.style.margin = '0 auto';
   wrapper.style.paddingTop = computedRoot.paddingTop || '32px';
   wrapper.style.paddingRight = computedRoot.paddingRight || '32px';
   wrapper.style.paddingBottom = computedRoot.paddingBottom || '32px';
@@ -56,6 +68,7 @@ export async function exportAsPng(stage, root) {
   stage.appendChild(wrapper);
 
   try {
+    await convertKatexToImages(wrapper);
     scrubCrossOriginImages(wrapper);
     const images = Array.from(wrapper.querySelectorAll('img'));
     if (images.length > 0) {
@@ -83,17 +96,25 @@ export async function exportAsPng(stage, root) {
     }
 
     const basePixelRatio = 2;
-    let pixelRatio = basePixelRatio;
-    if (pixelArea * pixelRatio * pixelRatio > PNG_EXPORT_PIXEL_LIMIT) {
-      const adjustedRatio = Math.sqrt(PNG_EXPORT_PIXEL_LIMIT / pixelArea);
-      pixelRatio = Math.max(PNG_EXPORT_MIN_PIXEL_RATIO, Math.min(basePixelRatio, adjustedRatio));
-    }
-
+    const maxRatioFromArea = Math.sqrt(PNG_EXPORT_PIXEL_LIMIT / pixelArea);
+    const dimensionRatio = Math.min(
+      1,
+      PNG_EXPORT_MAX_DIMENSION / width,
+      PNG_EXPORT_MAX_DIMENSION / height
+    );
+    const maxRatio = Math.min(basePixelRatio, maxRatioFromArea, dimensionRatio);
     const estimatedPages = estimatePageCount(height);
-    if (pixelArea * pixelRatio * pixelRatio > PNG_EXPORT_PIXEL_LIMIT) {
+    if (!Number.isFinite(maxRatio) || maxRatio < PNG_EXPORT_MIN_PIXEL_RATIO) {
       const message = `Conversation is too large to export as a single image (estimated ${estimatedPages} pages). Please use PDF or DOCX export instead.`;
-      throw createExportError('png-too-large', message, { width, height, pixelRatio, estimatedPages });
+      throw createExportError('png-too-large', message, {
+        width,
+        height,
+        pixelRatio: maxRatio,
+        estimatedPages,
+        maxDimension: PNG_EXPORT_MAX_DIMENSION
+      });
     }
+    const pixelRatio = maxRatio;
 
     let renderOutcome;
     try {

@@ -20,3 +20,4 @@ export const FONT_FAMILY_STACK = '"Vazirmatn", "Inter", "Segoe UI", system-ui, -
 export const PNG_EXPORT_PIXEL_LIMIT = 32000000;
 export const PNG_EXPORT_MIN_PIXEL_RATIO = 0.75;
 export const PNG_EXPORT_APPROX_PAGE_HEIGHT = 1200;
+export const PNG_EXPORT_MAX_DIMENSION = 16384;
