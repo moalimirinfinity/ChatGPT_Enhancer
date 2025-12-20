@@ -77,7 +77,7 @@ export function selectMessageNodes(root = document) {
 }
 
 export function selectKatexNodes(root = document) {
-  return resolveSelector('katex', root);
+  return { selector: SELECTORS.katex, nodes: query(root, SELECTORS.katex) };
 }
 
 export function selectCodeNodes(root = document) {
