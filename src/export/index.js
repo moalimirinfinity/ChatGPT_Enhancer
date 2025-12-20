@@ -19,6 +19,7 @@ import {
 } from './core/normalizer.js';
 import { inlineImages } from './core/images.js';
 import { getGenerator } from './generators/index.js';
+import { preflightPngExport } from './generators/png.js';
 
 // UI progress bridge; consumed by content script to show toast updates.
 const PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
@@ -96,6 +97,9 @@ async function handleExportRequest(format) {
     ensureDirectionalConsistency(root);
     if (!isTextExportFormat(exportFormat)) {
       insertRtlWeightBoundaries(root);
+    }
+    if (exportFormat === 'png') {
+      preflightPngExport(root);
     }
     dispatchProgress('fonts', { format: exportFormat });
     await ensureExportFontsLoaded();

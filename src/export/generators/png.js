@@ -126,6 +126,28 @@ export async function exportAsPng(stage, root) {
   }
 }
 
+function measurePngDimensions(root) {
+  if (!root || typeof root.getBoundingClientRect !== 'function') {
+    return { width: 0, height: 0 };
+  }
+  const rect = root.getBoundingClientRect();
+  const computed = window.getComputedStyle(root);
+  const computedWidth = parseFloat(computed.width) || 0;
+  const computedMaxWidth = parseFloat(computed.maxWidth) || 0;
+  const measuredWidth = Math.max(rect.width, root.scrollWidth, root.offsetWidth, computedWidth, computedMaxWidth);
+  const measuredHeight = Math.max(rect.height, root.scrollHeight, root.offsetHeight);
+
+  return {
+    width: Math.max(1, Math.ceil(measuredWidth)),
+    height: Math.max(1, Math.ceil(measuredHeight))
+  };
+}
+
+export function preflightPngExport(root) {
+  const { width, height } = measurePngDimensions(root);
+  return computePngRenderPlan(width, height);
+}
+
 function estimatePageCount(height) {
   if (!Number.isFinite(height) || height <= 0) {
     return 1;
