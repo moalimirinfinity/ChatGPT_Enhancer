@@ -5,7 +5,8 @@ import {
   PNG_EXPORT_PIXEL_LIMIT,
   PNG_EXPORT_MIN_PIXEL_RATIO,
   PNG_EXPORT_APPROX_PAGE_HEIGHT,
-  PNG_EXPORT_MAX_DIMENSION
+  PNG_EXPORT_MAX_DIMENSION,
+  EXPORT_TURN_CLASS
 } from '../constants.js';
 import { dataUrlToBlob } from '../utils/blob.js';
 import { buildFilename, triggerDownload } from '../utils/download.js';
@@ -69,6 +70,7 @@ export async function exportAsPng(stage, root) {
 
   try {
     await convertKatexToImages(wrapper);
+    normalizePngLayout(wrapper);
     scrubCrossOriginImages(wrapper);
     const images = Array.from(wrapper.querySelectorAll('img'));
     if (images.length > 0) {
@@ -131,6 +133,44 @@ function estimatePageCount(height) {
   return Math.max(1, Math.ceil(height / PNG_EXPORT_APPROX_PAGE_HEIGHT));
 }
 
+function normalizePngLayout(container) {
+  if (!container || typeof container.querySelectorAll !== 'function') {
+    return;
+  }
+  const nodes = container.querySelectorAll(`.${EXPORT_TURN_CLASS}, .${EXPORT_TURN_CLASS} *`);
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    const computed = window.getComputedStyle(node);
+    if (!computed) {
+      return;
+    }
+    if (['absolute', 'fixed', 'sticky'].includes(computed.position)) {
+      node.style.setProperty('position', 'static', 'important');
+      node.style.setProperty('top', 'auto', 'important');
+      node.style.setProperty('right', 'auto', 'important');
+      node.style.setProperty('bottom', 'auto', 'important');
+      node.style.setProperty('left', 'auto', 'important');
+    }
+    if (computed.transform && computed.transform !== 'none') {
+      node.style.setProperty('transform', 'none', 'important');
+    }
+    if (computed.translate && computed.translate !== 'none') {
+      node.style.setProperty('translate', 'none', 'important');
+    }
+    if (computed.contentVisibility && computed.contentVisibility !== 'visible') {
+      node.style.setProperty('content-visibility', 'visible', 'important');
+    }
+    if (computed.contain && computed.contain !== 'none') {
+      node.style.setProperty('contain', 'none', 'important');
+    }
+    if (computed.willChange && computed.willChange !== 'auto') {
+      node.style.setProperty('will-change', 'auto', 'important');
+    }
+  });
+}
+
 function computePngRenderPlan(width, height) {
   const pixelArea = width * height;
   if (!Number.isFinite(pixelArea) || pixelArea <= 0) {
@@ -190,6 +230,7 @@ function isSameOrigin(url) {
 
 export const __test__ = {
   computePngRenderPlan,
+  normalizePngLayout,
   scrubCrossOriginImages,
   estimatePageCount
 };

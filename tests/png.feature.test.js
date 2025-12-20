@@ -62,3 +62,29 @@ test('png export replaces cross-origin images with placeholders', async () => {
 
   cleanup();
 });
+
+test('png layout normalization clears positioning and transforms', async () => {
+  const { cleanup } = setupDom();
+  const { __test__ } = await loadPngModule();
+
+  const container = document.createElement('div');
+  const turn = document.createElement('div');
+  turn.className = 'gpt-export-turn';
+  turn.style.position = 'absolute';
+  turn.style.top = '10px';
+  turn.style.transform = 'translateY(40px)';
+  turn.style.contentVisibility = 'auto';
+  turn.style.contain = 'layout paint';
+  turn.style.willChange = 'transform';
+  container.appendChild(turn);
+
+  __test__.normalizePngLayout(container);
+
+  assert.equal(turn.style.position, 'static');
+  assert.equal(turn.style.transform, 'none');
+  assert.equal(turn.style.contentVisibility, 'visible');
+  assert.equal(turn.style.contain, 'none');
+  assert.equal(turn.style.willChange, 'auto');
+
+  cleanup();
+});
