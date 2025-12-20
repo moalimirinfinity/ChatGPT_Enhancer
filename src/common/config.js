@@ -16,8 +16,7 @@ export const DEFAULT_SETTINGS = {
   theme: 'original',
   fontsEnabled: false,
   fontEnglish: 'inter',
-  fontPersian: 'vazirmatn',
-  fontChinese: 'noto-sans-sc'
+  fontPersian: 'vazirmatn'
 };
 
 export const THEME_COMPATIBILITY = {
@@ -42,9 +41,5 @@ export const FONT_STACKS = {
     'noto-sans-arabic': '"Noto Sans Arabic", "Vazirmatn", "Tahoma", "Arial", sans-serif',
     sahel: '"Sahel", "Vazirmatn", "Tahoma", "Arial", sans-serif',
     shabnam: '"Shabnam", "Vazirmatn", "Tahoma", "Arial", sans-serif'
-  },
-  chinese: {
-    'noto-sans-sc': '"Noto Sans SC", "Microsoft YaHei", sans-serif',
-    'zcool-kuaile': '"ZCOOL KuaiLe", cursive'
   }
 };

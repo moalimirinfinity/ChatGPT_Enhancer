@@ -3,23 +3,23 @@
  */
 import { DEFAULT_SETTINGS } from './config.js';
 
-function getChromeStorage() {
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+const RETRY_ATTEMPTS = 1;
+const RETRY_DELAY_MS = 50;
+
+function getChromeStorage(preferSync = true) {
+  if (typeof chrome === 'undefined' || !chrome.storage) {
+    return null;
+  }
+  if (preferSync && chrome.storage.sync) {
     return chrome.storage.sync;
   }
-  return null;
+  if (chrome.storage.local) {
+    return chrome.storage.local;
+  }
+  return chrome.storage.sync || null;
 }
 
-export function loadSettings() {
-  const storage = getChromeStorage();
-  const defaults = { ...DEFAULT_SETTINGS };
-  if (!storage) {
-    return Promise.resolve(defaults);
-  }
-
-  const RETRY_ATTEMPTS = 1;
-  const RETRY_DELAY_MS = 50;
-
+function readSettings(storage, defaults, retries = RETRY_ATTEMPTS) {
   return new Promise((resolve, reject) => {
     const attemptLoad = (remainingRetries) => {
       try {
@@ -44,15 +44,11 @@ export function loadSettings() {
       }
     };
 
-    attemptLoad(RETRY_ATTEMPTS);
+    attemptLoad(retries);
   });
 }
 
-export function saveSettings(patch) {
-  const storage = getChromeStorage();
-  if (!storage || !patch || typeof patch !== 'object') {
-    return Promise.reject(new Error('Settings storage unavailable or invalid payload.'));
-  }
+function writeSettings(storage, patch) {
   return new Promise((resolve, reject) => {
     try {
       storage.set(patch, () => {
@@ -66,5 +62,40 @@ export function saveSettings(patch) {
     } catch (error) {
       reject(error);
     }
+  });
+}
+
+export async function loadSettings() {
+  const defaults = { ...DEFAULT_SETTINGS };
+  const primary = getChromeStorage(true);
+  if (!primary) {
+    return defaults;
+  }
+  try {
+    return await readSettings(primary, defaults, RETRY_ATTEMPTS);
+  } catch (error) {
+    const fallback = getChromeStorage(false);
+    if (!fallback || fallback === primary) {
+      return defaults;
+    }
+    try {
+      return await readSettings(fallback, defaults, RETRY_ATTEMPTS);
+    } catch {
+      return defaults;
+    }
+  }
+}
+
+export function saveSettings(patch) {
+  const primary = getChromeStorage(true);
+  if (!primary || !patch || typeof patch !== 'object') {
+    return Promise.reject(new Error('Settings storage unavailable or invalid payload.'));
+  }
+  return writeSettings(primary, patch).catch((error) => {
+    const fallback = getChromeStorage(false);
+    if (!fallback || fallback === primary) {
+      throw error;
+    }
+    return writeSettings(fallback, patch);
   });
 }

@@ -2,7 +2,7 @@
  * Primary controller for the popup UI, handling initialization and global event delegation.
  */
 import { DEFAULT_SETTINGS } from '../common/config.js';
-import { loadSettings } from '../common/storage.js';
+import { loadSettings, saveSettings } from '../common/storage.js';
 import { PROMPTS_STORAGE_KEY, PROMPTS_REVISION_KEY } from './prompts/manager.js';
 import { createPromptController } from './prompts/controller.js';
 import { PROMPTS_EMPTY_MESSAGES, EXPORT_ERROR_MESSAGES, POPUP_LABELS, POPUP_COPY } from '../common/i18n.js';
@@ -27,7 +27,8 @@ import {
   LANGUAGE_HINT_DEFAULT,
   LANGUAGE_HINT_MESSAGE_TYPE,
   LANGUAGE_DETECTION_MAX_MESSAGES,
-  LANGUAGE_DETECTION_MAX_CHARS
+  LANGUAGE_DETECTION_MAX_CHARS,
+  EXPORT_MESSAGE_TYPE
 } from '../common/constants.js';
 const STORAGE_THEME_MODE_KEY = 'chatgptEnhancerBaseTheme';
 const PROMPT_TITLE_MAX_LENGTH = 80;
@@ -254,13 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
         promptController.loadPromptsFromStorage();
       }
     }
-    if (area === 'sync') {
-      const filteredEntries = Object.entries(changes).filter(([key]) => key !== PROMPTS_STORAGE_KEY);
-      if (!filteredEntries.length) {
+    if (area === 'sync' || area === 'local') {
+      const settingEntries = Object.entries(changes).filter(([key]) =>
+        Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)
+      );
+      if (!settingEntries.length) {
         return;
       }
       const next = { ...currentSettings };
-      filteredEntries.forEach(([key, { newValue }]) => {
+      settingEntries.forEach(([key, { newValue }]) => {
         next[key] = newValue;
       });
       applySettings(next);
@@ -270,10 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateSetting(key, value) {
   const payload = { [key]: value };
-  chrome.storage.sync.set(payload, () => {
-    if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError);
-    }
+  saveSettings(payload).catch((error) => {
+    console.error(error);
   });
 }
 
@@ -469,7 +470,7 @@ function handleExport() {
     chrome.tabs.sendMessage(
       activeTab.id,
       {
-        type: 'GPT_EXPORT_CONVERSATION',
+        type: EXPORT_MESSAGE_TYPE,
         format: getSelectedExportFormat()
       },
       (response) => {

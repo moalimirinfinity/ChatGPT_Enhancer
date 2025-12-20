@@ -3,6 +3,7 @@
  */
 
 import { DEFAULT_SETTINGS } from '../../common/config.js';
+import { saveSettings } from '../../common/storage.js';
 import { getMessageSelector, selectMessageNodes } from '../selectors.js';
 import { getChatGPTThemeMode, isCustomThemeActive } from '../theme/index.js';
 import { ensurePanel, rebuildList, teardownPanel, updateCollapseButton } from './ui.js';
@@ -453,13 +454,7 @@ function setCollapsed(collapsed, persist) {
   }
   if (persist) {
     currentSettings.tableOfContentsCollapsed = collapsed;
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ tableOfContentsCollapsed: collapsed }, () => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          // console.error(chrome.runtime.lastError);
-        }
-      });
-    }
+    void saveSettings({ tableOfContentsCollapsed: collapsed }).catch(() => {});
   }
 }
 
@@ -600,14 +595,7 @@ function cancelDragging() {
 
 function savePosition(position) {
   currentSettings.tableOfContentsPosition = position;
-  if (!chrome || !chrome.storage || !chrome.storage.sync) {
-    return;
-  }
-  chrome.storage.sync.set({ tableOfContentsPosition: position }, () => {
-    if (chrome.runtime && chrome.runtime.lastError) {
-      // console.error(chrome.runtime.lastError);
-    }
-  });
+  void saveSettings({ tableOfContentsPosition: position }).catch(() => {});
 }
 
 function enableResizing() {
@@ -712,14 +700,7 @@ function cancelResizing() {
 
 function saveSize(size) {
   currentSettings.tableOfContentsSize = size;
-  if (!chrome || !chrome.storage || !chrome.storage.sync) {
-    return;
-  }
-  chrome.storage.sync.set({ tableOfContentsSize: size }, () => {
-    if (chrome.runtime && chrome.runtime.lastError) {
-      // console.error(chrome.runtime.lastError);
-    }
-  });
+  void saveSettings({ tableOfContentsSize: size }).catch(() => {});
 }
 
 function updatePanelDirection() {
