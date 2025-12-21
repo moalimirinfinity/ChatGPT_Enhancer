@@ -1,12 +1,26 @@
 Privacy Policy for GPT Enhancer for ChatGPT
 ===========================================
 
-GPT Enhancer for ChatGPT does not collect, store, or share any personal data.
+GPT Enhancer for ChatGPT does not collect, sell, or share personal data.
 
-All settings, prompts, and preferences are stored locally in your browser using Chrome’s secure storage system.
+What we store locally
+---------------------
+- Settings, prompts, and preferences are saved in Chrome's local/sync storage.
 
-The extension operates entirely offline (and in client-side), without external requests, accounts, or analytics.
+What we do not collect
+----------------------
+- No analytics, tracking, or advertising identifiers.
+- No account creation, sign-in, or server-side storage.
 
-No data ever leaves your device.
+Network access
+--------------
+The extension does not send your ChatGPT data to any external servers.
+When you export a conversation, the extension may fetch images from their original URLs (the same sources already referenced by the page) so they can be embedded in the export.
 
-Open-source transparency: View source on GitHub.
+Data stays on your device
+-------------------------
+All processing happens locally in your browser.
+
+Open source
+-----------
+You can review the source code on GitHub.
