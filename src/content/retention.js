@@ -679,18 +679,10 @@ import { loadSettings } from '../common/storage.js';
 
   // Event handlers ------------------------------------------------------------
   function handleRateClick() {
-    const copy = RETENTION_COPY[state.language] || RETENTION_COPY.english;
-    let opened = null;
     try {
-      opened = window.open(CONFIG.reviewUrl, '_blank', 'noopener,noreferrer');
-    } catch {
-      opened = null;
-    }
-    if (!opened) {
-      if (state.nodes?.body) {
-        state.nodes.body.textContent = copy.popupBlocked || copy.body;
-      }
-      return;
+      window.open(CONFIG.reviewUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      // Ignore pop-up failures; closing the prompt avoids repeated nags.
     }
     state.hasReviewed = true;
     persist({ [CONFIG.storageKeys.reviewed]: true });

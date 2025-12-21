@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { RETENTION_COPY } from '../src/common/i18n.js';
 import { createChromeStorageMock } from './helpers/chrome-mock.js';
 import { setupDom } from './helpers/dom.js';
 
@@ -38,7 +37,7 @@ test('review popup is suppressed when extension is disabled', async (t) => {
   });
 });
 
-test('review popup shows and reports blocked popups without navigating away', async (t) => {
+test('review popup closes on rate click even if popups are blocked', async (t) => {
   const { cleanup } = setupDom();
   const { chromeMock, getStore } = createChromeStorageMock();
   global.chrome = chromeMock;
@@ -52,15 +51,13 @@ test('review popup shows and reports blocked popups without navigating away', as
 
   const popup = document.querySelector('.chatgpt-review-popup');
   assert.ok(popup);
-  const body = popup.querySelector('.chatgpt-review-body');
   const cta = popup.querySelector('.chatgpt-review-button');
   assert.ok(cta);
   cta.click();
   await tick();
 
-  assert.equal(body.textContent, RETENTION_COPY.english.popupBlocked);
-  assert.ok(document.querySelector('.chatgpt-review-popup'));
-  assert.equal(getStore().gptEnhancerReviewCompleted, undefined);
+  assert.equal(document.querySelector('.chatgpt-review-popup'), null);
+  assert.equal(getStore().gptEnhancerReviewCompleted, true);
 
   t.after(() => {
     if (global.window && global.window.ReviewManager) {
