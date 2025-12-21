@@ -7,3 +7,4 @@ import './json.feature.test.js';
 import './csv.feature.test.js';
 import './png.feature.test.js';
 import './katex.feature.test.js';
+import './retention.feature.test.js';

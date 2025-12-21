@@ -20,10 +20,15 @@ export function createChromeStorageMock(initialState = {}) {
         runtime.lastError = nextError;
         nextError = null;
         if (!runtime.lastError) {
-          store = { ...store, ...entries };
+          const nextStore = { ...store, ...entries };
+          const changes = {};
+          Object.keys(entries || {}).forEach((key) => {
+            changes[key] = { oldValue: store[key], newValue: nextStore[key] };
+          });
+          store = nextStore;
+          listeners.forEach((fn) => fn(changes, 'local'));
         }
         callback();
-        listeners.forEach((fn) => fn({ ...entries }, 'local'));
       },
       remove(keys, callback) {
         runtime.lastError = nextError;

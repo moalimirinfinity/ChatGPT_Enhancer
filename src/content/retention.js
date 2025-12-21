@@ -11,6 +11,7 @@ import {
 } from './constants.js';
 import { selectMessageNodes } from './selectors.js';
 import { RETENTION_COPY } from '../common/i18n.js';
+import { loadSettings } from '../common/storage.js';
 
 (() => {
   const CONFIG = {
@@ -46,6 +47,7 @@ import { RETENTION_COPY } from '../common/i18n.js';
     initialized: false,
     ready: null,
     language: 'english',
+    enabled: true,
     usageCount: 0,
     exportCount: 0,
     lastShown: 0,
@@ -63,6 +65,7 @@ import { RETENTION_COPY } from '../common/i18n.js';
 
   let reviewLanguageObserver = null;
   let reviewLanguageSyncTimer = null;
+  let exportListenerHandler = null;
   let lastLanguageHintCache = {
     value: LANGUAGE_HINT_DEFAULT,
     signature: '',
@@ -77,12 +80,14 @@ import { RETENTION_COPY } from '../common/i18n.js';
       return state.ready || Promise.resolve();
     }
     state.initialized = true;
-    state.ready = hydrateFromStorage().then(() => {
-      attachExportListener();
+    state.ready = Promise.all([hydrateFromStorage(), hydrateSettings()]).then(() => {
       attachStorageListener();
-      initLanguageTracking();
-      if (state.options.forceShow) {
-        maybeShow('init', true);
+      if (state.enabled) {
+        attachExportListener();
+        initLanguageTracking();
+        if (state.options.forceShow) {
+          maybeShow('init', true);
+        }
       }
     });
     return state.ready;
@@ -90,6 +95,9 @@ import { RETENTION_COPY } from '../common/i18n.js';
 
   function recordUsage() {
     ensureReady().then(() => {
+      if (!state.enabled || state.hasReviewed) {
+        return;
+      }
       state.usageCount += 1;
       persist({ [CONFIG.storageKeys.usage]: state.usageCount });
       maybeShow('usage');
@@ -135,6 +143,16 @@ import { RETENTION_COPY } from '../common/i18n.js';
     });
   }
 
+  function hydrateSettings() {
+    return loadSettings()
+      .then((settings) => {
+        updateEnabled(settings?.enableFix !== false);
+      })
+      .catch(() => {
+        updateEnabled(true);
+      });
+  }
+
   function persist(partial) {
     if (!chrome?.storage?.local || !partial) {
       return;
@@ -148,7 +166,7 @@ import { RETENTION_COPY } from '../common/i18n.js';
 
   function ensureReady() {
     if (!state.ready) {
-      state.ready = hydrateFromStorage();
+      state.ready = Promise.all([hydrateFromStorage(), hydrateSettings()]);
     }
     return state.ready;
   }
@@ -163,29 +181,65 @@ import { RETENTION_COPY } from '../common/i18n.js';
         const reviewed = Boolean(data?.[CONFIG.storageKeys.reviewed]);
         if (reviewed) {
           state.hasReviewed = true;
-          teardownPopup();
+          suspendReviewExperience();
         }
         resolve();
       });
     });
   }
 
-  // Trigger handling ----------------------------------------------------------
-  function attachExportListener() {
-    if (state.listenersAttached || typeof document === 'undefined') {
+  function updateEnabled(value) {
+    const nextEnabled = Boolean(value);
+    if (nextEnabled === state.enabled) {
       return;
     }
-    document.addEventListener(CONFIG.exportEvent, () => {
+    state.enabled = nextEnabled;
+    if (!nextEnabled) {
+      suspendReviewExperience();
+      return;
+    }
+    if (!state.hasReviewed) {
+      attachExportListener();
+      initLanguageTracking();
+    }
+  }
+
+  function suspendReviewExperience() {
+    teardownPopup();
+    detachExportListener();
+    detachReviewLanguageObserver();
+    clearReviewLanguageTimer();
+  }
+
+  // Trigger handling ----------------------------------------------------------
+  function attachExportListener() {
+    if (state.listenersAttached || typeof document === 'undefined' || !state.enabled || state.hasReviewed) {
+      return;
+    }
+    exportListenerHandler = () => {
       const delay = Math.max(0, CONFIG.exportDelayMs || 0);
       state.exportCount += 1;
       persist({ [CONFIG.storageKeys.exports]: state.exportCount });
       window.setTimeout(() => {
+        if (!state.enabled || state.hasReviewed) {
+          return;
+        }
         if (state.exportCount >= CONFIG.exportThreshold) {
           maybeShow('export');
         }
       }, delay);
-    });
+    };
+    document.addEventListener(CONFIG.exportEvent, exportListenerHandler);
     state.listenersAttached = true;
+  }
+
+  function detachExportListener() {
+    if (!state.listenersAttached || !exportListenerHandler || typeof document === 'undefined') {
+      return;
+    }
+    document.removeEventListener(CONFIG.exportEvent, exportListenerHandler);
+    exportListenerHandler = null;
+    state.listenersAttached = false;
   }
 
   function attachStorageListener() {
@@ -196,6 +250,11 @@ import { RETENTION_COPY } from '../common/i18n.js';
   }
 
   function handleStorageChanges(changes, areaName) {
+    if (areaName === 'sync' || areaName === 'local') {
+      if ('enableFix' in changes) {
+        updateEnabled(changes.enableFix?.newValue !== false);
+      }
+    }
     if (areaName !== 'local') {
       return;
     }
@@ -219,7 +278,7 @@ import { RETENTION_COPY } from '../common/i18n.js';
       const reviewed = Boolean(changes[keys.reviewed]?.newValue);
       state.hasReviewed = reviewed;
       if (reviewed) {
-        teardownPopup();
+        suspendReviewExperience();
       }
     }
   }
@@ -299,6 +358,9 @@ import { RETENTION_COPY } from '../common/i18n.js';
   }
 
   function scheduleReviewLanguageSync(delay = 600) {
+    if (!state.enabled || state.hasReviewed) {
+      return;
+    }
     if (reviewLanguageSyncTimer) {
       clearTimeout(reviewLanguageSyncTimer);
     }
@@ -308,7 +370,10 @@ import { RETENTION_COPY } from '../common/i18n.js';
   }
 
   function attachReviewLanguageObserver() {
-    const container = document.querySelector('main') || document.body || document.documentElement;
+    if (!state.enabled || state.hasReviewed) {
+      return;
+    }
+    const container = document.body || document.documentElement;
     if (!container || typeof MutationObserver === 'undefined') {
       return;
     }
@@ -320,8 +385,24 @@ import { RETENTION_COPY } from '../common/i18n.js';
   }
 
   function initLanguageTracking() {
+    if (!state.enabled || state.hasReviewed) {
+      return;
+    }
     attachReviewLanguageObserver();
     scheduleReviewLanguageSync(0);
+  }
+
+  function detachReviewLanguageObserver() {
+    if (reviewLanguageObserver) {
+      reviewLanguageObserver.disconnect();
+    }
+  }
+
+  function clearReviewLanguageTimer() {
+    if (reviewLanguageSyncTimer) {
+      clearTimeout(reviewLanguageSyncTimer);
+      reviewLanguageSyncTimer = null;
+    }
   }
 
   async function maybeShow(reason = '', force = false) {
@@ -330,7 +411,7 @@ import { RETENTION_COPY } from '../common/i18n.js';
     if (!document || !document.body) {
       return;
     }
-    if (state.popup || state.hasReviewed) {
+    if (!state.enabled || state.popup || state.hasReviewed) {
       return;
     }
     if (!force && (state.sessionShown || state.dismissCount >= CONFIG.dismissLimit)) {
@@ -598,14 +679,22 @@ import { RETENTION_COPY } from '../common/i18n.js';
 
   // Event handlers ------------------------------------------------------------
   function handleRateClick() {
+    const copy = RETENTION_COPY[state.language] || RETENTION_COPY.english;
+    let opened = null;
     try {
-      window.open(CONFIG.reviewUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      window.location.href = CONFIG.reviewUrl;
+      opened = window.open(CONFIG.reviewUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      opened = null;
+    }
+    if (!opened) {
+      if (state.nodes?.body) {
+        state.nodes.body.textContent = copy.popupBlocked || copy.body;
+      }
+      return;
     }
     state.hasReviewed = true;
     persist({ [CONFIG.storageKeys.reviewed]: true });
-    teardownPopup();
+    suspendReviewExperience();
   }
 
   function handleDismiss() {
@@ -621,6 +710,10 @@ import { RETENTION_COPY } from '../common/i18n.js';
       updates[CONFIG.storageKeys.reviewed] = true;
     }
     persist(updates);
+    if (state.hasReviewed) {
+      suspendReviewExperience();
+      return;
+    }
     teardownPopup();
   }
 

@@ -7,13 +7,15 @@ export const RETENTION_COPY = {
     title: 'Enjoying GPT Enhancer?',
     body: 'Let us know your thoughts to help us improve.',
     cta: 'Rate GPT Enhancer',
-    dismiss: 'Maybe later'
+    dismiss: 'Maybe later',
+    popupBlocked: 'Pop-ups are blocked. Allow pop-ups for this site and try again.'
   },
   persian: {
     title: 'از GPT Enhancer راضی هستی؟',
     body: 'نظرت رو حتما بده تا کمک کنی بهتر شیم.',
     cta: 'ثبت نظر',
-    dismiss: 'فعلاً نه'
+    dismiss: 'فعلاً نه',
+    popupBlocked: 'پنجره باز نشد. پاپ‌آپ را برای این سایت فعال کن و دوباره امتحان کن.'
   }
 };
 
