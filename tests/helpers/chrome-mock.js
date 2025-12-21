@@ -24,6 +24,24 @@ export function createChromeStorageMock(initialState = {}) {
         }
         callback();
         listeners.forEach((fn) => fn({ ...entries }, 'local'));
+      },
+      remove(keys, callback) {
+        runtime.lastError = nextError;
+        nextError = null;
+        if (!runtime.lastError) {
+          const normalized = Array.isArray(keys) ? keys : [keys];
+          const updated = { ...store };
+          const changes = {};
+          normalized.forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(updated, key)) {
+              changes[key] = { oldValue: updated[key], newValue: undefined };
+              delete updated[key];
+            }
+          });
+          store = updated;
+          listeners.forEach((fn) => fn(changes, 'local'));
+        }
+        callback();
       }
     },
     onChanged: {

@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from './config.js';
 
 const RETRY_ATTEMPTS = 1;
 const RETRY_DELAY_MS = 50;
+const LEGACY_SETTING_KEYS = ['fixTables'];
 
 function getChromeStorage(preferSync = true) {
   if (typeof chrome === 'undefined' || !chrome.storage) {
@@ -65,12 +66,45 @@ function writeSettings(storage, patch) {
   });
 }
 
+function removeKeys(storage, keys) {
+  return new Promise((resolve, reject) => {
+    try {
+      storage.remove(keys, () => {
+        const runtimeError = chrome?.runtime?.lastError || null;
+        if (runtimeError) {
+          reject(runtimeError);
+          return;
+        }
+        resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function purgeLegacySettings() {
+  const primary = getChromeStorage(true);
+  if (!primary) {
+    return;
+  }
+  try {
+    await removeKeys(primary, LEGACY_SETTING_KEYS);
+  } catch {
+    const fallback = getChromeStorage(false);
+    if (fallback && fallback !== primary) {
+      await removeKeys(fallback, LEGACY_SETTING_KEYS).catch(() => {});
+    }
+  }
+}
+
 export async function loadSettings() {
   const defaults = { ...DEFAULT_SETTINGS };
   const primary = getChromeStorage(true);
   if (!primary) {
     return defaults;
   }
+  await purgeLegacySettings();
   try {
     return await readSettings(primary, defaults, RETRY_ATTEMPTS);
   } catch (error) {
