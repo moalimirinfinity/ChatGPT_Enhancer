@@ -19,7 +19,7 @@ A [browser extension](https://chromewebstore.google.com/detail/gpt-enhancer-for-
 
 ## Install
 
-- Chrome Web Store: https://chromewebstore.google.com/detail/gpt-enhancer-for-chatgpt/deobmkpgnanhnoojdecfpndfmgjhaddk
+- Chrome Web Store: [Link](https://chromewebstore.google.com/detail/gpt-enhancer-for-chatgpt/deobmkpgnanhnoojdecfpndfmgjhaddk?authuser=0&hl=en)
 - Manual (unpacked):
   1. `npm install`
   2. `npm run build`
