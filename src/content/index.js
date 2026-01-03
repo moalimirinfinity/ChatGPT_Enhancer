@@ -16,6 +16,7 @@ import { FontManager } from './fonts/index.js';
 import { TocManager } from './toc/index.js';
 import { KatexManager } from './fixers/katex.js';
 import { getMessageSelector } from './selectors.js';
+import { QuickActionManager } from './quick-actions/index.js';
 
 const root = document.documentElement;
 const EXPORT_PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
@@ -72,6 +73,7 @@ function initializeManagers(settings) {
   FontManager.init(settings);
   TocManager.init(settings);
   KatexManager.init(settings);
+  QuickActionManager.init(settings);
   syncFixerObserver();
   scheduleObserverRelease();
   attachExportProgressListener();
@@ -119,6 +121,7 @@ function handleStorageChanges(changes, areaName) {
   FontManager.update(picked);
   TocManager.update(picked);
   KatexManager.update(picked);
+  QuickActionManager.update(picked);
   syncFixerObserver();
   scheduleObserverRelease();
 }
@@ -140,7 +143,11 @@ function extractRelevantChanges(changes) {
     'tableOfContentsCollapsed',
     'tableOfContentsPosition',
     'tableOfContentsSize',
-    'copyKatex'
+    'copyKatex',
+    'exportQuickAction',
+    'exportQuickActionPosition',
+    'exportFormat',
+    'exportScope'
   ];
 
   keys.forEach((key) => {
