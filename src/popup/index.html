@@ -206,6 +206,17 @@
                 <span class="toggle__hint">Tap any KaTeX formula to grab its LaTeX.</span>
               </div>
             </label>
+
+            <label class="toggle toggle--sub">
+              <input type="checkbox" id="toggle-export-quick-action" class="toggle__input" />
+              <span class="toggle__track">
+                <span class="toggle__thumb"></span>
+              </span>
+              <div class="toggle__content">
+                <span class="toggle__title">Export quick action</span>
+                <span class="toggle__hint">Show a floating export button on ChatGPT.</span>
+              </div>
+            </label>
           </div>
         </section>
 
@@ -301,6 +312,20 @@
                   <input class="export-segment__input" type="radio" name="export-format" id="export-format-csv"
                     value="csv" aria-describedby="export-tooltip-message" />
                   <span class="export-segment__label">CSV</span>
+                </label>
+              </div>
+              <div class="export-divider" aria-hidden="true"></div>
+              <div class="export-segment export-segment--compact" role="radiogroup"
+                aria-label="Select export content">
+                <label class="export-segment__option">
+                  <input class="export-segment__input" type="radio" name="export-scope" id="export-scope-all"
+                    value="all" checked />
+                  <span class="export-segment__label">All messages</span>
+                </label>
+                <label class="export-segment__option">
+                  <input class="export-segment__input" type="radio" name="export-scope"
+                    id="export-scope-assistant" value="assistant" />
+                  <span class="export-segment__label">Assistant only</span>
                 </label>
               </div>
             </div>

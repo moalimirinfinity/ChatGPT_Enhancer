@@ -18,6 +18,7 @@ import {
   attachSettingsListeners,
   FONT_LANGUAGES,
   normalizeExportFormat,
+  normalizeExportScope,
   setActiveFontTab,
   setFontControlsDisabled,
   updateThemeCardAvailability,
@@ -96,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fixCode = document.getElementById('toggle-code');
   controls.copyKatex = document.getElementById('toggle-copy');
   controls.tableOfContents = document.getElementById('toggle-toc');
+  controls.exportQuickAction = document.getElementById('toggle-export-quick-action');
   controls.refreshBtn = document.getElementById('refresh-btn');
   controls.donateBtn = document.getElementById('donate-btn');
   controls.themeCards = Array.from(document.querySelectorAll('.theme-card'));
@@ -114,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.fontOptionLists = Array.from(document.querySelectorAll('.font-options'));
   controls.fontOptions = Array.from(document.querySelectorAll('.font-option'));
   controls.exportFormatRadios = Array.from(document.querySelectorAll('input[name="export-format"]'));
+  controls.exportScopeRadios = Array.from(document.querySelectorAll('input[name="export-scope"]'));
   controls.exportBtn = document.getElementById('export-btn');
   controls.helpBtn = document.getElementById('help-btn');
   controls.tabSettings = document.getElementById('panel-tab-settings');
@@ -466,7 +469,8 @@ function handleExport() {
       activeTab.id,
       {
         type: EXPORT_MESSAGE_TYPE,
-        format: getSelectedExportFormat()
+        format: getSelectedExportFormat(),
+        scope: getSelectedExportScope()
       },
       (response) => {
         const messageError = chrome.runtime.lastError;
@@ -514,6 +518,11 @@ function resetExportLabelSoon() {
 function getSelectedExportFormat() {
   const checked = controls.exportFormatRadios.find((input) => input.checked);
   return normalizeExportFormat(checked ? checked.value : DEFAULT_SETTINGS.exportFormat);
+}
+
+function getSelectedExportScope() {
+  const checked = controls.exportScopeRadios?.find((input) => input.checked);
+  return normalizeExportScope(checked ? checked.value : DEFAULT_SETTINGS.exportScope);
 }
 
 function isChatGPTUrl(url) {

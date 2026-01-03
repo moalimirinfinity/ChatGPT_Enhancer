@@ -788,6 +788,12 @@ body {
   gap: 12px;
 }
 
+.export-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(199, 210, 255, 0.18);
+}
+
 .font-control {
   display: flex;
   flex-direction: column;
@@ -911,6 +917,11 @@ body {
   border: 1px solid var(--surface-outline);
 }
 
+.export-segment--compact {
+  gap: 4px;
+  padding: 4px;
+}
+
 .export-segment__option {
   position: relative;
   display: flex;
@@ -939,6 +950,13 @@ body {
   background: rgba(255, 255, 255, 0.02);
   border-radius: 10px;
   transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.export-segment--compact .export-segment__label {
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.15;
+  border-radius: 9px;
 }
 
 .export-segment__input:checked+.export-segment__label {

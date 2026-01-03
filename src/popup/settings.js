@@ -32,6 +32,17 @@ export function normalizeExportFormat(format) {
   return DEFAULT_SETTINGS.exportFormat;
 }
 
+export function normalizeExportScope(scope) {
+  if (!scope || typeof scope !== 'string') {
+    return DEFAULT_SETTINGS.exportScope;
+  }
+  const normalized = scope.trim().toLowerCase();
+  if (normalized === 'assistant' || normalized === 'all') {
+    return normalized;
+  }
+  return DEFAULT_SETTINGS.exportScope;
+}
+
 export function setActiveTheme(controls, theme) {
   const normalized = normalizeThemeAlias(theme);
   if (!controls.themeCards) {
@@ -199,7 +210,8 @@ export function attachSettingsListeners(controls, deps) {
     fixKatex: controls.fixKatex,
     fixCode: controls.fixCode,
     copyKatex: controls.copyKatex,
-    tableOfContents: controls.tableOfContents
+    tableOfContents: controls.tableOfContents,
+    exportQuickAction: controls.exportQuickAction
   }).forEach(([key, input]) => {
     if (!input) {
       return;
@@ -271,6 +283,15 @@ export function attachSettingsListeners(controls, deps) {
     });
   });
 
+  controls.exportScopeRadios?.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (deps.isBusy?.()) {
+        return;
+      }
+      updateSetting('exportScope', normalizeExportScope(input.value));
+    });
+  });
+
   controls.themeCards?.forEach((card) => {
     card.addEventListener('click', () => {
       const settings = getCurrentSettings();
@@ -315,6 +336,13 @@ export function applySettingsToUI(controls, settings, deps) {
       updateSetting?.('exportFormat', normalizedExportFormat);
     }
   }
+  if (nextSettings && nextSettings.exportScope) {
+    const normalizedExportScope = normalizeExportScope(nextSettings.exportScope);
+    if (normalizedExportScope !== nextSettings.exportScope) {
+      nextSettings = { ...nextSettings, exportScope: normalizedExportScope };
+      updateSetting?.('exportScope', normalizedExportScope);
+    }
+  }
 
   if (currentSettingsRef) {
     currentSettingsRef.value = nextSettings;
@@ -335,6 +363,9 @@ export function applySettingsToUI(controls, settings, deps) {
   if (controls.tableOfContents) {
     controls.tableOfContents.checked = nextSettings.tableOfContents;
   }
+  if (controls.exportQuickAction) {
+    controls.exportQuickAction.checked = nextSettings.exportQuickAction;
+  }
   if (controls.fontToggle) {
     controls.fontToggle.checked = nextSettings.fontsEnabled;
     controls.fontToggle.disabled = !nextSettings.enableFix;
@@ -354,13 +385,18 @@ export function applySettingsToUI(controls, settings, deps) {
   controls.exportFormatRadios?.forEach((input) => {
     input.checked = input.value === targetFormat;
   });
+  const targetScope = normalizeExportScope(nextSettings.exportScope || DEFAULT_SETTINGS.exportScope);
+  controls.exportScopeRadios?.forEach((input) => {
+    input.checked = input.value === targetScope;
+  });
 
   const dependentsDisabled = !nextSettings.enableFix;
   [
     controls.fixKatex,
     controls.fixCode,
     controls.copyKatex,
-    controls.tableOfContents
+    controls.tableOfContents,
+    controls.exportQuickAction
   ].forEach((input) => {
     if (!input) {
       return;

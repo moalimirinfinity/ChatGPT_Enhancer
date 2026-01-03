@@ -20,9 +20,11 @@ import {
 import { inlineImages } from './core/images.js';
 import { getGenerator } from './generators/index.js';
 import { preflightPngExport } from './generators/png.js';
+import { detectTurnRole } from './utils/serialization.js';
 
 // UI progress bridge; consumed by content script to show toast updates.
 const PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
+const EXPORT_REQUEST_EVENT = 'GPT_ENHANCER_EXPORT_REQUEST';
 // Single-flight guard to prevent overlapping exports in the same tab.
 let activeExportRun = null;
 
@@ -40,6 +42,17 @@ function normalizeExportFormat(format) {
   return 'pdf';
 }
 
+function normalizeExportScope(scope) {
+  if (!scope || typeof scope !== 'string') {
+    return 'all';
+  }
+  const normalized = scope.trim().toLowerCase();
+  if (normalized === 'assistant' || normalized === 'all') {
+    return normalized;
+  }
+  return 'all';
+}
+
 function isTextExportFormat(format) {
   return format === 'json' || format === 'markdown' || format === 'csv';
 }
@@ -50,7 +63,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   const format = message.format || 'pdf';
-  handleExportRequest(format)
+  const scope = message.scope || 'all';
+  handleExportRequest(format, scope)
     .then(() => sendResponse({ ok: true }))
     .catch((error) => {
       dispatchProgress('error', {
@@ -63,6 +77,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+if (typeof document !== 'undefined') {
+  document.addEventListener(EXPORT_REQUEST_EVENT, (event) => {
+    const detail = event?.detail || {};
+    const format = detail.format || 'pdf';
+    const scope = detail.scope || 'all';
+    handleExportRequest(format, scope).catch((error) => {
+      dispatchProgress('error', {
+        format: normalizeExportFormat(format),
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
+  });
+}
+
 function dispatchExportSuccessEvent() {
   if (typeof document === 'undefined') {
     return;
@@ -71,13 +99,14 @@ function dispatchExportSuccessEvent() {
   document.dispatchEvent(event);
 }
 
-async function handleExportRequest(format) {
+async function handleExportRequest(format, scope) {
   if (activeExportRun) {
     // Enforce single-flight: returning early avoids stage DOM conflicts and double work.
     throw new Error('An export is already in progress. Please wait for it to finish.');
   }
 
   const exportFormat = normalizeExportFormat(format);
+  const exportScope = normalizeExportScope(scope);
   const run = createExportRun(exportFormat);
   activeExportRun = run;
 
@@ -86,7 +115,7 @@ async function handleExportRequest(format) {
     removeOrphanedStages();
     dispatchProgress('loading-content', { format: exportFormat });
 
-    const { root, stage, styleNode } = await prepareExportStage();
+    const { root, stage, styleNode } = await prepareExportStage(exportScope);
     run.stage = stage;
     run.styleNode = styleNode;
     attachUnloadGuards(run);
@@ -128,10 +157,17 @@ async function handleExportRequest(format) {
   }
 }
 
-async function prepareExportStage() {
+async function prepareExportStage(scope) {
   await ensureConversationContentLoaded();
   const exportRoot = collectConversation(sanitizeExportNode, hasRenderableContent, removeTrailingWhitespace);
   if (!exportRoot) {
+    throw new Error('Unable to locate conversation content on this page.');
+  }
+  filterExportRootByScope(exportRoot, scope);
+  if (!exportRoot.children.length) {
+    if (scope === 'assistant') {
+      throw new Error('No assistant messages found to export.');
+    }
     throw new Error('Unable to locate conversation content on this page.');
   }
 
@@ -244,6 +280,17 @@ function removeOrphanedStages() {
     // Defensive cleanup: if a previous export crashed, remove hidden containers before starting anew.
     if (node && node.parentNode) {
       node.parentNode.removeChild(node);
+    }
+  });
+}
+
+function filterExportRootByScope(root, scope) {
+  if (!root || scope !== 'assistant') {
+    return;
+  }
+  Array.from(root.children).forEach((turn) => {
+    if (detectTurnRole(turn) !== 'assistant') {
+      turn.remove();
     }
   });
 }
