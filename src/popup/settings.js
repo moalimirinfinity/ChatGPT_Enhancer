@@ -93,10 +93,7 @@ export function updateThemeCardAvailability(controls, chatBaseThemeMode) {
       card.removeAttribute('aria-disabled');
     }
     if (incompatible) {
-      const message =
-        requiredMode === 'dark'
-          ? 'Enable ChatGPT dark mode to use this theme.'
-          : 'Enable ChatGPT light mode to use this theme.';
+      const message = requiredMode === 'dark' ? 'For Dark Theme' : 'For Light Theme';
       card.dataset.forbiddenTooltip = message;
       card.title = message;
     } else if (card.dataset.forbiddenTooltip) {

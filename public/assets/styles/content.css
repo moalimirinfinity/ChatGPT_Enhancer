@@ -802,10 +802,6 @@ html.chatgpt-theme-skylight [class*='border-token-'] {
   box-sizing: border-box;
 }
 
-.gpt-export-quick-action.is-dragging {
-  cursor: grabbing;
-}
-
 .gpt-export-quick-action.is-collapsed {
   width: auto;
   min-width: 128px;
@@ -821,9 +817,7 @@ html.chatgpt-theme-skylight [class*='border-token-'] {
   padding-bottom: 8px;
   margin-bottom: 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--chatgpt-theme-border, rgba(255, 255, 255, 0.2)) 70%, transparent);
-  cursor: grab;
-  user-select: none;
-  touch-action: none;
+  cursor: default;
 }
 
 .gpt-export-quick-action.is-collapsed .gpt-export-qa-header {

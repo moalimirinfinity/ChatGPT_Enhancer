@@ -10,11 +10,18 @@ const EXPORT_PROGRESS_EVENT = 'GPT_ENHANCER_EXPORT_PROGRESS';
 const QUICK_ACTION_CLASS = 'gpt-export-quick-action';
 const QUICK_ACTION_MIN_GAP = 12;
 const QUICK_ACTION_DEFAULT_GAP = 20;
+const QUICK_ACTION_BAR_GAP = -36;
+const QUICK_ACTION_VERTICAL_OFFSET = -8;
 const QUICK_ACTION_EXPORT_BUSY_LABEL = 'Exporting...';
 const QUICK_ACTION_EXPORT_IDLE_LABEL = 'Export';
 const BUSY_STATUSES = new Set(['starting', 'loading-content', 'normalizing', 'fonts', 'images', 'generating']);
 const COLLAPSED_STORAGE_KEY = 'gptEnhancerExportQuickActionCollapsed';
-const DRAG_THRESHOLD_PX = 4;
+const COMPOSER_SELECTORS = [
+  'textarea[data-testid="prompt-textarea"]',
+  'textarea[placeholder*="Ask"]',
+  'main textarea',
+  'textarea'
+];
 
 const FORMAT_OPTIONS = [
   { value: 'pdf', label: 'PDF' },
@@ -37,18 +44,16 @@ const state = {
   exportButton: null,
   formatInputs: [],
   scopeInputs: [],
-  dragState: null,
   listeners: null,
-  isCollapsed: false,
-  dragStartedOnCollapse: false,
-  dragMoved: false,
-  ignoreNextCollapseToggle: false
+  isCollapsed: false
 };
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let progressListenerAttached = false;
 let resizeListenerAttached = false;
 let collapsedPreference = null;
+let positionRafId = null;
+let bodyObserver = null;
 
 export const QuickActionManager = {
   init(settings) {
@@ -61,7 +66,7 @@ export const QuickActionManager = {
       return;
     }
     const next = { ...currentSettings };
-    ['enableFix', 'exportQuickAction', 'exportFormat', 'exportScope', 'exportQuickActionPosition'].forEach((key) => {
+    ['enableFix', 'exportQuickAction', 'exportFormat', 'exportScope'].forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(changes, key) && changes[key]) {
         next[key] = changes[key].newValue;
       }
@@ -85,7 +90,7 @@ function sync(settings = currentSettings) {
   ensurePanel();
   applyCollapsedState(getCollapsedPreference());
   applySelections(settings);
-  applyPosition(settings);
+  schedulePositionUpdate();
 }
 
 function ensurePanel() {
@@ -103,8 +108,7 @@ function ensurePanel() {
 
   const header = document.createElement('div');
   header.className = 'gpt-export-qa-header';
-  header.title = 'Drag to move';
-  header.addEventListener('pointerdown', handlePointerDown);
+  header.title = 'Quick export';
 
   const title = document.createElement('span');
   title.className = 'gpt-export-qa-title';
@@ -142,7 +146,7 @@ function ensurePanel() {
   state.exportButton = exportButton;
   state.formatInputs = formatGroup.inputs;
   state.scopeInputs = scopeGroup.inputs;
-  state.listeners = { onHeaderPointerDown: handlePointerDown };
+  state.listeners = {};
 
   if (!progressListenerAttached) {
     document.addEventListener(EXPORT_PROGRESS_EVENT, handleExportProgress);
@@ -151,9 +155,6 @@ function ensurePanel() {
 }
 
 function teardown() {
-  if (state.header && state.listeners?.onHeaderPointerDown) {
-    state.header.removeEventListener('pointerdown', state.listeners.onHeaderPointerDown);
-  }
   if (state.collapseButton) {
     state.collapseButton.removeEventListener('click', handleCollapseToggle);
   }
@@ -166,9 +167,10 @@ function teardown() {
   state.exportButton = null;
   state.formatInputs = [];
   state.scopeInputs = [];
-  state.dragState = null;
   state.listeners = null;
   state.isCollapsed = false;
+  disconnectBodyObserver();
+  clearScheduledPositionUpdate();
 }
 
 function buildOptionGroup(titleText, groupName, options, onChange) {
@@ -274,13 +276,10 @@ function setBusyState(isBusy) {
 }
 
 function handleCollapseToggle() {
-  if (state.ignoreNextCollapseToggle) {
-    state.ignoreNextCollapseToggle = false;
-    return;
-  }
-  applyCollapsedState(!state.isCollapsed);
-  applyPosition(currentSettings, true);
-  persistCollapsedPreference(state.isCollapsed);
+  const nextCollapsed = !state.isCollapsed;
+  applyCollapsedState(nextCollapsed);
+  persistCollapsedPreference(nextCollapsed);
+  schedulePositionUpdate();
 }
 
 function applyCollapsedState(collapsed) {
@@ -334,34 +333,107 @@ function attachResizeListener() {
     return;
   }
   resizeListenerAttached = true;
-  window.addEventListener('resize', () => {
-    if (!state.panel) {
-      return;
-    }
-    applyPosition(currentSettings, true);
+  window.addEventListener('resize', schedulePositionUpdate);
+}
+
+function clearScheduledPositionUpdate() {
+  if (!positionRafId) {
+    return;
+  }
+  if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(positionRafId);
+  } else {
+    window.clearTimeout(positionRafId);
+  }
+  positionRafId = null;
+}
+
+function schedulePositionUpdate() {
+  if (positionRafId) {
+    return;
+  }
+  const schedule =
+    typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : (callback) => window.setTimeout(callback, 16);
+  positionRafId = schedule(() => {
+    positionRafId = null;
+    updatePanelPosition();
   });
 }
 
-function applyPosition(settings, skipSave = false) {
+function updatePanelPosition() {
   if (!state.panel) {
     return;
   }
-  const rect = state.panel.getBoundingClientRect();
-  const stored = settings?.exportQuickActionPosition;
-  let left;
-  let top;
-  if (stored && Number.isFinite(stored.left) && Number.isFinite(stored.top)) {
-    left = stored.left;
-    top = stored.top;
-  } else {
-    left = window.innerWidth - rect.width - QUICK_ACTION_DEFAULT_GAP;
-    top = window.innerHeight - rect.height - QUICK_ACTION_DEFAULT_GAP;
+  const anchor = resolveComposerAnchor();
+  const panelRect = state.panel.getBoundingClientRect();
+  if (!anchor) {
+    ensureBodyObserver();
+    positionFallback(panelRect);
+    return;
   }
-  const clamped = clampPosition(left, top, rect.width, rect.height);
-  setPanelPosition(clamped.left, clamped.top);
-  if (!skipSave && (!stored || stored.left !== clamped.left || stored.top !== clamped.top)) {
-    currentSettings.exportQuickActionPosition = { left: clamped.left, top: clamped.top };
+  disconnectBodyObserver();
+  const anchorRect = anchor.getBoundingClientRect();
+  if (!isUsableRect(anchorRect)) {
+    positionFallback(panelRect);
+    return;
   }
+  const leftTarget = anchorRect.right + QUICK_ACTION_BAR_GAP;
+  const topTarget = anchorRect.top + (anchorRect.height - panelRect.height) / 2 + QUICK_ACTION_VERTICAL_OFFSET;
+  const left = clamp(leftTarget, QUICK_ACTION_MIN_GAP, window.innerWidth - panelRect.width - QUICK_ACTION_MIN_GAP);
+  const top = clamp(topTarget, QUICK_ACTION_MIN_GAP, window.innerHeight - panelRect.height - QUICK_ACTION_MIN_GAP);
+  setPanelPosition(left, top);
+}
+
+function positionFallback(panelRect) {
+  if (!panelRect) {
+    panelRect = state.panel?.getBoundingClientRect() || { width: 0, height: 0 };
+  }
+  const left = clamp(
+    window.innerWidth - panelRect.width - QUICK_ACTION_DEFAULT_GAP,
+    QUICK_ACTION_MIN_GAP,
+    window.innerWidth - panelRect.width - QUICK_ACTION_MIN_GAP
+  );
+  const top = clamp(
+    window.innerHeight - panelRect.height - QUICK_ACTION_DEFAULT_GAP,
+    QUICK_ACTION_MIN_GAP,
+    window.innerHeight - panelRect.height - QUICK_ACTION_MIN_GAP
+  );
+  setPanelPosition(left, top);
+}
+
+function resolveComposerAnchor() {
+  for (const selector of COMPOSER_SELECTORS) {
+    const textarea = document.querySelector(selector);
+    if (!textarea || !isUsableRect(textarea.getBoundingClientRect())) {
+      continue;
+    }
+    return textarea.closest('form') || textarea.parentElement;
+  }
+  return null;
+}
+
+function ensureBodyObserver() {
+  if (bodyObserver || !document.body) {
+    return;
+  }
+  bodyObserver = new MutationObserver(() => {
+    schedulePositionUpdate();
+  });
+  bodyObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function disconnectBodyObserver() {
+  if (!bodyObserver) {
+    return;
+  }
+  bodyObserver.disconnect();
+  bodyObserver = null;
+}
+
+function isUsableRect(rect) {
+  return Boolean(rect && rect.width > 0 && rect.height > 0);
 }
 
 function setPanelPosition(left, top) {
@@ -372,95 +444,6 @@ function setPanelPosition(left, top) {
   state.panel.style.top = `${Math.round(top)}px`;
   state.panel.style.right = 'auto';
   state.panel.style.bottom = 'auto';
-}
-
-function handlePointerDown(event) {
-  if (!state.panel || event.button !== 0 && event.pointerType !== 'touch') {
-    return;
-  }
-  const collapseTarget =
-    state.collapseButton && event.target instanceof Node && state.collapseButton.contains(event.target);
-  if (collapseTarget && !state.isCollapsed) {
-    return;
-  }
-  if (!collapseTarget) {
-    event.preventDefault();
-  }
-  state.dragStartedOnCollapse = collapseTarget;
-  state.dragMoved = false;
-  state.ignoreNextCollapseToggle = false;
-  const rect = state.panel.getBoundingClientRect();
-  state.dragState = {
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    startLeft: rect.left,
-    startTop: rect.top,
-    width: rect.width,
-    height: rect.height,
-    lastLeft: rect.left,
-    lastTop: rect.top
-  };
-  state.panel.classList.add('is-dragging');
-  document.addEventListener('pointermove', handlePointerMove);
-  document.addEventListener('pointerup', handlePointerUpOrCancel);
-  document.addEventListener('pointercancel', handlePointerUpOrCancel);
-}
-
-function handlePointerMove(event) {
-  if (!state.dragState) {
-    return;
-  }
-  if (typeof state.dragState.pointerId === 'number' && event.pointerId !== state.dragState.pointerId) {
-    return;
-  }
-  const deltaX = event.clientX - state.dragState.startX;
-  const deltaY = event.clientY - state.dragState.startY;
-  if (!state.dragMoved && (Math.abs(deltaX) > DRAG_THRESHOLD_PX || Math.abs(deltaY) > DRAG_THRESHOLD_PX)) {
-    state.dragMoved = true;
-  }
-  const left = state.dragState.startLeft + deltaX;
-  const top = state.dragState.startTop + deltaY;
-  const clamped = clampPosition(left, top, state.dragState.width, state.dragState.height);
-  state.dragState.lastLeft = clamped.left;
-  state.dragState.lastTop = clamped.top;
-  setPanelPosition(clamped.left, clamped.top);
-}
-
-function handlePointerUpOrCancel(event) {
-  if (!state.dragState) {
-    return;
-  }
-  if (typeof state.dragState.pointerId === 'number' && event.pointerId !== state.dragState.pointerId) {
-    return;
-  }
-  if (state.dragStartedOnCollapse && state.dragMoved) {
-    state.ignoreNextCollapseToggle = true;
-  }
-  state.dragStartedOnCollapse = false;
-  state.dragMoved = false;
-  const nextPosition = {
-    left: Math.round(state.dragState.lastLeft),
-    top: Math.round(state.dragState.lastTop)
-  };
-  state.dragState = null;
-  if (state.panel) {
-    state.panel.classList.remove('is-dragging');
-  }
-  document.removeEventListener('pointermove', handlePointerMove);
-  document.removeEventListener('pointerup', handlePointerUpOrCancel);
-  document.removeEventListener('pointercancel', handlePointerUpOrCancel);
-  currentSettings.exportQuickActionPosition = nextPosition;
-  void saveSettings({ exportQuickActionPosition: nextPosition }).catch(() => {});
-}
-
-function clampPosition(left, top, width, height) {
-  const maxLeft = Math.max(QUICK_ACTION_MIN_GAP, window.innerWidth - width - QUICK_ACTION_MIN_GAP);
-  const maxTop = Math.max(QUICK_ACTION_MIN_GAP, window.innerHeight - height - QUICK_ACTION_MIN_GAP);
-  return {
-    left: clamp(left, QUICK_ACTION_MIN_GAP, maxLeft),
-    top: clamp(top, QUICK_ACTION_MIN_GAP, maxTop)
-  };
 }
 
 function clamp(value, min, max) {

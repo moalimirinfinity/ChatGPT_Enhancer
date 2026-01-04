@@ -1091,7 +1091,6 @@ body {
 .theme-card.theme-card--forbidden {
   opacity: 0.55;
   cursor: not-allowed;
-  pointer-events: none;
   background: rgba(7, 9, 16, 0.3);
   border: 1px dashed rgba(118, 140, 255, 0.35);
   box-shadow:
