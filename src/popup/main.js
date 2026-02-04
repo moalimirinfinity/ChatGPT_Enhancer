@@ -90,6 +90,7 @@ const EXPORT_LABEL_BUSY = EXPORT_LABELS.busy;
 const EXPORT_LABEL_ERROR = EXPORT_LABELS.error;
 const EXPORT_LABEL_UNAVAILABLE = EXPORT_LABELS.unavailable;
 const EXPORT_ERRORS = EXPORT_ERROR_MESSAGES;
+const PIN_BANNER_STORAGE_KEY = 'chatgptEnhancerPinBannerSeen';
 
 document.addEventListener('DOMContentLoaded', () => {
   controls.enableFix = document.getElementById('toggle-enable');
@@ -119,6 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.exportScopeRadios = Array.from(document.querySelectorAll('input[name="export-scope"]'));
   controls.exportBtn = document.getElementById('export-btn');
   controls.helpBtn = document.getElementById('help-btn');
+  controls.pinBanner = document.getElementById('pin-banner');
+  controls.pinBannerDismiss = document.getElementById('pin-banner-dismiss');
   controls.tabSettings = document.getElementById('panel-tab-settings');
   controls.tabPrompts = document.getElementById('panel-tab-prompts');
   controls.viewSettings = document.getElementById('panel-view-settings');
@@ -157,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
   controls.promptError = document.getElementById('prompt-error');
   controls.promptSearch = document.getElementById('prompt-search');
   applyPromptCopy();
+  initPinBanner();
   if (controls.promptsEmptyPrimary) {
     controls.promptsEmptyPrimary.textContent = PROMPTS_EMPTY_DEFAULT_PRIMARY;
   }
@@ -415,6 +419,76 @@ function applyPromptCopy() {
       controls.promptSearch.setAttribute('aria-label', copy.searchAriaLabel);
     }
   }
+}
+
+function initPinBanner() {
+  if (!controls.pinBanner) {
+    return;
+  }
+
+  if (controls.pinBannerDismiss) {
+    controls.pinBannerDismiss.addEventListener('click', () => {
+      hidePinBanner();
+      markPinBannerSeen();
+    });
+  }
+
+  if (!chrome?.storage?.local) {
+    showPinBanner();
+    return;
+  }
+
+  chrome.storage.local.get({ [PIN_BANNER_STORAGE_KEY]: false }, (stored) => {
+    if (chrome.runtime?.lastError) {
+      showPinBanner();
+      return;
+    }
+    const hasSeen = Boolean(stored?.[PIN_BANNER_STORAGE_KEY]);
+    if (hasSeen) {
+      return;
+    }
+    resolvePinBannerVisibility();
+  });
+}
+
+function resolvePinBannerVisibility() {
+  if (chrome?.action?.getUserSettings) {
+    chrome.action.getUserSettings((settings) => {
+      if (chrome.runtime?.lastError) {
+        showPinBanner();
+        return;
+      }
+      if (settings && settings.isOnToolbar) {
+        markPinBannerSeen();
+        return;
+      }
+      showPinBanner();
+    });
+    return;
+  }
+  showPinBanner();
+}
+
+function showPinBanner() {
+  if (!controls.pinBanner) {
+    return;
+  }
+  controls.pinBanner.hidden = false;
+  markPinBannerSeen();
+}
+
+function hidePinBanner() {
+  if (!controls.pinBanner) {
+    return;
+  }
+  controls.pinBanner.hidden = true;
+}
+
+function markPinBannerSeen() {
+  if (!chrome?.storage?.local) {
+    return;
+  }
+  chrome.storage.local.set({ [PIN_BANNER_STORAGE_KEY]: true }, () => {});
 }
 
 function normalizeLanguageHint(language) {
