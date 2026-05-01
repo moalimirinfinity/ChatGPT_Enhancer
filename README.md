@@ -1,4 +1,4 @@
-# GPT Enhancer
+# GPT Enhancer For ChatGPT
 
 A [browser extension](https://chromewebstore.google.com/detail/gpt-enhancer-for-chatgpt/deobmkpgnanhnoojdecfpndfmgjhaddk?authuser=0&hl=en) that polishes the ChatGPT interface. It fixes mixed RTL/LTR layout issues, adds curated font control, includes custom themes, improves KaTeX handling, and lets you export conversations in multiple formats - all from a friendly popup.
 
